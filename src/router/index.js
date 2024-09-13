@@ -135,4 +135,17 @@ const router = createRouter({
     ]
 });
 
+function isLoggedIn() {
+    //TODO: Implement logic to check if user is logged in using local storage or cookies
+    return true;
+}
+
+router.beforeEach((to, from, next) => {
+    if (to.name !== 'login' && !isLoggedIn()) {
+        next({ name: 'login' });
+    } else {
+        next();
+    }
+});
+
 export default router;
