@@ -9,6 +9,12 @@ const products = ref(null);
 const chartData = ref(null);
 const chartOptions = ref(null);
 
+const statusData = ref(null);
+const statusOptions = ref(null);
+
+const priorityData = ref(null);
+const priorityOptions = ref(null);
+
 const items = ref([
     { label: 'Add New', icon: 'pi pi-fw pi-plus' },
     { label: 'Remove', icon: 'pi pi-fw pi-trash' }
@@ -18,6 +24,7 @@ onMounted(() => {
     ProductService.getProductsSmall().then((data) => (products.value = data));
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
+    setColorOptions();
 });
 
 function setChartData() {
@@ -90,14 +97,68 @@ function setChartOptions() {
     };
 }
 
+function setColorOptions() {
+    const documentStyle = getComputedStyle(document.documentElement);
+    const textColor = documentStyle.getPropertyValue('--text-color');
+
+    statusData.value = {
+        labels: ['Open', 'Resolved', 'Closed'],
+        datasets: [
+            {
+                data: [540, 325, 702],
+                backgroundColor: [documentStyle.getPropertyValue('--p-indigo-500'), documentStyle.getPropertyValue('--p-purple-500'), documentStyle.getPropertyValue('--p-teal-500')],
+                hoverBackgroundColor: [documentStyle.getPropertyValue('--p-indigo-400'), documentStyle.getPropertyValue('--p-purple-400'), documentStyle.getPropertyValue('--p-teal-400')]
+            }
+        ]
+    };
+
+    priorityData.value = {
+        labels: ['low', 'medium', 'high', 'urgent'],
+        datasets: [
+            {
+                data: [540, 325, 702, 20],
+                backgroundColor: [documentStyle.getPropertyValue('--p-indigo-500'), documentStyle.getPropertyValue('--p-purple-500'), documentStyle.getPropertyValue('--p-teal-500'), documentStyle.getPropertyValue('--p-orange-500')],
+                hoverBackgroundColor: [documentStyle.getPropertyValue('--p-indigo-400'), documentStyle.getPropertyValue('--p-purple-400'), documentStyle.getPropertyValue('--p-teal-400'), documentStyle.getPropertyValue('--p-orange-400')]
+            }
+        ]
+    };
+
+    statusOptions.value = {
+        plugins: {
+            legend: {
+                labels: {
+                    usePointStyle: true,
+                    color: textColor
+                }
+            }
+        }
+    };
+
+    priorityOptions.value = {
+        plugins: {
+            legend: {
+                labels: {
+                    usePointStyle: true,
+                    color: textColor
+                }
+            }
+        }
+    };
+}
+
 const formatCurrency = (value) => {
     return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 };
 
-watch([getPrimary, getSurface, isDarkTheme], () => {
-    chartData.value = setChartData();
-    chartOptions.value = setChartOptions();
-});
+watch(
+    [getPrimary, getSurface, isDarkTheme],
+    () => {
+        setColorOptions();
+        chartData.value = setChartData();
+        chartOptions.value = setChartOptions();
+    },
+    { immediate: true }
+);
 </script>
 
 <template>
@@ -164,6 +225,19 @@ watch([getPrimary, getSurface, isDarkTheme], () => {
         </div>
 
         <div class="col-span-12 xl:col-span-6">
+            <div class="card flex flex-col items-center">
+                <div class="font-semibold text-xl mb-4">Tickets By Status</div>
+                <Chart type="pie" :data="statusData" :options="statusOptions"></Chart>
+            </div>
+        </div>
+        <div class="col-span-12 xl:col-span-6">
+            <div class="card flex flex-col items-center">
+                <div class="font-semibold text-xl mb-4">Tickets By Priority</div>
+                <Chart type="doughnut" :data="priorityData" :options="priorityOptions"></Chart>
+            </div>
+        </div>
+
+        <!-- <div class="col-span-12 xl:col-span-6">
             <div class="card">
                 <div class="font-semibold text-xl mb-4">Recent Sales</div>
                 <DataTable :value="products" :rows="5" :paginator="true" responsiveLayout="scroll">
@@ -339,6 +413,6 @@ watch([getPrimary, getSurface, isDarkTheme], () => {
                     </li>
                 </ul>
             </div>
-        </div>
+        </div> -->
     </div>
 </template>
