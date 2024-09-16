@@ -9,6 +9,25 @@ const loading1 = ref(null);
 
 const statuses = reactive(['unqualified', 'qualified', 'new', 'negotiation', 'renewal', 'proposal']);
 
+function getSeverity(status) {
+    switch (status) {
+        case 'unqualified':
+            return 'danger';
+
+        case 'qualified':
+            return 'success';
+
+        case 'new':
+            return 'info';
+
+        case 'negotiation':
+            return 'warn';
+
+        case 'renewal':
+            return null;
+    }
+}
+
 onBeforeMount(() => {
     CustomerService.getCustomersLarge().then((data) => {
         customers1.value = data;
@@ -32,6 +51,31 @@ function initFilters1() {
         verified: { value: null, matchMode: FilterMatchMode.EQUALS }
     };
 }
+
+function formatCurrency(value) {
+    return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+}
+
+function formatDate(value) {
+    return value.toLocaleDateString('en-US', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+}
+
+// function calculateCustomerTotal(name) {
+//     let total = 0;
+//     if (customers3.value) {
+//         for (let customer of customers3.value) {
+//             if (customer.representative.name === name) {
+//                 total++;
+//             }
+//         }
+//     }
+
+//     return total;
+// }
 </script>
 
 <template>
@@ -158,3 +202,13 @@ function initFilters1() {
         </DataTable>
     </div>
 </template>
+
+<style scoped lang="scss">
+:deep(.p-datatable-frozen-tbody) {
+    font-weight: bold;
+}
+
+:deep(.p-datatable-scrollable .p-frozen-column) {
+    font-weight: bold;
+}
+</style>
