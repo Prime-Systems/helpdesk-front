@@ -100,14 +100,14 @@ function editTicket(prod) {
 
 function confirmDeleteTicket(prod) {
     ticket.value = prod;
-    ticketDialog.value = true;
+    deleteTicketDialog.value = true;
 }
 
 function deleteTicket() {
     tickets.value = tickets.value.filter((val) => val.id !== ticket.value.id);
     deleteTicketDialog.value = false;
     ticket.value = {};
-    toast.add({ severity: 'success', summary: 'Successful', detail: 'Product Deleted', life: 3000 });
+    toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Deleted', life: 3000 });
 }
 
 function findIndexById(id) {
@@ -136,14 +136,14 @@ function exportCSV() {
 }
 
 function confirmDeleteSelected() {
-    deleteTicketDialog.value = true;
+    deleteTicketsDialog.value = true;
 }
 
-function deleteSelectedProducts() {
+function deleteSelectedTickets() {
     tickets.value = tickets.value.filter((val) => !selectedTickets.value.includes(val));
-    deleteTicketDialog.value = false;
+    deleteTicketsDialog.value = false;
     selectedTickets.value = null;
-    toast.add({ severity: 'success', summary: 'Successful', detail: 'Products Deleted', life: 3000 });
+    toast.add({ severity: 'success', summary: 'Successful', detail: 'Tickets Deleted', life: 3000 });
 }
 
 function getStatusLabel(status) {
@@ -276,8 +276,8 @@ function transformPriorityAndStatus(priority) {
                     <Textarea id="description" v-model="ticket.description" required="true" rows="3" cols="20" fluid />
                 </div>
                 <div>
-                    <label for="category" class="block font-bold mb-3">Category</label>
-                    <Select id="category" v-model="ticket.category" :options="categories" optionLabel="label" placeholder="Select a category" checkmark :highlightOnSelect="false" fluid></Select>
+                    <label for="ticketCategory" class="block font-bold mb-3">Category</label>
+                    <Select id="ticketCategory" v-model="ticket.category" :options="categories" optionLabel="label" placeholder="Select a category" checkmark :highlightOnSelect="false" fluid></Select>
                 </div>
 
                 <div>
@@ -320,28 +320,28 @@ function transformPriorityAndStatus(priority) {
             </template>
         </Dialog>
 
-        <Dialog v-model:visible="deleteProductDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
+        <Dialog v-model:visible="deleteTicketDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
             <div class="flex items-center gap-4">
                 <i class="pi pi-exclamation-triangle !text-3xl" />
-                <span v-if="product"
-                    >Are you sure you want to delete <b>{{ product.name }}</b
+                <span v-if="ticket"
+                    >Are you sure you want to delete <b>{{ ticket.code }}</b
                     >?</span
                 >
             </div>
             <template #footer>
-                <Button label="No" icon="pi pi-times" text @click="deleteProductDialog = false" />
-                <Button label="Yes" icon="pi pi-check" @click="deleteProduct" />
+                <Button label="No" icon="pi pi-times" text @click="deleteTicketDialog = false" />
+                <Button label="Yes" icon="pi pi-check" @click="deleteTicket" />
             </template>
         </Dialog>
 
-        <Dialog v-model:visible="deleteProductsDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
+        <Dialog v-model:visible="deleteTicketsDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
             <div class="flex items-center gap-4">
                 <i class="pi pi-exclamation-triangle !text-3xl" />
-                <span v-if="product">Are you sure you want to delete the selected products?</span>
+                <span v-if="ticket">Are you sure you want to delete the selected products?</span>
             </div>
             <template #footer>
-                <Button label="No" icon="pi pi-times" text @click="deleteProductsDialog = false" />
-                <Button label="Yes" icon="pi pi-check" text @click="deleteSelectedProducts" />
+                <Button label="No" icon="pi pi-times" text @click="deleteTicketsDialog = false" />
+                <Button label="Yes" icon="pi pi-check" text @click="deleteSelectedTickets" />
             </template>
         </Dialog>
     </div>
