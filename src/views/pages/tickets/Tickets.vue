@@ -17,6 +17,7 @@ const deleteTicketDialog = ref(false);
 const deleteTicketsDialog = ref(false);
 const ticket = ref({});
 const selectedTickets = ref();
+const selectedCategory = ref(null);
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
@@ -94,7 +95,7 @@ function saveTicket() {
 
 function editTicket(prod) {
     ticket.value = { ...prod };
-    console.log(ticket.value.category);
+    selectedCategory.value = ticket.value.category;
     ticketDialog.value = true;
 }
 
@@ -198,7 +199,7 @@ function transformPriorityAndStatus(priority) {
             <Toolbar class="mb-6">
                 <template #start>
                     <Button label="New" icon="pi pi-plus" severity="secondary" class="mr-2" @click="openNew" />
-                    <Button label="Delete" icon="pi pi-trash" severity="secondary" @click="confirmDeleteSelected" :disabled="!selectedProducts || !selectedProducts.length" />
+                    <Button label="Delete" icon="pi pi-trash" severity="secondary" @click="confirmDeleteSelected" :disabled="!selectedTickets || !selectedTickets.length" />
                 </template>
 
                 <template #end>
@@ -276,8 +277,8 @@ function transformPriorityAndStatus(priority) {
                     <Textarea id="description" v-model="ticket.description" required="true" rows="3" cols="20" fluid />
                 </div>
                 <div>
-                    <label for="ticketCategory" class="block font-bold mb-3">Category</label>
-                    <Select id="ticketCategory" v-model="ticket.category" :options="categories" optionLabel="label" placeholder="Select a category" checkmark :highlightOnSelect="false" fluid></Select>
+                    <label for="category" class="block font-bold mb-3">Category</label>
+                    <Select id="category" v-model="selectedCategory" :options="categories" optionLabel="label" optionValue="value" placeholder="Select a category" checkmark :highlightOnSelect="false" fluid></Select>
                 </div>
 
                 <div>
