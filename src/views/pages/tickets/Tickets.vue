@@ -73,17 +73,18 @@ function hideDialog() {
 function saveTicket() {
     submitted.value = true;
 
-    if (ticket?.value.name?.trim()) {
+    if (ticket?.value.title?.trim()) {
         if (ticket.value.id) {
-            ticket.value.inventoryStatus = ticket.value.inventoryStatus.value ? ticket.value.inventoryStatus.value : ticket.value.inventoryStatus;
+            ticket.value.category = ticket.value.category.value ? ticket.value.category.value : ticket.value.category;
             ticket.value[findIndexById(ticket.value.id)] = ticket.value;
             toast.add({ severity: 'success', summary: 'Successful', detail: 'Product Updated', life: 3000 });
         } else {
             ticket.value.id = createId();
-            ticket.value.code = createId();
+            ticket.value.code = createTicketCode();
             ticket.value.image = 'product-placeholder.svg';
-            ticket.value.inventoryStatus = ticket.value.inventoryStatus ? ticket.value.inventoryStatus.value : 'INSTOCK';
-            ticket.value.push(ticket.value);
+            ticket.value.status = ticket.value.status ? ticket.value.status.value : 'open';
+            ticket.value.category = ticket.value.category.status ? ticket.value.category.value : 'administrative_requests';
+            tickets.value.push(ticket.value);
             toast.add({ severity: 'success', summary: 'Successful', detail: 'Product Created', life: 3000 });
         }
 
@@ -128,6 +129,13 @@ function createId() {
         id += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return id;
+}
+
+function createTicketCode() {
+    const prefix = 'TICK-';
+    const randomNumber = Math.floor(Math.random() * 1000000); // Generate a number between 0 and 999999
+    const paddedNumber = String(randomNumber).padStart(6, '0'); // Pad with leading zeros to ensure 6 digits
+    return prefix + paddedNumber;
 }
 
 function exportCSV() {
@@ -216,6 +224,7 @@ function transformPriorityAndStatus(priority) {
                 paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                 :rowsPerPageOptions="[5, 10, 25]"
                 currentPageReportTemplate="Showing {first} to {last} of {totalRecords} products"
+                row-click=""
             >
                 <template #header>
                     <div class="flex flex-wrap gap-2 items-center justify-between">
