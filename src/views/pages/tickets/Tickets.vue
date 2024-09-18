@@ -17,7 +17,6 @@ const deleteTicketDialog = ref(false);
 const deleteTicketsDialog = ref(false);
 const ticket = ref({});
 const selectedTickets = ref();
-const selectedCategory = ref(null);
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
@@ -95,7 +94,6 @@ function saveTicket() {
 
 function editTicket(prod) {
     ticket.value = { ...prod };
-    selectedCategory.value = ticket.value.category;
     ticketDialog.value = true;
 }
 
@@ -278,7 +276,7 @@ function transformPriorityAndStatus(priority) {
                 </div>
                 <div>
                     <label for="category" class="block font-bold mb-3">Category</label>
-                    <Select id="category" v-model="selectedCategory" :options="categories" optionLabel="label" optionValue="value" placeholder="Select a category" checkmark :highlightOnSelect="false" fluid></Select>
+                    <Select id="category" v-model="ticket.category" :options="categories" optionLabel="label" optionValue="value" placeholder="Select a category" checkmark :highlightOnSelect="false" fluid></Select>
                 </div>
 
                 <div>
