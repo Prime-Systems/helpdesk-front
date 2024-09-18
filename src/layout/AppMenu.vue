@@ -16,7 +16,7 @@ const model = ref([
             {
                 label: 'Tickets',
                 icon: 'pi pi-fw pi-ticket',
-                to: '/pages/tickets'
+                to: '/tickets'
             }
         ]
     }

@@ -95,7 +95,7 @@ const router = createRouter({
                     component: () => import('@/views/pages/Empty.vue')
                 },
                 {
-                    path: '/pages/tickets',
+                    path: '/tickets',
                     name: 'tickets',
                     component: () => import('@/views/pages/tickets/Tickets.vue')
                 },
