@@ -19,6 +19,92 @@ const model = ref([
                 to: '/tickets'
             }
         ]
+    },
+    {
+        label: 'User Management',
+        icon: 'pi pi-fw pi-user',
+        to: '/users',
+        items: [
+            {
+                label: 'Employees',
+                icon: 'pi pi-fw pi-id-card',
+                to: '/users/employees'
+            },
+            {
+                label: 'Customers',
+                icon: 'pi pi-fw pi-user',
+                to: '/tickets'
+            }
+        ]
+    },
+    {
+        label: 'Performance Reports',
+        icon: 'pi pi-fw pi-star',
+        to: '/tickets',
+        items: [
+            {
+                label: 'Employees',
+                icon: 'pi pi-fw pi-id-card',
+                to: '/tickets'
+            },
+            {
+                label: 'Teams',
+                icon: 'pi pi-fw pi-users',
+                to: '/tickets'
+            },
+            {
+                label: 'Documents',
+                icon: 'pi pi-fw pi-file',
+                to: '/tickets'
+            }
+        ]
+    },
+
+    {
+        label: 'Knowledge Base',
+        icon: 'pi pi-fw pi-book',
+        to: '/tickets',
+        items: [
+            {
+                label: 'Articles',
+                icon: 'pi pi-fw pi-book',
+                to: '/tickets'
+            },
+            {
+                label: 'FAQs',
+                icon: 'pi pi-fw pi-question-circle',
+                to: '/tickets'
+            }
+        ]
+    },
+    {
+        label: 'Settings',
+        icon: 'pi pi-fw pi-book',
+        to: '/tickets',
+        items: [
+            {
+                label: 'Automation',
+                icon: 'pi pi-fw pi-verified',
+                to: '/tickets'
+            },
+            {
+                label: 'Categories',
+                icon: 'pi pi-fw pi-box',
+                to: '/tickets'
+            }
+        ]
+    },
+    {
+        label: 'Leaderboard',
+        icon: 'pi pi-fw pi-crown',
+        to: '/tickets',
+        items: [
+            {
+                label: 'Leaderboard',
+                icon: 'pi pi-fw pi-bolt',
+                to: '/tickets'
+            }
+        ]
     }
     // {
     //     label: 'UI Components',

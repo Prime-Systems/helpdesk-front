@@ -100,6 +100,11 @@ const router = createRouter({
                     component: () => import('@/views/pages/tickets/Tickets.vue')
                 },
                 {
+                    path: '/users/employees',
+                    name: 'employees',
+                    component: () => import('@/views/pages/user_management/Employees.vue')
+                },
+                {
                     path: '/pages/crud',
                     name: 'crud',
                     component: () => import('@/views/pages/Crud.vue')
