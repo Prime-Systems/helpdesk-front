@@ -77,7 +77,7 @@ function saveTicket() {
         if (ticket.value.id) {
             ticket.value.category = ticket.value.category.value ? ticket.value.category.value : ticket.value.category;
             ticket.value[findIndexById(ticket.value.id)] = ticket.value;
-            toast.add({ severity: 'success', summary: 'Successful', detail: 'Product Updated', life: 3000 });
+            toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Updated', life: 3000 });
         } else {
             ticket.value.id = createId();
             ticket.value.code = createTicketCode();
@@ -85,7 +85,7 @@ function saveTicket() {
             ticket.value.status = ticket.value.status ? ticket.value.status.value : 'open';
             ticket.value.category = ticket.value.category.status ? ticket.value.category.value : 'administrative_requests';
             tickets.value.push(ticket.value);
-            toast.add({ severity: 'success', summary: 'Successful', detail: 'Product Created', life: 3000 });
+            toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Created', life: 3000 });
         }
 
         ticketDialog.value = false;

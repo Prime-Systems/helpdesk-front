@@ -14,7 +14,8 @@
         "primevue": "^4.0.0",
         "sakai-vue": "file:",
         "vue": "^3.4.34",
-        "vue-router": "^4.4.0"
+        "vue-router": "^4.4.0",
+        "vue-star-rating": "^2.1.0"
     },
     "devDependencies": {
         "@primevue/auto-import-resolver": "^4.0.1",

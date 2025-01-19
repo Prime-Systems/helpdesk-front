@@ -1,94 +1,20 @@
 <script setup>
-import { CustomerService } from '@/service/CustomerService';
-import { ProductService } from '@/service/ProductService';
+import { EmployeeService } from '@/service/EmployeeService';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
-import { onBeforeMount, reactive, ref } from 'vue';
-
-const customers1 = ref(null);
-const customers2 = ref(null);
-const customers3 = ref(null);
+import { useToast } from 'primevue/usetoast';
+import { onBeforeMount, ref } from 'vue';
+const employees = ref();
+const employee = ref({});
+const employeeDialog = ref(false);
+const submitted = ref(false);
 const filters1 = ref(null);
 const loading1 = ref(null);
-const balanceFrozen = ref(false);
-const products = ref(null);
-const expandedRows = ref([]);
-const statuses = reactive(['unqualified', 'qualified', 'new', 'negotiation', 'renewal', 'proposal']);
-const representatives = reactive([
-    { name: 'Amy Elsner', image: 'amyelsner.png' },
-    { name: 'Anna Fali', image: 'annafali.png' },
-    { name: 'Asiya Javayant', image: 'asiyajavayant.png' },
-    { name: 'Bernardo Dominic', image: 'bernardodominic.png' },
-    { name: 'Elwin Sharvill', image: 'elwinsharvill.png' },
-    { name: 'Ioni Bowcher', image: 'ionibowcher.png' },
-    { name: 'Ivan Magalhaes', image: 'ivanmagalhaes.png' },
-    { name: 'Onyama Limba', image: 'onyamalimba.png' },
-    { name: 'Stephen Shaw', image: 'stephenshaw.png' },
-    { name: 'XuXue Feng', image: 'xuxuefeng.png' }
-]);
-
-function getOrderSeverity(order) {
-    switch (order.status) {
-        case 'DELIVERED':
-            return 'success';
-
-        case 'CANCELLED':
-            return 'danger';
-
-        case 'PENDING':
-            return 'warn';
-
-        case 'RETURNED':
-            return 'info';
-
-        default:
-            return null;
-    }
-}
-
-function getSeverity(status) {
-    switch (status) {
-        case 'unqualified':
-            return 'danger';
-
-        case 'qualified':
-            return 'success';
-
-        case 'new':
-            return 'info';
-
-        case 'negotiation':
-            return 'warn';
-
-        case 'renewal':
-            return null;
-    }
-}
-
-function getStockSeverity(product) {
-    switch (product.inventoryStatus) {
-        case 'INSTOCK':
-            return 'success';
-
-        case 'LOWSTOCK':
-            return 'warn';
-
-        case 'OUTOFSTOCK':
-            return 'danger';
-
-        default:
-            return null;
-    }
-}
-
+const toast = useToast();
 onBeforeMount(() => {
-    ProductService.getProductsWithOrdersSmall().then((data) => (products.value = data));
-    CustomerService.getCustomersLarge().then((data) => {
-        customers1.value = data;
+    EmployeeService.getEmployeesXLarge().then((data) => {
+        employees.value = data;
         loading1.value = false;
-        customers1.value.forEach((customer) => (customer.date = new Date(customer.date)));
     });
-    CustomerService.getCustomersLarge().then((data) => (customers2.value = data));
-    CustomerService.getCustomersMedium().then((data) => (customers3.value = data));
 
     initFilters1();
 });
@@ -97,47 +23,75 @@ function initFilters1() {
     filters1.value = {
         global: { value: null, matchMode: FilterMatchMode.CONTAINS },
         name: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.STARTS_WITH }] },
-        'country.name': { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.STARTS_WITH }] },
-        representative: { value: null, matchMode: FilterMatchMode.IN },
-        date: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.DATE_IS }] },
-        balance: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.EQUALS }] },
-        status: { operator: FilterOperator.OR, constraints: [{ value: null, matchMode: FilterMatchMode.EQUALS }] },
-        activity: { value: [0, 100], matchMode: FilterMatchMode.BETWEEN },
-        verified: { value: null, matchMode: FilterMatchMode.EQUALS }
+        lastname: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.STARTS_WITH }] },
+        branch: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.STARTS_WITH }] },
+        department: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.STARTS_WITH }] }
     };
 }
 
-function expandAll() {
-    expandedRows.value = products.value.reduce((acc, p) => (acc[p.id] = true) && acc, {});
+function openNew() {
+    employee.value = {};
+    submitted.value = false;
+    employeeDialog.value = true;
 }
 
-function collapseAll() {
-    expandedRows.value = null;
+function editEmployee(employee) {
+    employee.value = { ...employee };
+    employeeDialog.value = true;
 }
 
-function formatCurrency(value) {
-    return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-}
-
-function formatDate(value) {
-    return value.toLocaleDateString('en-US', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    });
-}
-
-function calculateCustomerTotal(name) {
-    let total = 0;
-    if (customers3.value) {
-        for (let customer of customers3.value) {
-            if (customer.representative.name === name) {
-                total++;
-            }
+function findIndexById(id) {
+    let index = -1;
+    for (let i = 0; i < employees.value.length; i++) {
+        if (employees.value[i].id === id) {
+            index = i;
+            break;
         }
     }
 
-    return total;
+    return index;
+}
+function createId() {
+    let id = '';
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (var i = 0; i < 5; i++) {
+        id += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return id;
+}
+
+function createTicketCode() {
+    const prefix = 'EMP-';
+    const randomNumber = Math.floor(Math.random() * 1000000); // Generate a number between 0 and 999999
+    const paddedNumber = String(randomNumber).padStart(6, '0'); // Pad with leading zeros to ensure 6 digits
+    return prefix + paddedNumber;
+}
+function saveEmployee() {
+    submitted.value = true;
+
+    if (employee?.value.name?.trim()) {
+        if (employee.value.employeeId) {
+            //employee.value.category = employee.value.category.value ? employee.value.category.value : employee.value.category;
+            employee.value[findIndexById(employee.value.employeeId)] = employee.value;
+            toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Updated', life: 3000 });
+        } else {
+            employee.value.emploeeId = createTicketCode();
+            employee.value.photo = 'product-placeholder.svg';
+            employee.value.branch = employee.value.branch ? employee.value.branch : 'Head Office';
+            employee.value.department = employee.value.department ? employee.value.department : 'IT';
+            employee.value.rating = 0;
+            employee.value.role = 'Employee';
+            employee.value.email = employee.value.email ? employee.value.email : 'email@email.com';
+            employee.value.phone = employee.value.phone ? employee.value.phone : '1234567890';
+            employee.value.hireDate = new Date();
+
+            employees.value.push(employee.value);
+            toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Created', life: 3000 });
+        }
+
+        employeeDialog.value = false;
+        employee.value = {};
+    }
 }
 </script>
 
@@ -145,7 +99,7 @@ function calculateCustomerTotal(name) {
     <div class="card">
         <div class="font-semibold text-xl mb-4">Filtering</div>
         <DataTable
-            :value="customers1"
+            :value="employees"
             :paginator="true"
             :rows="10"
             dataKey="id"
@@ -154,7 +108,7 @@ function calculateCustomerTotal(name) {
             filterDisplay="menu"
             :loading="loading1"
             :filters="filters1"
-            :globalFilterFields="['name', 'country.name', 'representative.name', 'balance', 'status']"
+            :globalFilterFields="['name', 'branch', 'department']"
             showGridlines
         >
             <template #header>
@@ -168,7 +122,7 @@ function calculateCustomerTotal(name) {
                         <InputIcon>
                             <i class="pi pi-search" />
                         </InputIcon>
-                        <InputText v-model="filters1['global'].value" placeholder="Keyword Search" />
+                        <InputText v-model="filters1['global'].value" placeholder="Employee Search" />
                     </IconField>
                 </div>
             </template>
@@ -182,91 +136,84 @@ function calculateCustomerTotal(name) {
                     <InputText v-model="filterModel.value" type="text" placeholder="Search by name" />
                 </template>
             </Column>
-            <Column header="Country" filterField="country.name" style="min-width: 12rem">
+            <Column field="branch" header="Branch" style="min-width: 12rem">
                 <template #body="{ data }">
-                    <div class="flex items-center gap-2">
-                        <img alt="flag" src="https://primefaces.org/cdn/primevue/images/flag/flag_placeholder.png" :class="`flag flag-${data.country.code}`" style="width: 24px" />
-                        <span>{{ data.country.name }}</span>
-                    </div>
+                    {{ data.branch }}
                 </template>
                 <template #filter="{ filterModel }">
-                    <InputText v-model="filterModel.value" type="text" placeholder="Search by country" />
-                </template>
-                <template #filterclear="{ filterCallback }">
-                    <Button type="button" icon="pi pi-times" @click="filterCallback()" severity="secondary"></Button>
-                </template>
-                <template #filterapply="{ filterCallback }">
-                    <Button type="button" icon="pi pi-check" @click="filterCallback()" severity="success"></Button>
+                    <InputText v-model="filterModel.value" type="text" placeholder="Search by branch" />
                 </template>
             </Column>
-            <Column header="Agent" filterField="representative" :showFilterMatchModes="false" :filterMenuStyle="{ width: '14rem' }" style="min-width: 14rem">
+            <Column field="department" header="Department" style="min-width: 12rem">
                 <template #body="{ data }">
-                    <div class="flex items-center gap-2">
-                        <img :alt="data.representative.name" :src="`https://primefaces.org/cdn/primevue/images/avatar/${data.representative.image}`" style="width: 32px" />
-                        <span>{{ data.representative.name }}</span>
-                    </div>
+                    {{ data.department }}
                 </template>
                 <template #filter="{ filterModel }">
-                    <MultiSelect v-model="filterModel.value" :options="representatives" optionLabel="name" placeholder="Any">
-                        <template #option="slotProps">
-                            <div class="flex items-center gap-2">
-                                <img :alt="slotProps.option.name" :src="`https://primefaces.org/cdn/primevue/images/avatar/${slotProps.option.image}`" style="width: 32px" />
-                                <span>{{ slotProps.option.name }}</span>
-                            </div>
-                        </template>
-                    </MultiSelect>
+                    <InputText v-model="filterModel.value" type="text" placeholder="Search by branch" />
                 </template>
             </Column>
-            <Column header="Date" filterField="date" dataType="date" style="min-width: 10rem">
+
+            <Column field="rating" header="Rating" dataType="boolean" bodyClass="text-center" style="min-width: 8rem">
                 <template #body="{ data }">
-                    {{ formatDate(data.date) }}
+                    <Rating :modelValue="data.rating" :key="data.employeeId" :stars="10" />
                 </template>
-                <template #filter="{ filterModel }">
-                    <DatePicker v-model="filterModel.value" dateFormat="mm/dd/yy" placeholder="mm/dd/yyyy" />
-                </template>
-            </Column>
-            <Column header="Balance" filterField="balance" dataType="numeric" style="min-width: 10rem">
-                <template #body="{ data }">
-                    {{ formatCurrency(data.balance) }}
-                </template>
-                <template #filter="{ filterModel }">
-                    <InputNumber v-model="filterModel.value" mode="currency" currency="USD" locale="en-US" />
-                </template>
-            </Column>
-            <Column header="Status" field="status" :filterMenuStyle="{ width: '14rem' }" style="min-width: 12rem">
-                <template #body="{ data }">
-                    <Tag :value="data.status" :severity="getSeverity(data.status)" />
-                </template>
-                <template #filter="{ filterModel }">
-                    <Select v-model="filterModel.value" :options="statuses" placeholder="Select One" showClear>
-                        <template #option="slotProps">
-                            <Tag :value="slotProps.option" :severity="getSeverity(slotProps.option)" />
-                        </template>
-                    </Select>
-                </template>
-            </Column>
-            <Column field="activity" header="Activity" :showFilterMatchModes="false" style="min-width: 12rem">
-                <template #body="{ data }">
-                    <ProgressBar :value="data.activity" :showValue="false" style="height: 6px"></ProgressBar>
-                </template>
-                <template #filter="{ filterModel }">
-                    <Slider v-model="filterModel.value" range class="m-4"></Slider>
-                    <div class="flex items-center justify-between px-2">
-                        <span>{{ filterModel.value ? filterModel.value[0] : 0 }}</span>
-                        <span>{{ filterModel.value ? filterModel.value[1] : 100 }}</span>
-                    </div>
-                </template>
-            </Column>
-            <Column field="verified" header="Verified" dataType="boolean" bodyClass="text-center" style="min-width: 8rem">
-                <template #body="{ data }">
-                    <i class="pi" :class="{ 'pi-check-circle text-green-500 ': data.verified, 'pi-times-circle text-red-500': !data.verified }"></i>
-                </template>
-                <template #filter="{ filterModel }">
+                <!-- <template #filter="{ filterModel }">
                     <label for="verified-filter" class="font-bold"> Verified </label>
                     <Checkbox v-model="filterModel.value" :indeterminate="filterModel.value === null" binary inputId="verified-filter" />
+                </template> -->
+            </Column>
+            <Column :exportable="false" style="min-width: 12rem">
+                <template #body="data">
+                    <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editEmployee(data)" />
+                    <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteEmplyee(data)" />
                 </template>
             </Column>
         </DataTable>
+
+        <Dialog v-model:visible="employeeDialog" :style="{ width: '450px' }" header="Employee Details" :modal="true">
+            <div class="flex flex-col gap-6">
+                <img :src="`https://avatar.iran.liara.run/public/50`" alt="employee photo" class="block m-auto pb-4" />
+                <div>
+                    <label for="name" class="block font-bold mb-3">Name</label>
+                    <InputText id="name" v-model.trim="employee.name" required="true" autofocus :invalid="submitted && !employee.name" fluid />
+                    <small v-if="submitted && !employee.name" class="text-red-500">Name is required.</small>
+                </div>
+                <div>
+                    <label for="email" class="block font-bold mb-3">Email Address</label>
+                    <InputText id="name" v-model.trim="employee.email" required="true" autofocus :invalid="submitted && !employee.email" fluid />
+                    <small v-if="submitted && !employee.email" class="text-red-500">Email is required.</small>
+                </div>
+                <div>
+                    <label for="branch" class="block font-bold mb-3">Branch</label>
+                    <InputText id="name" v-model.trim="employee.branch" required="true" autofocus :invalid="submitted && !employee.branch" fluid />
+                    <small v-if="submitted && !employee.branch" class="text-red-500">Branch is required.</small>
+                </div>
+                <div>
+                    <label for="department" class="block font-bold mb-3">Department</label>
+                    <InputText id="department" v-model.trim="employee.department" required="true" autofocus :invalid="submitted && !employee.department" fluid />
+                    <small v-if="submitted && !employee.department" class="text-red-500">Department is required.</small>
+                </div>
+            </div>
+
+            <template #footer>
+                <Button label="Cancel" icon="pi pi-times" text @click="hideDialog" />
+                <Button label="Save" icon="pi pi-check" @click="saveEmployee" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="deleteEmployeeDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle !text-3xl" />
+                <span v-if="employee"
+                    >Are you sure you want to delete <b>{{ employee.name }}</b
+                    >?</span
+                >
+            </div>
+            <template #footer>
+                <Button label="No" icon="pi pi-times" text @click="deleteEmployeeDialog = false" />
+                <Button label="Yes" icon="pi pi-check" @click="deleteEmployee" />
+            </template>
+        </Dialog>
     </div>
 </template>
 
