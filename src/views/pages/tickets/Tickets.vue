@@ -21,20 +21,6 @@ const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
 const submitted = ref(false);
-const statuses = ref([
-    { label: 'OPEN', value: 'open' },
-    { label: 'IN PROGRESS', value: 'in_progress' },
-    { label: 'RESOLVED', value: 'resolved' },
-    { label: 'CLOSED', value: 'closed' }
-]);
-
-const priorities = ref([
-    { label: 'LOW', value: 'low' },
-    { label: 'MEDIUM', value: 'medium' },
-    { label: 'HIGH', value: 'high' },
-    { label: 'URGENT', value: 'urgent' }
-]);
-
 const categories = ref([
     { label: 'Network & Connectivity', value: 'network_connectivity' },
     { label: 'Hardware & Devices', value: 'hardware_devices' },
@@ -53,11 +39,6 @@ const transformCategoryValue = (value) => {
     const category = categories.value.find((cat) => cat.value === value);
     return category ? category.label : value;
 };
-
-function formatCurrency(value) {
-    if (value) return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-    return;
-}
 
 function openNew() {
     ticket.value = {};

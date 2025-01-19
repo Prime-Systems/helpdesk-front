@@ -33,7 +33,7 @@ const model = ref([
             {
                 label: 'Customers',
                 icon: 'pi pi-fw pi-user',
-                to: '/tickets'
+                to: '/users/customers'
             }
         ]
     },
@@ -73,7 +73,7 @@ const model = ref([
             {
                 label: 'FAQs',
                 icon: 'pi pi-fw pi-question-circle',
-                to: '/tickets'
+                to: '/kb/faqs'
             }
         ]
     },

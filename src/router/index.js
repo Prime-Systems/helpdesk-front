@@ -105,9 +105,14 @@ const router = createRouter({
                     component: () => import('@/views/pages/user_management/Employees.vue')
                 },
                 {
-                    path: '/pages/crud',
+                    path: '/users/customers',
+                    name: 'customers',
+                    component: () => import('@/views/pages/user_management/Customers.vue')
+                },
+                {
+                    path: '/kb/faqs',
                     name: 'crud',
-                    component: () => import('@/views/pages/Crud.vue')
+                    component: () => import('@/views/pages/knowledge_base/Faq.vue')
                 },
                 {
                     path: '/documentation',
