@@ -46,7 +46,7 @@ function editEmployee(selectedEmployee) {
 function findIndexById(id) {
     let index = -1;
     for (let i = 0; i < employees.value.length; i++) {
-        if (employees.value[i].id === id) {
+        if (employees.value[i].employeeId === id) {
             index = i;
             break;
         }
@@ -71,9 +71,15 @@ function saveEmployee() {
 
     if (employee?.value.name?.trim()) {
         if (employee.value.employeeId) {
-            //employee.value.category = employee.value.category.value ? employee.value.category.value : employee.value.category;
-            employee.value[findIndexById(employee.value.employeeId)] = employee.value;
-            toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Updated', life: 3000 });
+            const index = findIndexById(employee.value.employeeId);
+            if (index !== -1) {
+                employees.value[index] = { ...employee.value }; // Spread operator ensures reactivity
+                toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Updated', life: 3000 });
+            } else {
+                toast.add({ severity: 'error', summary: 'Error', detail: 'Employee Not Found', life: 3000 });
+            }
+            employeeDialog.value = false;
+            employee.value = {};
         } else {
             employee.value.emploeeId = createTicketCode();
             employee.value.photo = 'product-placeholder.svg';
