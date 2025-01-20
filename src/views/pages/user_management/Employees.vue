@@ -3,14 +3,12 @@ import { EmployeeService } from '@/service/EmployeeService';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
 import { onBeforeMount, ref } from 'vue';
-const employees = ref();
+const employees = ref([]);
 const employee = ref({});
 const employeeDialog = ref(false);
 const submitted = ref(false);
 const deleteEmployeeDialog = ref(false);
-const filters1 = ref({
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS }
-});
+const filters1 = ref();
 const loading1 = ref(null);
 const toast = useToast();
 onBeforeMount(() => {
@@ -60,7 +58,19 @@ function hideDialog() {
     submitted.value = false;
 }
 
-function createTicketCode() {
+function confirmDeleteEmployee(selectedEmployee) {
+    employee.value = selectedEmployee.data;
+    deleteEmployeeDialog.value = true;
+}
+
+function deleteEmployee() {
+    employees.value = employees.value.filter((val) => val.employeeId !== employee.value.employeeId);
+    deleteEmployeeDialog.value = false;
+    employee.value = {};
+    toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Deleted', life: 3000 });
+}
+
+function createEmployeeCode() {
     const prefix = 'EMP-';
     const randomNumber = Math.floor(Math.random() * 1000000); // Generate a number between 0 and 999999
     const paddedNumber = String(randomNumber).padStart(6, '0'); // Pad with leading zeros to ensure 6 digits
@@ -81,7 +91,7 @@ function saveEmployee() {
             employeeDialog.value = false;
             employee.value = {};
         } else {
-            employee.value.emploeeId = createTicketCode();
+            employee.value.emploeeId = createEmployeeCode();
             employee.value.photo = 'product-placeholder.svg';
             employee.value.branch = employee.value.branch ? employee.value.branch : 'Head Office';
             employee.value.department = employee.value.department ? employee.value.department : 'IT';
@@ -109,7 +119,7 @@ function saveEmployee() {
                 :value="employees"
                 :paginator="true"
                 :rows="10"
-                dataKey="id"
+                dataKey="employeeId"
                 :rowHover="true"
                 v-model:filters="filters1"
                 filterDisplay="menu"
@@ -172,7 +182,7 @@ function saveEmployee() {
                 <Column :exportable="false" style="min-width: 12rem">
                     <template #body="data">
                         <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editEmployee(data)" />
-                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteEmplyee(data)" />
+                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteEmployee(data)" />
                     </template>
                 </Column>
             </DataTable>

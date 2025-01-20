@@ -222,11 +222,7 @@ function transformPriorityAndStatus(priority) {
                 <Column selectionMode="multiple" style="width: 3rem" :exportable="false"></Column>
                 <Column field="code" header="Code" sortable style="min-width: 7rem"></Column>
                 <Column field="title" header="Title" sortable style="min-width: 16rem"></Column>
-                <!-- <Column header="Image">
-                    <template #body="slotProps">
-                        <img :src="`https://primefaces.org/cdn/primevue/images/product/${slotProps.data.image}`" :alt="slotProps.data.image" class="rounded" style="width: 64px" />
-                    </template>
-                </Column> -->
+
                 <Column field="description" header="Description" sortable style="min-width: 15rem"></Column>
                 <Column field="priority" header="Priority" sortable style="min-width: 6rem">
                     <template #body="slotProps">
@@ -254,7 +250,6 @@ function transformPriorityAndStatus(priority) {
 
         <Dialog v-model:visible="ticketDialog" :style="{ width: '450px' }" header="Ticket Details" :modal="true">
             <div class="flex flex-col gap-6">
-                <!-- <img v-if="ticket.image" :src="`https://primefaces.org/cdn/primevue/images/product/${ticket.image}`" :alt="ticket.image" class="block m-auto pb-4" /> -->
                 <div>
                     <label for="name" class="block font-bold mb-3">Title</label>
                     <InputText id="name" v-model.trim="ticket.title" required="true" autofocus :invalid="submitted && !ticket.title" fluid />
@@ -290,17 +285,6 @@ function transformPriorityAndStatus(priority) {
                         </div>
                     </div>
                 </div>
-
-                <!-- <div class="grid grid-cols-12 gap-4">
-                    <div class="col-span-6">
-                        <label for="price" class="block font-bold mb-3">Price</label>
-                        <InputNumber id="price" v-model="product.price" mode="currency" currency="USD" locale="en-US" fluid />
-                    </div>
-                    <div class="col-span-6">
-                        <label for="quantity" class="block font-bold mb-3">Quantity</label>
-                        <InputNumber id="quantity" v-model="product.quantity" integeronly fluid />
-                    </div>
-                </div> -->
             </div>
 
             <template #footer>
