@@ -53,6 +53,10 @@ function findIndexById(id) {
     return index;
 }
 
+function clearFilter() {
+    initFilters1();
+}
+
 function hideDialog() {
     employeeDialog.value = false;
     submitted.value = false;
