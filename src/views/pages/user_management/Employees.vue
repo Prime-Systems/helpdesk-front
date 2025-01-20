@@ -118,7 +118,7 @@ function saveEmployee() {
 <template>
     <div>
         <div class="card">
-            <div class="font-semibold text-xl mb-4">Filtering</div>
+            <div class="font-semibold text-xl mb-4">Employees</div>
             <DataTable
                 :value="employees"
                 :paginator="true"

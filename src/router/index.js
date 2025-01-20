@@ -120,9 +120,9 @@ const router = createRouter({
                     component: () => import('@/views/pages/knowledge_base/Articles.vue')
                 },
                 {
-                    path: '/documentation',
-                    name: 'documentation',
-                    component: () => import('@/views/pages/Documentation.vue')
+                    path: '/performance/employees',
+                    name: 'employeePerformance',
+                    component: () => import('@/views/pages/performance_reports/EmployeesPerformance.vue')
                 }
             ]
         },

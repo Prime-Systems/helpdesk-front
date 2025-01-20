@@ -116,7 +116,7 @@ function savecustomer() {
 <template>
     <div>
         <div class="card">
-            <div class="font-semibold text-xl mb-4">Filtering</div>
+            <div class="font-semibold text-xl mb-4">Customers</div>
             <DataTable
                 :value="customers"
                 :paginator="true"

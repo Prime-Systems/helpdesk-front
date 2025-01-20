@@ -22,7 +22,12 @@ export const EmployeeService = {
                 supervisor: 'Jane Smith',
                 languages: ['English', 'Spanish'],
                 skills: ['Troubleshooting', 'Windows Support'],
-                rating: 4.5
+                rating: 4.5,
+                tickets: {
+                    open: 20,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E002',
@@ -45,7 +50,12 @@ export const EmployeeService = {
                 supervisor: 'Michael Lee',
                 languages: ['English', 'French'],
                 skills: ['Billing Inquiry', 'Customer Retention'],
-                rating: 4.7
+                rating: 4.7,
+                tickets: {
+                    open: 10,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E003',
@@ -68,7 +78,12 @@ export const EmployeeService = {
                 supervisor: 'Sarah Adams',
                 languages: ['English', 'German'],
                 skills: ['Network Support', 'Hardware Issues'],
-                rating: 4.8
+                rating: 4.8,
+                tickets: {
+                    open: 5,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E004',
@@ -91,7 +106,12 @@ export const EmployeeService = {
                 supervisor: 'Henry Baker',
                 languages: ['English', 'Italian'],
                 skills: ['Software Troubleshooting', 'API Support'],
-                rating: 4.3
+                rating: 4.3,
+                tickets: {
+                    open: 15,
+                    resolved: 10,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E005',
@@ -114,7 +134,12 @@ export const EmployeeService = {
                 supervisor: 'Emma Wilson',
                 languages: ['English', 'Mandarin'],
                 skills: ['Account Queries', 'Renewal Support'],
-                rating: 4.6
+                rating: 4.6,
+                tickets: {
+                    open: 40,
+                    resolved: 10,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E006',
@@ -137,7 +162,12 @@ export const EmployeeService = {
                 supervisor: 'Jane Smith',
                 languages: ['English', 'Japanese'],
                 skills: ['Troubleshooting', 'Linux Support'],
-                rating: 4.4
+                rating: 4.4,
+                tickets: {
+                    open: 2,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E007',
@@ -160,7 +190,12 @@ export const EmployeeService = {
                 supervisor: 'Michael Lee',
                 languages: ['English', 'Portuguese'],
                 skills: ['Customer Retention', 'Training'],
-                rating: 4.9
+                rating: 4.9,
+                tickets: {
+                    open: 15,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E008',
@@ -183,7 +218,12 @@ export const EmployeeService = {
                 supervisor: 'Sarah Adams',
                 languages: ['English', 'Russian'],
                 skills: ['Advanced Troubleshooting', 'Server Management'],
-                rating: 4.8
+                rating: 4.8,
+                tickets: {
+                    open: 5,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E009',
@@ -206,7 +246,12 @@ export const EmployeeService = {
                 supervisor: 'Emma Wilson',
                 languages: ['English', 'Korean'],
                 skills: ['Refund Processing', 'Dispute Resolution'],
-                rating: 4.5
+                rating: 4.5,
+                tickets: {
+                    open: 10,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E010',
@@ -229,7 +274,12 @@ export const EmployeeService = {
                 supervisor: 'Henry Baker',
                 languages: ['English', 'Arabic'],
                 skills: ['API Debugging', 'Integration Support'],
-                rating: 4.7
+                rating: 4.7,
+                tickets: {
+                    open: 20,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E011',
@@ -252,7 +302,12 @@ export const EmployeeService = {
                 supervisor: 'Emma Wilson',
                 languages: ['English', 'Spanish'],
                 skills: ['Subscription Management', 'Upselling'],
-                rating: 4.4
+                rating: 4.4,
+                tickets: {
+                    open: 30,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E012',
@@ -275,7 +330,12 @@ export const EmployeeService = {
                 supervisor: 'Jane Smith',
                 languages: ['English', 'French'],
                 skills: ['Troubleshooting', 'Software Support'],
-                rating: 4.3
+                rating: 4.3,
+                tickets: {
+                    open: 10,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E013',
@@ -298,7 +358,12 @@ export const EmployeeService = {
                 supervisor: 'Michael Lee',
                 languages: ['English', 'Portuguese'],
                 skills: ['Customer Retention', 'Conflict Management'],
-                rating: 4.8
+                rating: 4.8,
+                tickets: {
+                    open: 5,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E014',
@@ -321,7 +386,12 @@ export const EmployeeService = {
                 supervisor: 'Henry Baker',
                 languages: ['English', 'German'],
                 skills: ['Database Optimization', 'SQL Support'],
-                rating: 4.5
+                rating: 4.5,
+                tickets: {
+                    open: 10,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E015',
@@ -344,7 +414,12 @@ export const EmployeeService = {
                 supervisor: 'Emma Wilson',
                 languages: ['English', 'Italian'],
                 skills: ['Feedback Collection', 'Customer Engagement'],
-                rating: 4.6
+                rating: 4.6,
+                tickets: {
+                    open: 20,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E016',
@@ -367,7 +442,12 @@ export const EmployeeService = {
                 supervisor: 'Jane Smith',
                 languages: ['English', 'Japanese'],
                 skills: ['Software Troubleshooting', 'System Setup'],
-                rating: 4.4
+                rating: 4.4,
+                tickets: {
+                    open: 5,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E017',
@@ -413,7 +493,12 @@ export const EmployeeService = {
                 supervisor: 'Michael Lee',
                 languages: ['English', 'Spanish'],
                 skills: ['Customer Retention', 'Service Training'],
-                rating: 4.9
+                rating: 4.9,
+                tickets: {
+                    open: 2,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E019',
@@ -436,7 +521,12 @@ export const EmployeeService = {
                 supervisor: 'Sarah Adams',
                 languages: ['English', 'Russian'],
                 skills: ['Network Administration', 'Security Support'],
-                rating: 4.8
+                rating: 4.8,
+                tickets: {
+                    open: 5,
+                    resolved: 30,
+                    closed: 10
+                }
             },
             {
                 employeeId: 'E020',
@@ -459,7 +549,12 @@ export const EmployeeService = {
                 supervisor: 'Emma Wilson',
                 languages: ['English', 'Arabic'],
                 skills: ['Refund Processing', 'Conflict Resolution'],
-                rating: 4.7
+                rating: 4.7,
+                tickets: {
+                    open: 10,
+                    resolved: 30,
+                    closed: 10
+                }
             }
         ];
     },

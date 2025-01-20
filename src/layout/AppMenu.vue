@@ -45,7 +45,7 @@ const model = ref([
             {
                 label: 'Employees',
                 icon: 'pi pi-fw pi-id-card',
-                to: '/tickets'
+                to: '/performance/employees'
             },
             {
                 label: 'Teams',
