@@ -1,19 +1,19 @@
 <script setup>
-import { EmployeeService } from '@/service/EmployeeService';
+import { CustomerService } from '@/service/CustomerPrimeService';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
 import { onBeforeMount, ref } from 'vue';
-const employees = ref([]);
-const employee = ref({});
-const employeeDialog = ref(false);
+const customers = ref([]);
+const customer = ref({});
+const customerDialog = ref(false);
 const submitted = ref(false);
-const deleteEmployeeDialog = ref(false);
+const deletecustomerDialog = ref(false);
 const filters1 = ref();
 const loading1 = ref(null);
 const toast = useToast();
 onBeforeMount(() => {
-    EmployeeService.getEmployeesXLarge().then((data) => {
-        employees.value = data;
+    CustomerService.getCustomersXLarge().then((data) => {
+        customers.value = data;
         loading1.value = false;
     });
 
@@ -31,20 +31,20 @@ function initFilters1() {
 }
 
 function openNew() {
-    employee.value = {};
+    customer.value = {};
     submitted.value = false;
-    employeeDialog.value = true;
+    customerDialog.value = true;
 }
 
-function editEmployee(selectedEmployee) {
-    employee.value = { ...selectedEmployee.data };
-    employeeDialog.value = true;
+function editcustomer(selectedcustomer) {
+    customer.value = { ...selectedcustomer.data };
+    customerDialog.value = true;
 }
 
 function findIndexById(id) {
     let index = -1;
-    for (let i = 0; i < employees.value.length; i++) {
-        if (employees.value[i].employeeId === id) {
+    for (let i = 0; i < customers.value.length; i++) {
+        if (customers.value[i].customerId === id) {
             index = i;
             break;
         }
@@ -58,59 +58,57 @@ function clearFilter() {
 }
 
 function hideDialog() {
-    employeeDialog.value = false;
+    customerDialog.value = false;
     submitted.value = false;
 }
 
-function confirmDeleteEmployee(selectedEmployee) {
-    employee.value = selectedEmployee.data;
-    deleteEmployeeDialog.value = true;
+function confirmDeletecustomer(selectedcustomer) {
+    customer.value = selectedcustomer.data;
+    deletecustomerDialog.value = true;
 }
 
-function deleteEmployee() {
-    employees.value = employees.value.filter((val) => val.employeeId !== employee.value.employeeId);
-    deleteEmployeeDialog.value = false;
-    employee.value = {};
-    toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Deleted', life: 3000 });
+function deletecustomer() {
+    customers.value = customers.value.filter((val) => val.customerId !== customer.value.customerId);
+    deletecustomerDialog.value = false;
+    customer.value = {};
+    toast.add({ severity: 'success', summary: 'Successful', detail: 'customer Deleted', life: 3000 });
 }
 
-function createEmployeeCode() {
-    const prefix = 'EMP-';
+function createcustomerCode() {
+    const prefix = 'C-';
     const randomNumber = Math.floor(Math.random() * 1000000); // Generate a number between 0 and 999999
     const paddedNumber = String(randomNumber).padStart(6, '0'); // Pad with leading zeros to ensure 6 digits
     return prefix + paddedNumber;
 }
-function saveEmployee() {
+function savecustomer() {
     submitted.value = true;
 
-    if (employee?.value.name?.trim()) {
-        if (employee.value.employeeId) {
-            const index = findIndexById(employee.value.employeeId);
+    if (customer?.value.name?.trim()) {
+        if (customer.value.customerId) {
+            const index = findIndexById(customer.value.customerId);
             if (index !== -1) {
-                employees.value[index] = { ...employee.value }; // Spread operator ensures reactivity
-                toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Updated', life: 3000 });
+                customers.value[index] = { ...customer.value }; // Spread operator ensures reactivity
+                toast.add({ severity: 'success', summary: 'Successful', detail: 'customer Updated', life: 3000 });
             } else {
-                toast.add({ severity: 'error', summary: 'Error', detail: 'Employee Not Found', life: 3000 });
+                toast.add({ severity: 'error', summary: 'Error', detail: 'customer Not Found', life: 3000 });
             }
-            employeeDialog.value = false;
-            employee.value = {};
+            customerDialog.value = false;
+            customer.value = {};
         } else {
-            employee.value.emploeeId = createEmployeeCode();
-            employee.value.photo = 'product-placeholder.svg';
-            employee.value.branch = employee.value.branch ? employee.value.branch : 'Head Office';
-            employee.value.department = employee.value.department ? employee.value.department : 'IT';
-            employee.value.rating = 0;
-            employee.value.role = 'Employee';
-            employee.value.email = employee.value.email ? employee.value.email : 'email@email.com';
-            employee.value.phone = employee.value.phone ? employee.value.phone : '1234567890';
-            employee.value.hireDate = new Date();
+            customer.value.customerId = createcustomerCode();
+            customer.value.csatScore = 0;
+            customer.value.jobTitle = 'Software Engineer';
+            customer.value.department = 'Development';
+            customer.value.companyName = 'PrimeTek';
+            customer.value.phone = '+1 (480) 262-0555';
+            customer.value.preferredContactMethod = 'Phone';
 
-            employees.value.push(employee.value);
-            toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Created', life: 3000 });
+            customers.value.push(customer.value);
+            toast.add({ severity: 'success', summary: 'Successful', detail: 'customer Created', life: 3000 });
         }
 
-        employeeDialog.value = false;
-        employee.value = {};
+        customerDialog.value = false;
+        customer.value = {};
     }
 }
 </script>
@@ -120,16 +118,16 @@ function saveEmployee() {
         <div class="card">
             <div class="font-semibold text-xl mb-4">Filtering</div>
             <DataTable
-                :value="employees"
+                :value="customers"
                 :paginator="true"
                 :rows="10"
-                dataKey="employeeId"
+                dataKey="customerId"
                 :rowHover="true"
                 v-model:filters="filters1"
                 filterDisplay="menu"
                 :loading="loading1"
                 :filters="filters1"
-                :globalFilterFields="['name', 'branch', 'department']"
+                :globalFilterFields="['name', 'email', 'companyName', 'jobTitle', 'department']"
                 showGridlines
             >
                 <template #header>
@@ -143,7 +141,7 @@ function saveEmployee() {
                             <InputIcon>
                                 <i class="pi pi-search" />
                             </InputIcon>
-                            <InputText v-model="filters1['global'].value" placeholder="Employee Search" />
+                            <InputText v-model="filters1['global'].value" placeholder="customer Search" />
                         </IconField>
                     </div>
                 </template>
@@ -157,83 +155,95 @@ function saveEmployee() {
                         <InputText v-model="filterModel.value" type="text" placeholder="Search by name" />
                     </template>
                 </Column>
-                <Column field="branch" header="Branch" style="min-width: 12rem">
+                <Column field="email" header="Email" style="min-width: 12rem">
                     <template #body="{ data }">
-                        {{ data.branch }}
+                        {{ data.email }}
                     </template>
                     <template #filter="{ filterModel }">
-                        <InputText v-model="filterModel.value" type="text" placeholder="Search by branch" />
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by email" />
                     </template>
                 </Column>
-                <Column field="department" header="Department" style="min-width: 12rem">
+                <Column field="companyName" header="Company" style="min-width: 12rem">
                     <template #body="{ data }">
-                        {{ data.department }}
+                        {{ data.companyName }}
                     </template>
                     <template #filter="{ filterModel }">
-                        <InputText v-model="filterModel.value" type="text" placeholder="Search by branch" />
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by company" />
                     </template>
                 </Column>
 
-                <Column field="rating" header="Rating" dataType="boolean" bodyClass="text-center" style="min-width: 8rem">
+                <Column field="jobTitle" header="Job Title" style="min-width: 12rem">
                     <template #body="{ data }">
-                        <Rating :modelValue="data.rating" :key="data.employeeId" :stars="10" />
+                        {{ data.jobTitle }}
                     </template>
-                    <!-- <template #filter="{ filterModel }">
-                    <label for="verified-filter" class="font-bold"> Verified </label>
-                    <Checkbox v-model="filterModel.value" :indeterminate="filterModel.value === null" binary inputId="verified-filter" />
-                </template> -->
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by job title" />
+                    </template>
+                </Column>
+
+                <Column field="csatScore" header="CSAT Score" bodyClass="text-center" style="min-width: 12rem">
+                    <template #body="{ data }">
+                        <Rating :modelValue="data.csatScore" :key="data.customerId" :stars="10">
+                            <template #onicon>
+                                <img src="https://primefaces.org/cdn/primevue/images/rating/custom-onicon.png" height="24" width="24" alt="onicon" />
+                            </template>
+                            <template #officon>
+                                <img src="https://primefaces.org/cdn/primevue/images/rating/custom-officon.png" height="24" width="24" alt="officon" />
+                            </template>
+                        </Rating>
+                    </template>
                 </Column>
                 <Column :exportable="false" style="min-width: 12rem">
                     <template #body="data">
-                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editEmployee(data)" />
-                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteEmployee(data)" />
+                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editcustomer(data)" />
+                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeletecustomer(data)" />
                     </template>
                 </Column>
             </DataTable>
         </div>
 
-        <Dialog v-model:visible="employeeDialog" :style="{ width: '450px' }" header="Employee Details" :modal="true">
+        <Dialog v-model:visible="customerDialog" :style="{ width: '450px' }" header="customer Details" :modal="true">
             <div class="flex flex-col gap-6">
-                <img :src="`https://avatar.iran.liara.run/public/50`" alt="employee" class="block m-auto pb-4" width="200" />
+                <img :src="`https://avatar.iran.liara.run/public/50`" alt="customer" class="block m-auto pb-4" width="200" />
                 <div>
                     <label for="name" class="block font-bold mb-3">Name</label>
-                    <InputText id="name" v-model.trim="employee.name" required="true" autofocus :invalid="submitted && !employee.name" fluid />
-                    <small v-if="submitted && !employee.name" class="text-red-500">Name is required.</small>
+                    <InputText id="name" v-model.trim="customer.name" required="true" autofocus :invalid="submitted && !customer.name" fluid />
+                    <small v-if="submitted && !customer.name" class="text-red-500">Name is required.</small>
                 </div>
                 <div>
                     <label for="email" class="block font-bold mb-3">Email Address</label>
-                    <InputText id="name" v-model.trim="employee.email" required="true" autofocus :invalid="submitted && !employee.email" fluid />
-                    <small v-if="submitted && !employee.email" class="text-red-500">Email is required.</small>
+                    <InputText id="email" v-model.trim="customer.email" required="true" autofocus :invalid="submitted && !customer.email" fluid />
+                    <small v-if="submitted && !customer.email" class="text-red-500">Email is required.</small>
                 </div>
                 <div>
-                    <label for="branch" class="block font-bold mb-3">Branch</label>
-                    <InputText id="name" v-model.trim="employee.branch" required="true" autofocus :invalid="submitted && !employee.branch" fluid />
-                    <small v-if="submitted && !employee.branch" class="text-red-500">Branch is required.</small>
+                    <label for="companyName" class="block font-bold mb-3">Company Name</label>
+                    <InputText id="companyName" v-model.trim="customer.companyName" required="true" autofocus :invalid="submitted && !customer.companyName" fluid />
+                    <small v-if="submitted && !customer.companyName" class="text-red-500">Company Name is required.</small>
                 </div>
                 <div>
                     <label for="department" class="block font-bold mb-3">Department</label>
-                    <InputText id="department" v-model.trim="employee.department" required="true" autofocus :invalid="submitted && !employee.department" fluid />
-                    <small v-if="submitted && !employee.department" class="text-red-500">Department is required.</small>
+                    <InputText id="department" v-model.trim="customer.department" required="true" autofocus :invalid="submitted && !customer.department" fluid />
+                    <small v-if="submitted && !customer.department" class="text-red-500">Department is required.</small>
                 </div>
             </div>
 
             <template #footer>
                 <Button label="Cancel" icon="pi pi-times" text @click="hideDialog" />
-                <Button label="Save" icon="pi pi-check" @click="saveEmployee" />
+                <Button label="Save" icon="pi pi-check" @click="savecustomer" />
             </template>
         </Dialog>
 
-        <Dialog v-model:visible="deleteEmployeeDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
+        <Dialog v-model:visible="deletecustomerDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
             <div class="flex items-center gap-4">
                 <i class="pi pi-exclamation-triangle !text-3xl" />
-                <span v-if="employee"
-                    >Are you sure you want to delete <b>{{ employee.name }}</b
+                <span v-if="customer"
+                    >Are you sure you want to delete <b>{{ customer.name }}</b
                     >?</span
                 >
             </div>
             <template #footer>
-                <Button label="No" icon="pi pi-times" text @click="deleteEmployeeDialog = false" />
-                <Button label="Yes" icon="pi pi-check" @click="deleteEmployee" />
+                <Button label="No" icon="pi pi-times" text @click="deletecustomerDialog = false" />
+                <Button label="Yes" icon="pi pi-check" @click="deletecustomer" />
             </template>
         </Dialog>
     </div>

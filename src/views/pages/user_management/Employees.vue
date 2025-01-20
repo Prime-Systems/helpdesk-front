@@ -95,7 +95,7 @@ function saveEmployee() {
             employeeDialog.value = false;
             employee.value = {};
         } else {
-            employee.value.emploeeId = createEmployeeCode();
+            employee.value.employeeId = createEmployeeCode();
             employee.value.photo = 'product-placeholder.svg';
             employee.value.branch = employee.value.branch ? employee.value.branch : 'Head Office';
             employee.value.department = employee.value.department ? employee.value.department : 'IT';

@@ -3,7 +3,7 @@ export const CustomerService = {
         return [
             {
                 customerId: 'C002',
-                name: 'Globex Inc',
+                name: 'Kwesi Mintah',
                 email: 'support@globex.com',
                 phone: '123-456-7890',
                 companyName: 'Globex Inc',
@@ -21,7 +21,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C003',
-                name: 'Initech',
+                name: 'Ama Ababrese',
                 email: 'admin@initech.com',
                 phone: '987-654-3210',
                 companyName: 'Initech',
@@ -39,7 +39,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C004',
-                name: 'Hooli',
+                name: 'Michael Adusei',
                 email: 'info@hooli.com',
                 phone: '555-444-6666',
                 companyName: 'Hooli',
@@ -57,7 +57,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C005',
-                name: 'Vandelay Industries',
+                name: 'George Costanza',
                 email: 'george@vandelay.com',
                 phone: '101-202-3030',
                 companyName: 'Vandelay Industries',
@@ -75,7 +75,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C006',
-                name: 'Soylent Corp',
+                name: 'Karen Smith',
                 email: 'customer@soylent.com',
                 phone: '333-444-5555',
                 companyName: 'Soylent Corp',
@@ -93,7 +93,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C007',
-                name: 'Aperture Science',
+                name: 'Rick Sanchez',
                 email: 'portal@aperturesci.com',
                 phone: '444-555-6666',
                 companyName: 'Aperture Science',
@@ -111,7 +111,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C008',
-                name: 'Cyberdyne Systems',
+                name: 'Miles Dyson',
                 email: 'helpdesk@cyberdyne.com',
                 phone: '666-777-8888',
                 companyName: 'Cyberdyne Systems',
@@ -129,7 +129,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C009',
-                name: 'Umbrella Corporation',
+                name: 'Albert Wesker',
                 email: 'support@umbrella.com',
                 phone: '777-888-9999',
                 companyName: 'Umbrella Corporation',
@@ -147,7 +147,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C010',
-                name: 'Stark Industries',
+                name: 'Tony Stark',
                 email: 'tony@starkindustries.com',
                 phone: '888-999-0000',
                 companyName: 'Stark Industries',
@@ -165,7 +165,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C011',
-                name: 'Wayne Enterprises',
+                name: 'Bruce Wayne',
                 email: 'bruce@wayne.com',
                 phone: '000-111-2222',
                 companyName: 'Wayne Enterprises',
@@ -183,7 +183,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C012',
-                name: 'Pied Piper',
+                name: 'Richard Hendricks',
                 email: 'richard@piedpiper.com',
                 phone: '222-333-4444',
                 companyName: 'Pied Piper',
@@ -199,10 +199,9 @@ export const CustomerService = {
                 timeZone: 'PST',
                 feedback: ['Great technical knowledge', 'Fast responses']
             },
-
             {
                 customerId: 'C013',
-                name: 'Monarch Solutions',
+                name: 'Paul Serene',
                 email: 'contact@monarch.com',
                 phone: '444-555-6677',
                 companyName: 'Monarch Solutions',
@@ -220,7 +219,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C014',
-                name: 'Tyrell Corporation',
+                name: 'Eldon Tyrell',
                 email: 'support@tyrellcorp.com',
                 phone: '555-666-7788',
                 companyName: 'Tyrell Corporation',
@@ -238,7 +237,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C015',
-                name: 'OCP',
+                name: 'Alex Murphy',
                 email: 'admin@ocp.com',
                 phone: '666-777-8899',
                 companyName: 'OCP',
@@ -256,7 +255,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C016',
-                name: 'LexCorp',
+                name: 'Lex Luthor',
                 email: 'info@lexcorp.com',
                 phone: '777-888-9900',
                 companyName: 'LexCorp',
@@ -274,7 +273,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C017',
-                name: 'Blue Sun Corporation',
+                name: 'Malcolm Reynolds',
                 email: 'contact@bluesun.com',
                 phone: '888-999-1111',
                 companyName: 'Blue Sun Corporation',
@@ -292,7 +291,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C018',
-                name: 'Oscorp Industries',
+                name: 'Norman Osborn',
                 email: 'helpdesk@oscorp.com',
                 phone: '111-222-3333',
                 companyName: 'Oscorp Industries',
@@ -310,7 +309,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C019',
-                name: 'Dunder Mifflin',
+                name: 'Dwight Schrute',
                 email: 'contact@dundermifflin.com',
                 phone: '222-333-4444',
                 companyName: 'Dunder Mifflin',
@@ -328,7 +327,7 @@ export const CustomerService = {
             },
             {
                 customerId: 'C020',
-                name: 'Nakatomi Corporation',
+                name: 'Joseph Takagi',
                 email: 'admin@nakatomi.com',
                 phone: '333-444-5555',
                 companyName: 'Nakatomi Corporation',
