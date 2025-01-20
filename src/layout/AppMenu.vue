@@ -47,15 +47,15 @@ const model = ref([
                 icon: 'pi pi-fw pi-id-card',
                 to: '/performance/employees'
             },
-            {
-                label: 'Teams',
-                icon: 'pi pi-fw pi-users',
-                to: '/tickets'
-            },
+            // {
+            //     label: 'Teams',
+            //     icon: 'pi pi-fw pi-users',
+            //     to: '/tickets'
+            // },
             {
                 label: 'Documents',
                 icon: 'pi pi-fw pi-file',
-                to: '/tickets'
+                to: '/performance/documents'
             }
         ]
     },
@@ -85,12 +85,12 @@ const model = ref([
             {
                 label: 'Automation',
                 icon: 'pi pi-fw pi-verified',
-                to: '/tickets'
+                to: '/settings/automation'
             },
             {
                 label: 'Categories',
                 icon: 'pi pi-fw pi-box',
-                to: '/tickets'
+                to: '/settings/categories'
             }
         ]
     },
@@ -102,7 +102,7 @@ const model = ref([
             {
                 label: 'Leaderboard',
                 icon: 'pi pi-fw pi-bolt',
-                to: '/tickets'
+                to: '/leaderboard'
             }
         ]
     }

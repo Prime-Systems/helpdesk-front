@@ -123,6 +123,31 @@ const router = createRouter({
                     path: '/performance/employees',
                     name: 'employeePerformance',
                     component: () => import('@/views/pages/performance_reports/EmployeesPerformance.vue')
+                },
+                {
+                    path: '/performance/documents',
+                    name: 'documents',
+                    component: () => import('@/views/pages/performance_reports/Documents.vue')
+                },
+                {
+                    path: '/settings/automation',
+                    name: 'automation',
+                    component: () => import('@/views/pages/settings/Automation.vue')
+                },
+                {
+                    path: '/settings/categories',
+                    name: 'categories',
+                    component: () => import('@/views/pages/settings/Categories.vue')
+                },
+                {
+                    path: '/leaderboard',
+                    name: 'leaderboard',
+                    component: () => import('@/views/pages/leaderboard/Leaderboard.vue')
+                },
+                {
+                    path: '/leaderboard',
+                    name: 'leaderboard',
+                    component: () => import('@/views/pages/leaderboard/Leaderboard.vue')
                 }
             ]
         },
