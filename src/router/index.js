@@ -111,8 +111,13 @@ const router = createRouter({
                 },
                 {
                     path: '/kb/faqs',
-                    name: 'crud',
+                    name: 'faqs',
                     component: () => import('@/views/pages/knowledge_base/Faq.vue')
+                },
+                {
+                    path: '/kb/articles',
+                    name: 'articles',
+                    component: () => import('@/views/pages/knowledge_base/Articles.vue')
                 },
                 {
                     path: '/documentation',

@@ -1,35 +1,4 @@
-<script setup>
-import { ref } from 'vue';
-
-const items = ref([
-    {
-        label: 'Save',
-        icon: 'pi pi-check'
-    },
-    {
-        label: 'Update',
-        icon: 'pi pi-upload'
-    },
-    {
-        label: 'Delete',
-        icon: 'pi pi-trash'
-    },
-    {
-        label: 'Home Page',
-        icon: 'pi pi-home'
-    }
-]);
-const cardMenu = ref([
-    { label: 'Save', icon: 'pi pi-fw pi-check' },
-    { label: 'Update', icon: 'pi pi-fw pi-refresh' },
-    { label: 'Delete', icon: 'pi pi-fw pi-trash' }
-]);
-const menuRef = ref(null);
-
-function toggle() {
-    menuRef.value.toggle(event);
-}
-</script>
+<script setup></script>
 
 <template>
     <div class="flex flex-col">

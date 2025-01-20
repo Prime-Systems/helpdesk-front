@@ -7,7 +7,10 @@ const employees = ref();
 const employee = ref({});
 const employeeDialog = ref(false);
 const submitted = ref(false);
-const filters1 = ref(null);
+const deleteEmployeeDialog = ref(false);
+const filters1 = ref({
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS }
+});
 const loading1 = ref(null);
 const toast = useToast();
 onBeforeMount(() => {
@@ -35,8 +38,8 @@ function openNew() {
     employeeDialog.value = true;
 }
 
-function editEmployee(employee) {
-    employee.value = { ...employee };
+function editEmployee(selectedEmployee) {
+    employee.value = { ...selectedEmployee.data };
     employeeDialog.value = true;
 }
 
@@ -50,6 +53,11 @@ function findIndexById(id) {
     }
 
     return index;
+}
+
+function hideDialog() {
+    employeeDialog.value = false;
+    submitted.value = false;
 }
 
 function createTicketCode() {
@@ -88,79 +96,81 @@ function saveEmployee() {
 </script>
 
 <template>
-    <div class="card">
-        <div class="font-semibold text-xl mb-4">Filtering</div>
-        <DataTable
-            :value="employees"
-            :paginator="true"
-            :rows="10"
-            dataKey="id"
-            :rowHover="true"
-            v-model:filters="filters1"
-            filterDisplay="menu"
-            :loading="loading1"
-            :filters="filters1"
-            :globalFilterFields="['name', 'branch', 'department']"
-            showGridlines
-        >
-            <template #header>
-                <div class="flex justify-between">
-                    <div>
-                        <Button type="button" icon="pi pi-filter-slash" label="Clear" outlined @click="clearFilter()" />
-                        <Button label="New" icon="pi pi-plus" class="ml-2" severity="secondary" @click="openNew" />
+    <div>
+        <div class="card">
+            <div class="font-semibold text-xl mb-4">Filtering</div>
+            <DataTable
+                :value="employees"
+                :paginator="true"
+                :rows="10"
+                dataKey="id"
+                :rowHover="true"
+                v-model:filters="filters1"
+                filterDisplay="menu"
+                :loading="loading1"
+                :filters="filters1"
+                :globalFilterFields="['name', 'branch', 'department']"
+                showGridlines
+            >
+                <template #header>
+                    <div class="flex justify-between">
+                        <div>
+                            <Button type="button" icon="pi pi-filter-slash" label="Clear" outlined @click="clearFilter()" />
+                            <Button label="New" icon="pi pi-plus" class="ml-2" severity="secondary" @click="openNew" />
+                        </div>
+
+                        <IconField>
+                            <InputIcon>
+                                <i class="pi pi-search" />
+                            </InputIcon>
+                            <InputText v-model="filters1['global'].value" placeholder="Employee Search" />
+                        </IconField>
                     </div>
+                </template>
+                <template #empty> No customers found. </template>
+                <template #loading> Loading customers data. Please wait. </template>
+                <Column field="name" header="Name" style="min-width: 12rem">
+                    <template #body="{ data }">
+                        {{ data.name }}
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by name" />
+                    </template>
+                </Column>
+                <Column field="branch" header="Branch" style="min-width: 12rem">
+                    <template #body="{ data }">
+                        {{ data.branch }}
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by branch" />
+                    </template>
+                </Column>
+                <Column field="department" header="Department" style="min-width: 12rem">
+                    <template #body="{ data }">
+                        {{ data.department }}
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by branch" />
+                    </template>
+                </Column>
 
-                    <IconField>
-                        <InputIcon>
-                            <i class="pi pi-search" />
-                        </InputIcon>
-                        <InputText v-model="filters1['global'].value" placeholder="Employee Search" />
-                    </IconField>
-                </div>
-            </template>
-            <template #empty> No customers found. </template>
-            <template #loading> Loading customers data. Please wait. </template>
-            <Column field="name" header="Name" style="min-width: 12rem">
-                <template #body="{ data }">
-                    {{ data.name }}
-                </template>
-                <template #filter="{ filterModel }">
-                    <InputText v-model="filterModel.value" type="text" placeholder="Search by name" />
-                </template>
-            </Column>
-            <Column field="branch" header="Branch" style="min-width: 12rem">
-                <template #body="{ data }">
-                    {{ data.branch }}
-                </template>
-                <template #filter="{ filterModel }">
-                    <InputText v-model="filterModel.value" type="text" placeholder="Search by branch" />
-                </template>
-            </Column>
-            <Column field="department" header="Department" style="min-width: 12rem">
-                <template #body="{ data }">
-                    {{ data.department }}
-                </template>
-                <template #filter="{ filterModel }">
-                    <InputText v-model="filterModel.value" type="text" placeholder="Search by branch" />
-                </template>
-            </Column>
-
-            <Column field="rating" header="Rating" dataType="boolean" bodyClass="text-center" style="min-width: 8rem">
-                <template #body="{ data }">
-                    <Rating :modelValue="data.rating" :key="data.employeeId" :stars="10" />
-                </template>
-                <!-- <template #filter="{ filterModel }">
+                <Column field="rating" header="Rating" dataType="boolean" bodyClass="text-center" style="min-width: 8rem">
+                    <template #body="{ data }">
+                        <Rating :modelValue="data.rating" :key="data.employeeId" :stars="10" />
+                    </template>
+                    <!-- <template #filter="{ filterModel }">
                     <label for="verified-filter" class="font-bold"> Verified </label>
                     <Checkbox v-model="filterModel.value" :indeterminate="filterModel.value === null" binary inputId="verified-filter" />
                 </template> -->
-            </Column>
-            <Column :exportable="false" style="min-width: 12rem">
-                <template #body="data">
-                    <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editEmployee(data)" />
-                    <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteEmplyee(data)" />
-                </template>
-            </Column>
-        </DataTable>
+                </Column>
+                <Column :exportable="false" style="min-width: 12rem">
+                    <template #body="data">
+                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editEmployee(data)" />
+                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteEmplyee(data)" />
+                    </template>
+                </Column>
+            </DataTable>
+        </div>
 
         <Dialog v-model:visible="employeeDialog" :style="{ width: '450px' }" header="Employee Details" :modal="true">
             <div class="flex flex-col gap-6">

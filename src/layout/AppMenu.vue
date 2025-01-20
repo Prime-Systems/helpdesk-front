@@ -63,12 +63,12 @@ const model = ref([
     {
         label: 'Knowledge Base',
         icon: 'pi pi-fw pi-book',
-        to: '/tickets',
+        to: '/kb',
         items: [
             {
                 label: 'Articles',
                 icon: 'pi pi-fw pi-book',
-                to: '/tickets'
+                to: '/kb/articles'
             },
             {
                 label: 'FAQs',
