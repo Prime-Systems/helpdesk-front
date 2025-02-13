@@ -2,23 +2,28 @@
 import { TicketService } from '@/service/TicketService';
 import { FilterMatchMode } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
-import { onMounted, ref } from 'vue';
+import { onBeforeMount, ref } from 'vue';
 
-onMounted(() => {
+onBeforeMount(() => {
     //ProductService.getProducts().then((data) => (products.value = data));
     TicketService.getTickets().then((data) => (tickets.value = data));
+    initFilters();
 });
 
 const toast = useToast();
 const dt = ref();
-const tickets = ref();
+const tickets = ref([]);
 const ticketDialog = ref(false);
 const deleteTicketDialog = ref(false);
 const deleteTicketsDialog = ref(false);
 const ticket = ref({});
 const selectedTickets = ref();
 const filters = ref({
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS }
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    status: { value: null, matchMode: FilterMatchMode.EQUALS },
+    category: { value: null, matchMode: FilterMatchMode.EQUALS },
+    priority: { value: null, matchMode: FilterMatchMode.EQUALS },
+    description: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
 const submitted = ref(false);
 const categories = ref([
@@ -34,6 +39,9 @@ const categories = ref([
     { label: 'Printing & Office Equipment', value: 'printing_office_equipment' },
     { label: 'Administrative & Requests', value: 'administrative_requests' }
 ]);
+
+const statuses = ref(['open', 'ongoing', 'resolved', 'closed']);
+const priorities = ref(['low', 'medium', 'high', 'urgent']);
 
 const transformCategoryValue = (value) => {
     const category = categories.value.find((cat) => cat.value === value);
@@ -51,13 +59,27 @@ function hideDialog() {
     submitted.value = false;
 }
 
+function initFilters() {
+    filters.value = {
+        global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        status: { value: null, matchMode: FilterMatchMode.EQUALS },
+        category: { value: null, matchMode: FilterMatchMode.EQUALS },
+        priority: { value: null, matchMode: FilterMatchMode.EQUALS },
+        description: { value: null, matchMode: FilterMatchMode.CONTAINS }
+    };
+}
+
 function saveTicket() {
     submitted.value = true;
 
     if (ticket?.value.title?.trim()) {
         if (ticket.value.id) {
             ticket.value.category = ticket.value.category.value ? ticket.value.category.value : ticket.value.category;
-            ticket.value[findIndexById(ticket.value.id)] = ticket.value;
+            const index = findIndexById(ticket.value.id);
+            if (index !== -1) {
+                tickets.value.splice(index, 1, ticket.value);
+            }
+
             toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Updated', life: 3000 });
         } else {
             ticket.value.id = createId();
@@ -92,15 +114,8 @@ function deleteTicket() {
 }
 
 function findIndexById(id) {
-    let index = -1;
-    for (let i = 0; i < tickets.value.length; i++) {
-        if (tickets.value[i].id === id) {
-            index = i;
-            break;
-        }
-    }
-
-    return index;
+    if (!Array.isArray(tickets.value)) return -1;
+    return tickets.value.findIndex((ticket) => ticket.id === id);
 }
 
 function createId() {
@@ -139,7 +154,7 @@ function getStatusLabel(status) {
         case 'resolved':
             return 'success';
 
-        case 'in_progress':
+        case 'ongoing':
             return 'warn';
 
         case 'open':
@@ -195,7 +210,6 @@ function transformPriorityAndStatus(priority) {
             </Toolbar>
 
             <DataTable
-                ref="dt"
                 v-model:selection="selectedTickets"
                 :value="tickets"
                 dataKey="id"
@@ -206,6 +220,8 @@ function transformPriorityAndStatus(priority) {
                 :rowsPerPageOptions="[5, 10, 25]"
                 currentPageReportTemplate="Showing {first} to {last} of {totalRecords} products"
                 row-click=""
+                :globalFilterFields="['category', 'status', 'category', 'priority', 'description']"
+                filterDisplay="row"
             >
                 <template #header>
                     <div class="flex flex-wrap gap-2 items-center justify-between">
@@ -220,29 +236,58 @@ function transformPriorityAndStatus(priority) {
                 </template>
 
                 <Column selectionMode="multiple" style="width: 3rem" :exportable="false"></Column>
-                <Column field="code" header="Code" sortable style="min-width: 7rem"></Column>
-                <Column field="title" header="Title" sortable style="min-width: 16rem"></Column>
+                <!-- <Column field="code" header="Code" style="min-width: 7rem"></Column> -->
 
-                <Column field="description" header="Description" sortable style="min-width: 15rem"></Column>
-                <Column field="priority" header="Priority" sortable style="min-width: 6rem">
-                    <template #body="slotProps">
-                        <Tag :value="transformPriorityAndStatus(slotProps.data.priority)" :severity="getPriorityLabel(slotProps.data.priority)" />
+                <Column field="category" header="Category" style="min-width: 6rem" sortable :showFilterMenu="false">
+                    <template #body="{ data }">
+                        {{ transformCategoryValue(data.category) }}
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <Select v-model="filters['category'].value" :options="categories" placeholder="Select One" style="min-width: 4rem" :showClear="true" :optionLabel="(option) => option.label" :optionValue="(option) => option.value">
+                            <template #option="slotProps">
+                                {{ slotProps.option.label }}
+                            </template>
+                        </Select>
                     </template>
                 </Column>
-                <Column field="category" header="Category" sortable style="min-width: 5rem">
-                    <template #body="slotProps">
-                        {{ transformCategoryValue(slotProps.data.category) }}
+                <Column field="description" sortable header="Description" style="min-width: 15rem" :showFilterMenu="false">
+                    <template #body="{ data }">
+                        <span>{{ data.description }}</span>
+                    </template>
+
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filters['description'].value" placeholder="Search..." />
                     </template>
                 </Column>
-                <Column field="status" header="Status" sortable style="min-width: 10rem">
-                    <template #body="slotProps">
-                        <Tag :value="transformPriorityAndStatus(slotProps.data.status)" :severity="getStatusLabel(slotProps.data.status)" />
+                <Column field="priority" sortable header="Priority" style="min-width: 6rem" :showFilterMenu="false">
+                    <template #body="{ data }">
+                        <Tag :value="transformPriorityAndStatus(data.priority)" :severity="getPriorityLabel(data.priority)" />
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <Select v-model="filters['priority'].value" :options="priorities" placeholder="Select One" style="min-width: 4rem" :showClear="true">
+                            <template #option="slotProps">
+                                <Tag :value="transformPriorityAndStatus(slotProps.option)" :severity="getPriorityLabel(slotProps.option)" />
+                            </template>
+                        </Select>
+                    </template>
+                </Column>
+
+                <Column field="status" header="Status" style="min-width: 6rem" sortable :showFilterMenu="false">
+                    <template #body="{ data }">
+                        <Tag :value="transformPriorityAndStatus(data.status)" :severity="getStatusLabel(data.status)" />
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <Select v-model="filters['status'].value" :options="statuses" placeholder="Select One" style="min-width: 4rem" :showClear="true">
+                            <template #option="slotProps">
+                                <Tag :value="transformPriorityAndStatus(slotProps.option)" :severity="getStatusLabel(slotProps.option)" />
+                            </template>
+                        </Select>
                     </template>
                 </Column>
                 <Column :exportable="false" style="min-width: 12rem">
-                    <template #body="slotProps">
-                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editTicket(slotProps.data)" />
-                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteTicket(slotProps.data)" />
+                    <template #body="{ data }">
+                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editTicket(data)" />
+                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteTicket(data)" />
                     </template>
                 </Column>
             </DataTable>
