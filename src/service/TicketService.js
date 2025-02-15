@@ -13,7 +13,20 @@ export const TicketService = {
                 category: 'email_communication',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-08-16T12:34:56',
-                updated_at: '2024-08-16T12:34:56'
+                updated_at: '2024-08-16T12:34:56',
+                due_date: '2024-08-23T12:34:56',
+                assignee: 'john.doe@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-08-16T12:34:56',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-08-16T13:00:00',
+                        activity: 'Assigned to John Doe'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/file1.pdf', 'https://example.com/attachments/image1.png']
             },
             {
                 id: '88e9e4c6-1c1f-42c7-94fe-b6e47b46a7db',
@@ -27,7 +40,24 @@ export const TicketService = {
                 category: 'security_access',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-08-12T09:12:34',
-                updated_at: '2024-08-14T11:15:44'
+                updated_at: '2024-08-14T11:15:44',
+                due_date: '2024-08-19T09:12:34',
+                assignee: 'jane.smith@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-08-12T09:12:34',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-08-12T10:00:00',
+                        activity: 'Assigned to Jane Smith'
+                    },
+                    {
+                        timestamp: '2024-08-14T11:15:44',
+                        activity: 'Status updated to ongoing'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/vpn_logs.txt']
             },
             {
                 id: '76f67bdb-5a3f-4fbc-97fd-b434b3f83bc8',
@@ -41,7 +71,24 @@ export const TicketService = {
                 category: 'software_applications',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-07-20T14:45:12',
-                updated_at: '2024-07-22T10:11:23'
+                updated_at: '2024-07-22T10:11:23',
+                due_date: '2024-07-27T14:45:12',
+                assignee: 'alice.johnson@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-07-20T14:45:12',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-07-20T15:00:00',
+                        activity: 'Assigned to Alice Johnson'
+                    },
+                    {
+                        timestamp: '2024-07-22T10:11:23',
+                        activity: 'Status updated to resolved'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/crash_report.pdf']
             },
             {
                 id: '937efcc1-5a16-4cf2-9c3b-4b041a60fcd7',
@@ -55,7 +102,20 @@ export const TicketService = {
                 category: 'hardware_devices',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-08-10T13:21:45',
-                updated_at: '2024-08-10T13:21:45'
+                updated_at: '2024-08-10T13:21:45',
+                due_date: '2024-08-17T13:21:45',
+                assignee: 'bob.miller@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-08-10T13:21:45',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-08-10T14:00:00',
+                        activity: 'Assigned to Bob Miller'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/printer_logs.txt']
             },
             {
                 id: 'd41e024f-ff75-4d82-9096-4f1c95d91276',
@@ -69,7 +129,24 @@ export const TicketService = {
                 category: 'network_connectivity',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-08-05T16:04:33',
-                updated_at: '2024-08-06T10:12:22'
+                updated_at: '2024-08-06T10:12:22',
+                due_date: '2024-08-12T16:04:33',
+                assignee: 'sarah.lee@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-08-05T16:04:33',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-08-05T17:00:00',
+                        activity: 'Assigned to Sarah Lee'
+                    },
+                    {
+                        timestamp: '2024-08-06T10:12:22',
+                        activity: 'Status updated to ongoing'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/network_logs.txt']
             },
             {
                 id: '22f7a9ba-8c1d-4f43-989e-5e68e4c7d1c8',
@@ -83,7 +160,20 @@ export const TicketService = {
                 category: 'data_backup',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-08-15T08:34:12',
-                updated_at: '2024-08-15T08:34:12'
+                updated_at: '2024-08-15T08:34:12',
+                due_date: '2024-08-22T08:34:12',
+                assignee: 'michael.brown@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-08-15T08:34:12',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-08-15T09:00:00',
+                        activity: 'Assigned to Michael Brown'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/db_logs.txt']
             },
             {
                 id: '41c98a1d-949e-4b19-9bb2-063580b0c732',
@@ -97,7 +187,20 @@ export const TicketService = {
                 category: 'web_online_services',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-08-16T11:23:45',
-                updated_at: '2024-08-16T11:23:45'
+                updated_at: '2024-08-16T11:23:45',
+                due_date: '2024-08-23T11:23:45',
+                assignee: 'emily.wilson@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-08-16T11:23:45',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-08-16T12:00:00',
+                        activity: 'Assigned to Emily Wilson'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/upload_error_logs.txt']
             },
             {
                 id: 'fe121c02-80c7-4a2f-9f6f-fb1e68dcd29e',
@@ -111,7 +214,24 @@ export const TicketService = {
                 category: 'email_communication',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-07-25T10:45:56',
-                updated_at: '2024-07-28T14:12:12'
+                updated_at: '2024-07-28T14:12:12',
+                due_date: '2024-08-01T10:45:56',
+                assignee: 'david.martinez@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-07-25T10:45:56',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-07-25T11:00:00',
+                        activity: 'Assigned to David Martinez'
+                    },
+                    {
+                        timestamp: '2024-07-28T14:12:12',
+                        activity: 'Status updated to resolved'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/email_filter_logs.txt']
             },
             {
                 id: '8d4e0489-9a29-474b-8503-e3bc1ab20f3f',
@@ -125,7 +245,24 @@ export const TicketService = {
                 category: 'security_access',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-08-14T09:22:12',
-                updated_at: '2024-08-15T12:34:09'
+                updated_at: '2024-08-15T12:34:09',
+                due_date: '2024-08-21T09:22:12',
+                assignee: 'laura.garcia@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-08-14T09:22:12',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-08-14T10:00:00',
+                        activity: 'Assigned to Laura Garcia'
+                    },
+                    {
+                        timestamp: '2024-08-15T12:34:09',
+                        activity: 'Status updated to ongoing'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/file_server_logs.txt']
             },
             {
                 id: 'c9b453fa-0a95-4ac7-88f2-cc43ff4b8658',
@@ -139,7 +276,20 @@ export const TicketService = {
                 category: 'security_access',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-08-16T15:01:34',
-                updated_at: '2024-08-16T15:01:34'
+                updated_at: '2024-08-16T15:01:34',
+                due_date: '2024-08-23T15:01:34',
+                assignee: 'ryan.taylor@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-08-16T15:01:34',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-08-16T16:00:00',
+                        activity: 'Assigned to Ryan Taylor'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/password_reset_logs.txt']
             },
             {
                 id: 'd3e16e4e-bb38-45eb-85a7-82d15c16fc79',
@@ -153,7 +303,20 @@ export const TicketService = {
                 category: 'security_access',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-08-17T10:30:00',
-                updated_at: '2024-08-17T10:30:00'
+                updated_at: '2024-08-17T10:30:00',
+                due_date: '2024-08-24T10:30:00',
+                assignee: 'sophia.clark@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-08-17T10:30:00',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-08-17T11:00:00',
+                        activity: 'Assigned to Sophia Clark'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/login_error_logs.txt']
             },
             {
                 id: '6f4bb205-c0cf-47b6-9c52-234c3d6a5a4a',
@@ -167,7 +330,24 @@ export const TicketService = {
                 category: 'performance_optimization',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-08-18T11:45:23',
-                updated_at: '2024-08-19T14:22:18'
+                updated_at: '2024-08-19T14:22:18',
+                due_date: '2024-08-25T11:45:23',
+                assignee: 'oliver.wilson@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-08-18T11:45:23',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-08-18T12:00:00',
+                        activity: 'Assigned to Oliver Wilson'
+                    },
+                    {
+                        timestamp: '2024-08-19T14:22:18',
+                        activity: 'Status updated to ongoing'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/update_error_logs.txt']
             },
             {
                 id: '8b45c1e7-5d5c-4c98-ae2b-2b36f5c8c1e5',
@@ -181,7 +361,24 @@ export const TicketService = {
                 category: 'hardware_devices',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-08-20T08:30:55',
-                updated_at: '2024-08-22T16:15:30'
+                updated_at: '2024-08-22T16:15:30',
+                due_date: '2024-08-27T08:30:55',
+                assignee: 'emma.thompson@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-08-20T08:30:55',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-08-20T09:00:00',
+                        activity: 'Assigned to Emma Thompson'
+                    },
+                    {
+                        timestamp: '2024-08-22T16:15:30',
+                        activity: 'Status updated to resolved'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/server_temp_logs.txt']
             },
             {
                 id: 'b2d4c8e3-2d14-4a6a-982e-b1f9c8b4c3d6',
@@ -195,7 +392,20 @@ export const TicketService = {
                 category: 'hardware_devices',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-08-21T09:12:34',
-                updated_at: '2024-08-21T09:12:34'
+                updated_at: '2024-08-21T09:12:34',
+                due_date: '2024-08-28T09:12:34',
+                assignee: 'noah.martinez@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-08-21T09:12:34',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-08-21T10:00:00',
+                        activity: 'Assigned to Noah Martinez'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/printer_logs.txt']
             },
             {
                 id: 'c7f1b3c5-df5c-4b3a-918a-4b61c76d4e67',
@@ -209,7 +419,20 @@ export const TicketService = {
                 category: 'security_access',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-08-22T10:25:44',
-                updated_at: '2024-08-22T10:25:44'
+                updated_at: '2024-08-22T10:25:44',
+                due_date: '2024-08-29T10:25:44',
+                assignee: 'ava.hernandez@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-08-22T10:25:44',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-08-22T11:00:00',
+                        activity: 'Assigned to Ava Hernandez'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/permission_logs.txt']
             },
             {
                 id: 'e2f4b6c8-8b5e-4b5b-9f7d-c8d2a9b0c8f4',
@@ -223,91 +446,24 @@ export const TicketService = {
                 category: 'web_online_services',
                 image_url: 'https://via.placeholder.com/150',
                 created_at: '2024-08-23T12:34:56',
-                updated_at: '2024-08-24T08:45:12'
-            },
-            {
-                id: 'a7c2e5b4-9f4a-4f35-bd3e-9a3b4c6d7f80',
-                organization_id: 'c9d0e1f2-3456-78ab-cd90-1234567890ef',
-                user_id: 'b4a5c6d7-8901-23ef-gh45-67890ijklmno',
-                code: 'TICK-017',
-                title: 'Hardware malfunction',
-                description: 'Critical hardware failure in the main server causing service interruption.',
-                status: 'ongoing',
-                priority: 'urgent',
-                category: 'hardware_devices',
-                image_url: 'https://via.placeholder.com/150',
-                created_at: '2024-08-24T15:22:18',
-                updated_at: '2024-08-24T15:22:18'
-            },
-            {
-                id: 'b8d1e9c3-5f7a-4c2d-a8d9-0e6f5g7h8i9j',
-                organization_id: 'e2f3g4h5-6789-01ij-klmn-234567890pqr',
-                user_id: 'c7d8e9f0-1234-56ab-cd78-90123456789s',
-                code: 'TICK-018',
-                title: 'Database access denied',
-                description: 'Unable to access the company database due to permission errors.',
-                status: 'open',
-                priority: 'high',
-                category: 'data_backup',
-                image_url: 'https://via.placeholder.com/150',
-                created_at: '2024-08-25T11:35:29',
-                updated_at: '2024-08-25T11:35:29'
-            },
-            {
-                id: 'd5f8b3c2-4d5e-6f7a-8c9d-0123456789ef',
-                organization_id: 'a9b0c1d2-3456-78ef-gh90-1234567890ij',
-                user_id: 'd9e0f1g2-3456-78ab-cd90-1234567890kl',
-                code: 'TICK-019',
-                title: 'Network congestion',
-                description: 'Network congestion issues causing slow data transfer and connectivity problems.',
-                status: 'resolved',
-                priority: 'medium',
-                category: 'network_connectivity',
-                image_url: 'https://via.placeholder.com/150',
-                created_at: '2024-08-26T14:44:56',
-                updated_at: '2024-08-27T09:15:34'
-            },
-            {
-                id: 'e3f6a1b9-8c2d-4e5f-6a78-901234b5c6d7',
-                organization_id: 'b1c2d3e4-5678-90fg-hi12-345678901jkl',
-                user_id: 'f4g5h6i7-8901-23ab-cd45-67890efghij',
-                code: 'TICK-020',
-                title: 'Software license expired',
-                description: 'License for critical software has expired, causing application functionality issues.',
-                status: 'ongoing',
-                priority: 'high',
-                category: 'software_applications',
-                image_url: 'https://via.placeholder.com/150',
-                created_at: '2024-08-27T10:22:30',
-                updated_at: '2024-08-27T10:22:30'
-            },
-            {
-                id: 'f6g7h8i9-0a1b-2c3d-4e5f-6789012345ab',
-                organization_id: 'c1d2e3f4-5678-90gh-ijkl-1234567890mn',
-                user_id: 'a2b3c4d5-6789-01ef-gh23-456789012345',
-                code: 'TICK-021',
-                title: 'Lost access to shared drive',
-                description: 'User is unable to access a shared drive due to an unknown error.',
-                status: 'open',
-                priority: 'medium',
-                category: 'security_access',
-                image_url: 'https://via.placeholder.com/150',
-                created_at: '2024-08-28T16:35:44',
-                updated_at: '2024-08-28T16:35:44'
-            },
-            {
-                id: 'a5b6c7d8-9e0f-1a2b-3c4d-567890e1f2g3',
-                organization_id: 'd1e2f3g4-5678-90hi-jklm-1234567890op',
-                user_id: 'c4d5e6f7-8901-23ab-cd45-67890efghij',
-                code: 'TICK-022',
-                title: 'User account lockout',
-                description: 'User account is locked out after multiple unsuccessful login attempts.',
-                status: 'resolved',
-                priority: 'low',
-                category: 'security_access',
-                image_url: 'https://via.placeholder.com/150',
-                created_at: '2024-08-29T13:22:18',
-                updated_at: '2024-08-29T13:22:18'
+                updated_at: '2024-08-24T08:45:12',
+                due_date: '2024-08-30T12:34:56',
+                assignee: 'liam.rodriguez@example.com',
+                activities: [
+                    {
+                        timestamp: '2024-08-23T12:34:56',
+                        activity: 'Ticket created'
+                    },
+                    {
+                        timestamp: '2024-08-23T13:00:00',
+                        activity: 'Assigned to Liam Rodriguez'
+                    },
+                    {
+                        timestamp: '2024-08-24T08:45:12',
+                        activity: 'Status updated to resolved'
+                    }
+                ],
+                attachments: ['https://example.com/attachments/website_error_logs.txt']
             }
         ];
     },

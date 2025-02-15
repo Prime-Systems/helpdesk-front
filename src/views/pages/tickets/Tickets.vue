@@ -14,6 +14,7 @@ const toast = useToast();
 const dt = ref();
 const tickets = ref([]);
 const ticketDialog = ref(false);
+const ticketDetailsDialog = ref(false);
 const deleteTicketDialog = ref(false);
 const deleteTicketsDialog = ref(false);
 const ticket = ref({});
@@ -57,6 +58,12 @@ function openNew() {
 function hideDialog() {
     ticketDialog.value = false;
     submitted.value = false;
+}
+
+function openTicketDetailsDialog(event) {
+    console.log('Row Clicked', event.data);
+    ticketDetailsDialog.value = true;
+    ticket.value = event.data;
 }
 
 function initFilters() {
@@ -219,9 +226,11 @@ function transformPriorityAndStatus(priority) {
                 paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                 :rowsPerPageOptions="[5, 10, 25]"
                 currentPageReportTemplate="Showing {first} to {last} of {totalRecords} products"
-                row-click=""
+                @row-click="openTicketDetailsDialog"
                 :globalFilterFields="['category', 'status', 'category', 'priority', 'description']"
                 filterDisplay="row"
+                :rowHover="true"
+                class="[&_tr]:cursor-pointer"
             >
                 <template #header>
                     <div class="flex flex-wrap gap-2 items-center justify-between">
@@ -256,7 +265,7 @@ function transformPriorityAndStatus(priority) {
                     </template>
 
                     <template #filter="{ filterModel }">
-                        <InputText v-model="filters['description'].value" placeholder="Search..." />
+                        <InputText v-model="filters['description'].value" placeholder="Search..." style="min-width: 4rem" />
                     </template>
                 </Column>
                 <Column field="priority" sortable header="Priority" style="min-width: 6rem" :showFilterMenu="false">
@@ -362,5 +371,43 @@ function transformPriorityAndStatus(priority) {
                 <Button label="Yes" icon="pi pi-check" text @click="deleteSelectedTickets" />
             </template>
         </Dialog>
+
+        <div class="card flex justify-center items-center">
+            <Drawer v-model:visible="ticketDetailsDialog" header="Ticket Details" position="right" class="!w-full md:!w-80 lg:!w-[50rem]">
+                <div class="flex flex-col">
+                    <!--Details side by side-->
+                    <h1 class="text-surface-900 dark:text-surface-0 font-bold text-3xl lg:text-5xl mb-2">{{ ticket.title }}</h1>
+                    <div class="flex flex-col">
+                        <div class="flex flex-row gap-4">
+                            <span class="font-bold">Status</span>
+                            <span>{{ ticket.status }}</span>
+                        </div>
+                        <div class="flex flex-row gap-4">
+                            <span class="font-bold">Due Date</span>
+                            <span>{{ ticket.due_date }}</span>
+                        </div>
+                        <div class="flex flex-row gap-4">
+                            <span class="font-bold">Assignee</span>
+                            <span>{{ ticket.assignee }}</span>
+                        </div>
+                        <div class="flex flex-row gap-4">
+                            <span class="font-bold">Category</span>
+                            <span>{{ ticket.category }}</span>
+                        </div>
+                    </div>
+
+                    <!--Description-->
+                    <div class="flex flex-col mt-4">
+                        <span class="font-bold">Description</span>
+                        <p>{{ ticket.description }}</p>
+                    </div>
+
+                    <!--Ticket attachments-->
+                    <div class="flex flex-col mt-4">
+                        <span class="font-bold">Attachments</span>
+                    </div>
+                </div>
+            </Drawer>
+        </div>
     </div>
 </template>
