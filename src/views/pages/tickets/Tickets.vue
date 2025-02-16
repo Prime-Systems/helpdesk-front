@@ -1,18 +1,24 @@
 <script setup>
+import { CommentService } from '@/service/CommentService';
 import { TicketService } from '@/service/TicketService';
 import { FilterMatchMode } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
-import { onBeforeMount, ref } from 'vue';
+import { computed, onBeforeMount, ref } from 'vue';
 
 onBeforeMount(() => {
     //ProductService.getProducts().then((data) => (products.value = data));
     TicketService.getTickets().then((data) => (tickets.value = data));
+    CommentService.getComments().then((data) => {
+        comments.value = data;
+        console.log('Comments', comments.value);
+    });
     initFilters();
 });
 
 const toast = useToast();
 const dt = ref();
 const tickets = ref([]);
+const comments = ref([]);
 const ticketDialog = ref(false);
 const ticketDetailsDialog = ref(false);
 const deleteTicketDialog = ref(false);
@@ -40,6 +46,14 @@ const categories = ref([
     { label: 'Printing & Office Equipment', value: 'printing_office_equipment' },
     { label: 'Administrative & Requests', value: 'administrative_requests' }
 ]);
+
+const documents = ref([
+    { name: 'Project Proposal.pdf', type: 'pdf', url: '/files/project-proposal.pdf' },
+    { name: 'Design Mockup.png', type: 'image', url: '/files/design-mockup.png' },
+    { name: 'Report.docx', type: 'file', url: '/files/report.docx' }
+]);
+
+const newComment = ref({ text: '', private: false });
 
 const statuses = ref(['open', 'ongoing', 'resolved', 'closed']);
 const priorities = ref(['low', 'medium', 'high', 'urgent']);
@@ -200,6 +214,73 @@ function transformPriorityAndStatus(priority) {
         .map((word) => word.toUpperCase())
         .join(' ');
 }
+
+const formatDate = (date) => {
+    if (!date) return '';
+    return new Date(date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
+};
+
+const getDaysUntilDue = (dueDate) => {
+    if (!dueDate) return 0;
+    const today = new Date();
+    const due = new Date(dueDate);
+    const diffTime = Math.abs(due - today);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+};
+
+const fileTypeIcon = (type) => {
+    return type === 'pdf' ? 'pi pi-file-pdf text-red-500' : type === 'image' ? 'pi pi-image text-blue-500' : 'pi pi-file text-gray-500';
+};
+
+const fileTypeClass = (type) => {
+    return type === 'pdf' ? 'bg-red-100 text-red-500' : type === 'image' ? 'bg-blue-100 text-blue-500' : 'bg-gray-100 text-gray-500';
+};
+
+const addComment = (ticketId) => {
+    if (newComment.value.text.trim() !== '') {
+        // Find the comment entry for this ticketId
+        const ticketComments = comments.value.find((ticket) => ticket.ticketId === ticketId);
+
+        if (ticketComments) {
+            // If ticket exists, push the new comment into its comments array
+            ticketComments.comments.push({
+                commentId: `c${ticketComments.comments.length + 1}`, // Unique comment ID
+                timestamp: new Date().toISOString(),
+                comment: newComment.value.text,
+                visibility: newComment.value.private ? 'private' : 'public',
+                author: 'You'
+            });
+        } else {
+            // If no comments exist for this ticket, create a new entry
+            comments.value.push({
+                ticketId,
+                comments: [
+                    {
+                        commentId: 'c1',
+                        timestamp: new Date().toISOString(),
+                        comment: newComment.value.text,
+                        visibility: newComment.value.private ? 'private' : 'public',
+                        author: 'You'
+                    }
+                ]
+            });
+        }
+
+        // Reset input fields
+        newComment.value.text = '';
+        newComment.value.private = false;
+    }
+};
+
+const filteredComments = computed(() => {
+    const ticketComm = comments.value.find((ticketComments) => ticketComments.ticketId == ticket.value.id);
+    return ticketComm ? ticketComm.comments : [];
+});
 </script>
 
 <template>
@@ -373,41 +454,198 @@ function transformPriorityAndStatus(priority) {
         </Dialog>
 
         <div class="card flex justify-center items-center">
-            <Drawer v-model:visible="ticketDetailsDialog" header="Ticket Details" position="right" class="!w-full md:!w-80 lg:!w-[50rem]">
-                <div class="flex flex-col">
-                    <!--Details side by side-->
-                    <h1 class="text-surface-900 dark:text-surface-0 font-bold text-3xl lg:text-5xl mb-2">{{ ticket.title }}</h1>
+            <Drawer v-model:visible="ticketDetailsDialog" position="right" class="!w-full md:!w-[50rem] lg:!w-[50rem]" :blockScroll="true">
+                <template #header>
+                    <div class="flex flex-row justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <Tag :value="transformPriorityAndStatus(ticket.status)" :severity="getStatusLabel(ticket.status)" />
+                            <span class="font-bold text-lg">{{ ticket.code }}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <Button icon="pi pi-paperclip" text size="small" label="Attach" @click="editTicket(ticket)" />
+                            <Button icon="pi pi-share-alt" text size="small" label="Share" @click="editTicket(ticket)" />
+                        </div>
+                    </div>
+                </template>
+
+                <template #default>
                     <div class="flex flex-col">
-                        <div class="flex flex-row gap-4">
-                            <span class="font-bold">Status</span>
-                            <span>{{ ticket.status }}</span>
-                        </div>
-                        <div class="flex flex-row gap-4">
-                            <span class="font-bold">Due Date</span>
-                            <span>{{ ticket.due_date }}</span>
-                        </div>
-                        <div class="flex flex-row gap-4">
-                            <span class="font-bold">Assignee</span>
-                            <span>{{ ticket.assignee }}</span>
-                        </div>
-                        <div class="flex flex-row gap-4">
-                            <span class="font-bold">Category</span>
-                            <span>{{ ticket.category }}</span>
-                        </div>
-                    </div>
+                        <h1 class="text-surface-900 dark:text-surface-0 font-bold text-3xl lg:text-5xl mb-2 capitalize">{{ ticket.title }}</h1>
 
-                    <!--Description-->
-                    <div class="flex flex-col mt-4">
-                        <span class="font-bold">Description</span>
-                        <p>{{ ticket.description }}</p>
+                        <div class="flex items-center gap-6 mb-2">
+                            <div class="flex items-center gap-2">
+                                <i class="pi pi-clock text-gray-400"></i>
+                                <span class="text-sm">Due in {{ getDaysUntilDue(ticket.due_date) }} days</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <i class="pi pi-flag-fill text-red-500"></i>
+                                <span class="text-sm">{{ transformPriorityAndStatus(ticket.priority) }} Priority</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <i class="pi pi-comments text-gray-400"></i>
+                                <span class="text-sm">8 comments</span>
+                            </div>
+                        </div>
                     </div>
+                    <div class="flex flex-col gap-6 pt-6">
+                        <div class="flex flex-col gap-6">
+                            <div class="space-y-3">
+                                <h2 class="text-lg font-semibold">Details</h2>
+                                <div class="flex flex-col gap-3 text-sm">
+                                    <div class="flex items-center">
+                                        <span class="text-gray-500 min-w-[100px]">Assignee</span>
+                                        <div class="flex items-center gap-2">
+                                            <span>{{ ticket.assignee }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <span class="text-gray-500 min-w-[100px]">Due Date</span>
+                                        <div class="flex items-center gap-2">
+                                            <i class="pi pi-calendar"></i>
+                                            <span>{{ formatDate(ticket.due_date) }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <span class="text-gray-500 min-w-[100px]">Category</span>
+                                        <span>{{ transformCategoryValue(ticket.category) }}</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <span class="text-gray-500 min-w-[100px]">Status</span>
+                                        <Tag :value="ticket.status" :severity="getStatusLabel(ticket.status)" />
+                                    </div>
+                                </div>
+                            </div>
 
-                    <!--Ticket attachments-->
-                    <div class="flex flex-col mt-4">
-                        <span class="font-bold">Attachments</span>
+                            <div class="space-y-4">
+                                <h2 class="text-sm font-semibold">Tags</h2>
+                                <div class="flex flex-wrap gap-2">
+                                    <Tag value="Support" severity="info" />
+                                    <Tag value="Urgent" severity="danger" />
+                                    <Tag value="Mobile" severity="success" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex-grow">
+                            <div class="mb-6">
+                                <h2 class="text-lg font-semibold mb-2">Description</h2>
+                                <p class="text-sm text-gray-600 leading-relaxed">{{ ticket.description }}</p>
+                            </div>
+
+                            <div class="mb-6">
+                                <div class="flex flex-row">
+                                    <h2 class="text-lg font-semibold min-w-[100px]">Attachments</h2>
+                                    <Button icon="pi pi-download" text size="small" label="Download all" />
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    <Card v-for="(doc, index) in documents" :key="index" class="p-2 shadow-lg rounded-xl">
+                                        <template #content>
+                                            <div class="flex items-center gap-2">
+                                                <!-- File Type Icon -->
+                                                <div class="p-2 rounded-lg" :class="fileTypeClass(doc.type)">
+                                                    <i :class="fileTypeIcon(doc.type)" class="text-xl"></i>
+                                                </div>
+
+                                                <!-- File Info -->
+                                                <div class="flex-1">
+                                                    <p class="truncate text-md font-medium">{{ doc.name }}</p>
+                                                    <p class="text-sm text-gray-500">{{ doc.type.toUpperCase() }}</p>
+                                                </div>
+
+                                                <!-- Actions -->
+                                                <div class="flex gap-1">
+                                                    <Button icon="pi pi-eye" class="p-button-rounded p-button-text" @click="viewFile(doc.url)" />
+                                                    <Button icon="pi pi-download" class="p-button-rounded p-button-text" @click="downloadFile(doc.url, doc.name)" />
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </Card>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!--Tabs for activity and comments-->
+                        <Tabs value="0">
+                            <TabList>
+                                <Tab value="0">Activities</Tab>
+                                <Tab value="1">Comments</Tab>
+                            </TabList>
+                            <!-- Activities Timeline Tab -->
+                            <TabPanels>
+                                <TabPanel value="0">
+                                    <Timeline :value="ticket.activities" class="w-full md:w-80" align="alternate">
+                                        <template #opposite="slotProps">
+                                            <small class="text-surface-500 dark:text-surface-400">{{ formatDate(slotProps.item.timestamp) }}</small>
+                                        </template>
+                                        <template #content="slotProps">
+                                            <div class="p-3 border rounded-lg bg-gray-50 dark:bg-gray-800">
+                                                <p class="text-md font-medium">{{ slotProps.item.activity }}</p>
+                                                <!-- <p class="text-sm text-gray-500">{{ formatDate(slotProps.item.timestamp) }}</p> -->
+                                            </div>
+                                        </template>
+                                    </Timeline>
+                                </TabPanel>
+
+                                <!-- Comments Tab -->
+                                <TabPanel value="1">
+                                    <div class="space-y-4">
+                                        <!-- List Comments -->
+
+                                        <div v-for="comment in filteredComments.comments" :key="comment.commentId" class="p-3 border rounded-lg bg-gray-50 dark:bg-gray-800">
+                                            <div class="flex items-center justify-between">
+                                                <p class="font-medium">{{ comment.author }}</p>
+                                                <p class="text-xs text-gray-500">{{ formatDate(comment.timestamp) }}</p>
+                                            </div>
+                                            <p class="text-sm mt-2" :class="{ 'italic text-gray-400': comment.visibility == 'private' }">{{ comment.comment }} <span v-if="comment.visibility == 'private'">(Private)</span></p>
+                                        </div>
+
+                                        <!-- Add New Comment -->
+                                        <div class="mt-4">
+                                            <Textarea v-model="newComment.text" rows="3" class="w-full" placeholder="Add a comment..." />
+                                            <div class="flex items-center justify-between mt-2">
+                                                <div class="flex items-center gap-2">
+                                                    <Checkbox v-model="newComment.private" :binary="true" />
+                                                    <label for="privateComment">Private</label>
+                                                </div>
+                                                <Button label="Post" icon="pi pi-send" class="p-button-sm" @click="addComment(ticket.id)" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </TabPanel>
+                            </TabPanels>
+                        </Tabs>
                     </div>
-                </div>
+                </template>
             </Drawer>
         </div>
     </div>
 </template>
+
+<style scoped>
+.p-drawer .p-drawer-header {
+    padding-bottom: 0;
+}
+
+.p-drawer .p-drawer-content {
+    padding: 1.5rem;
+}
+
+.p-drawer .p-drawer-mask.p-component-overlay {
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+.p-card {
+    transition:
+        transform 0.2s,
+        box-shadow 0.2s;
+}
+.p-card:hover {
+    transform: scale(1.03);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+</style>
