@@ -23,7 +23,13 @@ const ticketDialog = ref(false);
 const ticketDetailsDialog = ref(false);
 const deleteTicketDialog = ref(false);
 const deleteTicketsDialog = ref(false);
-const ticket = ref({});
+const ticket = ref({
+    title: '',
+    description: '',
+    category: null,
+    tags: [],
+    attachments: []
+});
 const selectedTickets = ref();
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
@@ -90,31 +96,119 @@ function initFilters() {
     };
 }
 
+// Add these methods to handle file uploads
+const onUpload = (event) => {
+    // This will be called when files are selected
+    toast.add({ severity: 'info', summary: 'Success', detail: 'Files selected', life: 3000 });
+};
+
+// Modify your saveTicket function to handle the new form fields
 function saveTicket() {
     submitted.value = true;
 
     if (ticket?.value.title?.trim()) {
         if (ticket.value.id) {
+            // For existing tickets
             ticket.value.category = ticket.value.category.value ? ticket.value.category.value : ticket.value.category;
+
+            // Set priority based on category (example logic)
+            ticket.value.priority = determinePriorityFromCategory(ticket.value.category);
+
             const index = findIndexById(ticket.value.id);
             if (index !== -1) {
                 tickets.value.splice(index, 1, ticket.value);
             }
 
+            // Handle file uploads for existing ticket
+            if (ticket.value.attachments && ticket.value.attachments.length > 0) {
+                uploadFiles(ticket.value.id, ticket.value.attachments);
+            }
+
             toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Updated', life: 3000 });
         } else {
+            // For new tickets
             ticket.value.id = createId();
             ticket.value.code = createTicketCode();
             ticket.value.image = 'product-placeholder.svg';
-            ticket.value.status = ticket.value.status ? ticket.value.status.value : 'open';
-            ticket.value.category = ticket.value.category.status ? ticket.value.category.value : 'administrative_requests';
+            ticket.value.status = 'open';
+
+            // Set priority based on category
+            ticket.value.priority = determinePriorityFromCategory(ticket.value.category);
+
+            // Ensure tags is an array
+            if (!ticket.value.tags) {
+                ticket.value.tags = [];
+            }
+
             tickets.value.push(ticket.value);
+
+            // Handle file uploads for new ticket
+            if (ticket.value.attachments && ticket.value.attachments.length > 0) {
+                uploadFiles(ticket.value.id, ticket.value.attachments);
+            }
+
             toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Created', life: 3000 });
         }
 
         ticketDialog.value = false;
         ticket.value = {};
     }
+}
+
+// Add a function to determine priority based on category
+function determinePriorityFromCategory(category) {
+    // Example logic - customize based on your business rules
+    switch (category) {
+        case 'security_access':
+        case 'network_connectivity':
+            return 'high';
+
+        case 'email_communication':
+        case 'account_management':
+        case 'performance_optimization':
+            return 'medium';
+
+        default:
+            return 'low';
+    }
+}
+
+// Function to remove an attachment by index
+function removeAttachment(index) {
+    if (ticket.value.attachments && index >= 0 && index < ticket.value.attachments.length) {
+        ticket.value.attachments.splice(index, 1);
+        toast.add({ severity: 'info', summary: 'File Removed', detail: 'Attachment has been removed', life: 3000 });
+    }
+}
+
+// Simulate file upload - in a real app, this would be an API call
+function uploadFiles(ticketId, files) {
+    console.log(`Uploading ${files.length} files for ticket ${ticketId}`);
+    // In a real application, you would:
+    // 1. Create FormData
+    // 2. Append files
+    // 3. Send to your API
+    // 4. Handle response
+
+    // Example:
+    // const formData = new FormData();
+    // formData.append('ticketId', ticketId);
+    // files.forEach((fileInfo, index) => {
+    //     formData.append(`file${index}`, fileInfo.file);
+    // });
+    //
+    // fetch('/api/upload', {
+    //     method: 'POST',
+    //     body: formData
+    // })
+    // .then(response => response.json())
+    // .then(data => console.log('Upload successful', data))
+    // .catch(error => console.error('Error uploading files', error));
+
+    // For this example, we'll just log it
+    setTimeout(() => {
+        console.log('Files uploaded successfully');
+    }, 1500);
 }
 
 function editTicket(prod) {
@@ -383,42 +477,45 @@ const filteredComments = computed(() => {
             </DataTable>
         </div>
 
-        <Dialog v-model:visible="ticketDialog" :style="{ width: '450px' }" header="Ticket Details" :modal="true">
+        <Dialog v-model:visible="ticketDialog" :style="{ width: '550px' }" header="Ticket Details" :modal="true">
             <div class="flex flex-col gap-6">
                 <div>
                     <label for="name" class="block font-bold mb-3">Title</label>
-                    <InputText id="name" v-model.trim="ticket.title" required="true" autofocus :invalid="submitted && !ticket.title" fluid />
+                    <InputText id="name" v-model.trim="ticket.title" required="true" autofocus :invalid="submitted && !ticket.title" class="w-full" />
                     <small v-if="submitted && !ticket.title" class="text-red-500">Title is required.</small>
-                </div>
-                <div>
-                    <label for="description" class="block font-bold mb-3">Description</label>
-                    <Textarea id="description" v-model="ticket.description" required="true" rows="3" cols="20" fluid />
-                </div>
-                <div>
-                    <label for="category" class="block font-bold mb-3">Category</label>
-                    <Select id="category" v-model="ticket.category" :options="categories" optionLabel="label" optionValue="value" placeholder="Select a category" checkmark :highlightOnSelect="false" fluid></Select>
                 </div>
 
                 <div>
-                    <span class="block font-bold mb-4">Priority</span>
-                    <div class="grid grid-cols-12 gap-4">
-                        <div class="flex items-center gap-2 col-span-6">
-                            <RadioButton id="priority1" v-model="ticket.priority" name="priority" value="low" />
-                            <label for="priority1">Low</label>
-                        </div>
-                        <div class="flex items-center gap-2 col-span-6">
-                            <RadioButton id="priority2" v-model="ticket.priority" name="priority" value="medium" />
-                            <label for="priority2">Medium</label>
-                        </div>
-                        <div class="flex items-center gap-2 col-span-6">
-                            <RadioButton id="priority3" v-model="ticket.priority" name="priority" value="high" />
-                            <label for="priority3">High</label>
-                        </div>
-                        <div class="flex items-center gap-2 col-span-6">
-                            <RadioButton id="priority4" v-model="ticket.priority" name="priority" value="urgent" />
-                            <label for="priority4">Urgent</label>
-                        </div>
-                    </div>
+                    <label for="description" class="block font-bold mb-3">Description</label>
+                    <Textarea id="description" v-model="ticket.description" required="true" rows="3" class="w-full" />
+                </div>
+
+                <div>
+                    <label for="category" class="block font-bold mb-3">Category</label>
+                    <Select id="category" v-model="ticket.category" :options="categories" optionLabel="label" optionValue="value" placeholder="Select a category" checkmark :highlightOnSelect="false" class="w-full" />
+                    <small class="text-gray-500">Priority will be set automatically based on category</small>
+                </div>
+
+                <div>
+                    <label for="tags" class="block font-bold mb-3">Tags</label>
+                    <Chips v-model="ticket.tags" class="w-full" placeholder="Add tags and press enter" :addOnBlur="true" :allowDuplicate="false" />
+                </div>
+
+                <div>
+                    <label for="attachments" class="block font-bold mb-3">Attachments</label>
+                    <FileUpload
+                        :multiple="true"
+                        accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        :maxFileSize="5000000"
+                        chooseLabel="Browse"
+                        class="w-full"
+                        @upload="onUpload"
+                    >
+                        <template #empty>
+                            <p>Drag and drop files here to upload.</p>
+                        </template>
+                    </FileUpload>
+                    <small class="text-gray-500">Maximum file size: 5MB</small>
                 </div>
             </div>
 
@@ -487,134 +584,137 @@ const filteredComments = computed(() => {
                             </div>
                         </div>
                     </div>
-                    <div class="flex flex-col gap-6 pt-6">
-                        <div class="flex flex-col gap-6">
-                            <div class="space-y-3">
-                                <h2 class="text-lg font-semibold">Details</h2>
-                                <div class="flex flex-col gap-3 text-sm">
-                                    <div class="flex items-center">
-                                        <span class="text-gray-500 min-w-[100px]">Assignee</span>
-                                        <div class="flex items-center gap-2">
-                                            <span>{{ ticket.assignee }}</span>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center">
-                                        <span class="text-gray-500 min-w-[100px]">Due Date</span>
-                                        <div class="flex items-center gap-2">
-                                            <i class="pi pi-calendar"></i>
-                                            <span>{{ formatDate(ticket.due_date) }}</span>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center">
-                                        <span class="text-gray-500 min-w-[100px]">Category</span>
-                                        <span>{{ transformCategoryValue(ticket.category) }}</span>
-                                    </div>
-                                    <div class="flex items-center">
-                                        <span class="text-gray-500 min-w-[100px]">Status</span>
-                                        <Tag :value="ticket.status" :severity="getStatusLabel(ticket.status)" />
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div class="space-y-4">
-                                <h2 class="text-sm font-semibold">Tags</h2>
-                                <div class="flex flex-wrap gap-2">
-                                    <Tag value="Support" severity="info" />
-                                    <Tag value="Urgent" severity="danger" />
-                                    <Tag value="Mobile" severity="success" />
-                                </div>
-                            </div>
-                        </div>
+                    <!--Tabs for activity and comments-->
+                    <Tabs value="0">
+                        <TabList>
+                            <Tab value="0">Activities</Tab>
+                            <Tab value="1">Comments</Tab>
+                        </TabList>
 
-                        <div class="flex-grow">
-                            <div class="mb-6">
-                                <h2 class="text-lg font-semibold mb-2">Description</h2>
-                                <p class="text-sm text-gray-600 leading-relaxed">{{ ticket.description }}</p>
-                            </div>
-
-                            <div class="mb-6">
-                                <div class="flex flex-row">
-                                    <h2 class="text-lg font-semibold min-w-[100px]">Attachments</h2>
-                                    <Button icon="pi pi-download" text size="small" label="Download all" />
-                                </div>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                    <Card v-for="(doc, index) in documents" :key="index" class="p-2 shadow-lg rounded-xl">
-                                        <template #content>
-                                            <div class="flex items-center gap-2">
-                                                <!-- File Type Icon -->
-                                                <div class="p-2 rounded-lg" :class="fileTypeClass(doc.type)">
-                                                    <i :class="fileTypeIcon(doc.type)" class="text-xl"></i>
-                                                </div>
-
-                                                <!-- File Info -->
-                                                <div class="flex-1">
-                                                    <p class="truncate text-md font-medium">{{ doc.name }}</p>
-                                                    <p class="text-sm text-gray-500">{{ doc.type.toUpperCase() }}</p>
-                                                </div>
-
-                                                <!-- Actions -->
-                                                <div class="flex gap-1">
-                                                    <Button icon="pi pi-eye" class="p-button-rounded p-button-text" @click="viewFile(doc.url)" />
-                                                    <Button icon="pi pi-download" class="p-button-rounded p-button-text" @click="downloadFile(doc.url, doc.name)" />
-                                                </div>
-                                            </div>
-                                        </template>
-                                    </Card>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!--Tabs for activity and comments-->
-                        <Tabs value="0">
-                            <TabList>
-                                <Tab value="0">Activities</Tab>
-                                <Tab value="1">Comments</Tab>
-                            </TabList>
-                            <!-- Activities Timeline Tab -->
-                            <TabPanels>
-                                <TabPanel value="0">
-                                    <Timeline :value="ticket.activities" class="w-full md:w-80" align="alternate">
-                                        <template #opposite="slotProps">
-                                            <small class="text-surface-500 dark:text-surface-400">{{ formatDate(slotProps.item.timestamp) }}</small>
-                                        </template>
-                                        <template #content="slotProps">
-                                            <div class="p-3 border rounded-lg bg-gray-50 dark:bg-gray-800">
-                                                <p class="text-md font-medium">{{ slotProps.item.activity }}</p>
-                                                <!-- <p class="text-sm text-gray-500">{{ formatDate(slotProps.item.timestamp) }}</p> -->
-                                            </div>
-                                        </template>
-                                    </Timeline>
-                                </TabPanel>
-
-                                <!-- Comments Tab -->
-                                <TabPanel value="1">
-                                    <div class="space-y-4">
-                                        <!-- List Comments -->
-
-                                        <div v-for="comment in filteredComments.comments" :key="comment.commentId" class="p-3 border rounded-lg bg-gray-50 dark:bg-gray-800">
-                                            <div class="flex items-center justify-between">
-                                                <p class="font-medium">{{ comment.author }}</p>
-                                                <p class="text-xs text-gray-500">{{ formatDate(comment.timestamp) }}</p>
-                                            </div>
-                                            <p class="text-sm mt-2" :class="{ 'italic text-gray-400': comment.visibility == 'private' }">{{ comment.comment }} <span v-if="comment.visibility == 'private'">(Private)</span></p>
-                                        </div>
-
-                                        <!-- Add New Comment -->
-                                        <div class="mt-4">
-                                            <Textarea v-model="newComment.text" rows="3" class="w-full" placeholder="Add a comment..." />
-                                            <div class="flex items-center justify-between mt-2">
+                        <TabPanels>
+                            <TabPanel value="0">
+                                <div class="flex flex-col gap-6">
+                                    <div class="space-y-3">
+                                        <h2 class="text-lg font-semibold">Details</h2>
+                                        <div class="flex flex-col gap-3 text-sm">
+                                            <div class="flex items-center">
+                                                <span class="text-gray-500 min-w-[100px]">Assignee</span>
                                                 <div class="flex items-center gap-2">
-                                                    <Checkbox v-model="newComment.private" :binary="true" />
-                                                    <label for="privateComment">Private</label>
+                                                    <span>{{ ticket.assignee }}</span>
                                                 </div>
-                                                <Button label="Post" icon="pi pi-send" class="p-button-sm" @click="addComment(ticket.id)" />
+                                            </div>
+                                            <div class="flex items-center">
+                                                <span class="text-gray-500 min-w-[100px]">Due Date</span>
+                                                <div class="flex items-center gap-2">
+                                                    <i class="pi pi-calendar"></i>
+                                                    <span>{{ formatDate(ticket.due_date) }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center">
+                                                <span class="text-gray-500 min-w-[100px]">Category</span>
+                                                <span>{{ transformCategoryValue(ticket.category) }}</span>
+                                            </div>
+                                            <div class="flex items-center">
+                                                <span class="text-gray-500 min-w-[100px]">Status</span>
+                                                <Tag :value="ticket.status" :severity="getStatusLabel(ticket.status)" />
                                             </div>
                                         </div>
                                     </div>
-                                </TabPanel>
-                            </TabPanels>
-                        </Tabs>
-                    </div>
+
+                                    <div class="space-y-4">
+                                        <h2 class="text-sm font-semibold">Tags</h2>
+                                        <div class="flex flex-wrap gap-2">
+                                            <Tag value="Support" severity="info" />
+                                            <Tag value="Urgent" severity="danger" />
+                                            <Tag value="Mobile" severity="success" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="flex-grow">
+                                    <div class="mb-6">
+                                        <h2 class="text-lg font-semibold mb-2">Description</h2>
+                                        <p class="text-sm text-gray-600 leading-relaxed">{{ ticket.description }}</p>
+                                    </div>
+
+                                    <div class="mb-6">
+                                        <div class="flex flex-row">
+                                            <h2 class="text-lg font-semibold min-w-[100px]">Attachments</h2>
+                                            <Button icon="pi pi-download" text size="small" label="Download all" />
+                                        </div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                            <Card v-for="(doc, index) in documents" :key="index" class="p-2 shadow-lg rounded-xl">
+                                                <template #content>
+                                                    <div class="flex items-center gap-2">
+                                                        <!-- File Type Icon -->
+                                                        <div class="p-2 rounded-lg" :class="fileTypeClass(doc.type)">
+                                                            <i :class="fileTypeIcon(doc.type)" class="text-xl"></i>
+                                                        </div>
+
+                                                        <!-- File Info -->
+                                                        <div class="flex-1">
+                                                            <p class="truncate text-md font-medium">{{ doc.name }}</p>
+                                                            <p class="text-sm text-gray-500">{{ doc.type.toUpperCase() }}</p>
+                                                        </div>
+
+                                                        <!-- Actions -->
+                                                        <div class="flex gap-1">
+                                                            <Button icon="pi pi-eye" class="p-button-rounded p-button-text" @click="viewFile(doc.url)" />
+                                                            <Button icon="pi pi-download" class="p-button-rounded p-button-text" @click="downloadFile(doc.url, doc.name)" />
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </Card>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Activities Timeline Tab -->
+
+                                <p class="text-lg font-semibold">Activity Timeline</p>
+
+                                <Timeline :value="ticket.activities" class="w-full md:w-80" align="alternate">
+                                    <template #opposite="slotProps">
+                                        <small class="text-surface-500 dark:text-surface-400">{{ formatDate(slotProps.item.timestamp) }}</small>
+                                    </template>
+                                    <template #content="slotProps">
+                                        <div class="p-3 border rounded-lg bg-gray-50 dark:bg-gray-800">
+                                            <p class="text-md font-medium">{{ slotProps.item.activity }}</p>
+                                            <!-- <p class="text-sm text-gray-500">{{ formatDate(slotProps.item.timestamp) }}</p> -->
+                                        </div>
+                                    </template>
+                                </Timeline>
+                            </TabPanel>
+
+                            <!-- Comments Tab -->
+                            <TabPanel value="1">
+                                <div class="space-y-4">
+                                    <!-- List Comments -->
+
+                                    <div v-for="comment in filteredComments" :key="comment.commentId" class="p-3 border rounded-lg bg-gray-50 dark:bg-gray-800">
+                                        <div class="flex items-center justify-between">
+                                            <p class="font-medium">{{ comment.author }}</p>
+                                            <p class="text-xs text-gray-500">{{ formatDate(comment.timestamp) }}</p>
+                                        </div>
+                                        <p class="text-sm mt-2" :class="{ 'italic text-gray-400': comment.visibility == 'private' }">{{ comment.comment }} <span v-if="comment.visibility == 'private'">(Private)</span></p>
+                                    </div>
+
+                                    <!-- Add New Comment -->
+                                    <div class="mt-4">
+                                        <Textarea v-model="newComment.text" rows="3" class="w-full" placeholder="Add a comment..." />
+                                        <div class="flex items-center justify-between mt-2">
+                                            <div class="flex items-center gap-2">
+                                                <Checkbox v-model="newComment.private" :binary="true" />
+                                                <label for="privateComment">Private</label>
+                                            </div>
+                                            <Button label="Post" icon="pi pi-send" class="p-button-sm" @click="addComment(ticket.id)" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </TabPanel>
+                        </TabPanels>
+                    </Tabs>
                 </template>
             </Drawer>
         </div>
