@@ -3,14 +3,18 @@ import { EmployeeService } from '@/service/EmployeeService';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
 import { onBeforeMount, ref } from 'vue';
+import EmployeeDetails from './EmployeeDetails.vue'; // Import the new component
+
 const employees = ref([]);
 const employee = ref({});
 const employeeDialog = ref(false);
+const employeeDetailsDialog = ref(false); // New ref for details drawer
 const submitted = ref(false);
 const deleteEmployeeDialog = ref(false);
 const filters1 = ref();
 const loading1 = ref(null);
 const toast = useToast();
+
 onBeforeMount(() => {
     EmployeeService.getEmployeesXLarge().then((data) => {
         employees.value = data;
@@ -39,6 +43,13 @@ function openNew() {
 function editEmployee(selectedEmployee) {
     employee.value = { ...selectedEmployee.data };
     employeeDialog.value = true;
+}
+
+// New function to open employee details drawer
+function openEmployeeDetailsDialog(event) {
+    console.log('Row Clicked', event.data);
+    employeeDetailsDialog.value = true;
+    employee.value = event.data;
 }
 
 function findIndexById(id) {
@@ -80,6 +91,7 @@ function createEmployeeCode() {
     const paddedNumber = String(randomNumber).padStart(6, '0'); // Pad with leading zeros to ensure 6 digits
     return prefix + paddedNumber;
 }
+
 function saveEmployee() {
     submitted.value = true;
 
@@ -131,6 +143,8 @@ function saveEmployee() {
                 :filters="filters1"
                 :globalFilterFields="['name', 'branch', 'department']"
                 showGridlines
+                @row-click="openEmployeeDetailsDialog"
+                class="[&_tr]:cursor-pointer"
             >
                 <template #header>
                     <div class="flex justify-between">
@@ -147,8 +161,8 @@ function saveEmployee() {
                         </IconField>
                     </div>
                 </template>
-                <template #empty> No customers found. </template>
-                <template #loading> Loading customers data. Please wait. </template>
+                <template #empty> No employees found. </template>
+                <template #loading> Loading employees data. Please wait. </template>
                 <Column field="name" header="Name" style="min-width: 12rem">
                     <template #body="{ data }">
                         {{ data.name }}
@@ -170,7 +184,7 @@ function saveEmployee() {
                         {{ data.department }}
                     </template>
                     <template #filter="{ filterModel }">
-                        <InputText v-model="filterModel.value" type="text" placeholder="Search by branch" />
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by department" />
                     </template>
                 </Column>
 
@@ -178,10 +192,6 @@ function saveEmployee() {
                     <template #body="{ data }">
                         <Rating :modelValue="data.rating" :key="data.employeeId" :stars="10" />
                     </template>
-                    <!-- <template #filter="{ filterModel }">
-                    <label for="verified-filter" class="font-bold"> Verified </label>
-                    <Checkbox v-model="filterModel.value" :indeterminate="filterModel.value === null" binary inputId="verified-filter" />
-                </template> -->
                 </Column>
                 <Column :exportable="false" style="min-width: 12rem">
                     <template #body="data">
@@ -194,7 +204,7 @@ function saveEmployee() {
 
         <Dialog v-model:visible="employeeDialog" :style="{ width: '450px' }" header="Employee Details" :modal="true">
             <div class="flex flex-col gap-6">
-                <img :src="`https://avatar.iran.liara.run/public/50`" alt="employee" class="block m-auto pb-4" width="200" />
+                <img :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(employee.name || '')}`" alt="employee" class="block m-auto pb-4" width="200" />
                 <div>
                     <label for="name" class="block font-bold mb-3">Name</label>
                     <InputText id="name" v-model.trim="employee.name" required="true" autofocus :invalid="submitted && !employee.name" fluid />
@@ -202,18 +212,26 @@ function saveEmployee() {
                 </div>
                 <div>
                     <label for="email" class="block font-bold mb-3">Email Address</label>
-                    <InputText id="name" v-model.trim="employee.email" required="true" autofocus :invalid="submitted && !employee.email" fluid />
+                    <InputText id="email" v-model.trim="employee.email" required="true" autofocus :invalid="submitted && !employee.email" fluid />
                     <small v-if="submitted && !employee.email" class="text-red-500">Email is required.</small>
                 </div>
                 <div>
                     <label for="branch" class="block font-bold mb-3">Branch</label>
-                    <InputText id="name" v-model.trim="employee.branch" required="true" autofocus :invalid="submitted && !employee.branch" fluid />
+                    <InputText id="branch" v-model.trim="employee.branch" required="true" autofocus :invalid="submitted && !employee.branch" fluid />
                     <small v-if="submitted && !employee.branch" class="text-red-500">Branch is required.</small>
                 </div>
                 <div>
                     <label for="department" class="block font-bold mb-3">Department</label>
                     <InputText id="department" v-model.trim="employee.department" required="true" autofocus :invalid="submitted && !employee.department" fluid />
                     <small v-if="submitted && !employee.department" class="text-red-500">Department is required.</small>
+                </div>
+                <div>
+                    <label for="phone" class="block font-bold mb-3">Phone</label>
+                    <InputText id="phone" v-model.trim="employee.phone" fluid />
+                </div>
+                <div>
+                    <label for="role" class="block font-bold mb-3">Role</label>
+                    <Dropdown id="role" v-model="employee.role" :options="['Employee', 'Team Lead', 'Manager', 'Director']" placeholder="Select a role" class="w-full" />
                 </div>
             </div>
 
@@ -236,6 +254,9 @@ function saveEmployee() {
                 <Button label="Yes" icon="pi pi-check" @click="deleteEmployee" />
             </template>
         </Dialog>
+
+        <!-- Employee Details Drawer -->
+        <EmployeeDetails v-model:visible="employeeDetailsDialog" :employee="employee" />
     </div>
 </template>
 

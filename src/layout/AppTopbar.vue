@@ -30,7 +30,7 @@ const { onMenuToggle, toggleDarkMode, isDarkTheme } = useLayout();
                     </g>
                 </svg>
 
-                <span>PrimeDesk</span>
+                <span><b>AKRB</b>Desk</span>
             </router-link>
         </div>
 

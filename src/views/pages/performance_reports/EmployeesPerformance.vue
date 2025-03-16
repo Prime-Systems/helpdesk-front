@@ -1,116 +1,418 @@
 <script setup>
 import { EmployeeService } from '@/service/EmployeeService';
-import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
+import { FilterMatchMode } from '@primevue/core/api';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import { useToast } from 'primevue/usetoast';
-import { onBeforeMount, onMounted, ref, watch } from 'vue';
-
-const employees = ref([]);
-const employee = ref({});
-const selectedEmployee = ref({});
-const pieData = ref(null);
-const pieOptions = ref(null);
-
-const loading1 = ref(false);
-const filters1 = ref([]);
+import { computed, onMounted, ref } from 'vue';
 
 const toast = useToast();
-
-onBeforeMount(() => {
-    EmployeeService.getEmployeesXLarge().then((data) => {
-        employees.value = data;
-        loading1.value = false;
-    });
-
-    initFilters1();
+const employees = ref([]);
+const selectedEmployee = ref(null);
+const dateRange = ref([new Date(new Date().setMonth(new Date().getMonth() - 1)), new Date()]);
+const loading = ref(false);
+const generateDialogVisible = ref(false);
+const reportData = ref(null);
+const selectedMetrics = ref(['ticketsResolved', 'avgResolutionTime', 'customerSatisfaction', 'responseTime']);
+const filters = ref({
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
 
-onMounted(() => {
-    setColorOptions();
-});
+const availableMetrics = ref([
+    { name: 'Tickets Resolved', key: 'ticketsResolved' },
+    { name: 'Average Resolution Time', key: 'avgResolutionTime' },
+    { name: 'Customer Satisfaction', key: 'customerSatisfaction' },
+    { name: 'Response Time', key: 'responseTime' },
+    { name: 'First Contact Resolution Rate', key: 'firstContactResolution' },
+    { name: 'Knowledge Base Contributions', key: 'kbContributions' }
+]);
 
-// Watch for changes in selectedEmployee
-watch(
-    selectedEmployee,
-    (newValue) => {
-        if (newValue && newValue.tickets) {
-            updatePieData();
+const recentReports = ref([
+    {
+        id: 1,
+        employeeName: 'John Doe',
+        employeeId: 'EMP-123456',
+        startDate: new Date(2025, 0, 1),
+        endDate: new Date(2025, 2, 31),
+        generatedDate: new Date(2025, 3, 2),
+        metrics: {
+            ticketsResolved: 127,
+            avgResolutionTime: '3h 45m',
+            customerSatisfaction: 4.5,
+            responseTime: '25m'
         }
     },
-    { deep: true }
-);
+    {
+        id: 2,
+        employeeName: 'Jane Smith',
+        employeeId: 'EMP-789012',
+        startDate: new Date(2025, 1, 1),
+        endDate: new Date(2025, 2, 29),
+        generatedDate: new Date(2025, 3, 1),
+        metrics: {
+            ticketsResolved: 143,
+            avgResolutionTime: '2h 55m',
+            customerSatisfaction: 4.8,
+            responseTime: '18m'
+        }
+    }
+]);
 
-function initFilters1() {
-    filters1.value = [{ field: 'name', value: '', matchMode: FilterMatchMode.STARTS_WITH, operator: FilterOperator.AND }];
-}
+onMounted(() => {
+    // Fetch employees list
+    loading.value = true;
+    EmployeeService.getEmployeesXLarge().then((data) => {
+        employees.value = data;
+        loading.value = false;
+    });
+});
 
-function updatePieData() {
-    const documentStyle = getComputedStyle(document.documentElement);
+// Date formatting helper
+const formatDate = (date) => {
+    if (!date) return '';
+    return new Date(date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
+};
 
-    pieData.value = {
-        labels: ['Open', 'Resolved', 'Closed'],
+// Generate the report
+const generateReport = () => {
+    if (!selectedEmployee.value || !dateRange.value || !dateRange.value[0] || !dateRange.value[1]) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Please select an employee and date range', life: 3000 });
+        return;
+    }
+
+    loading.value = true;
+
+    // Here you would normally call your API to fetch the actual report data
+    // For this example, we'll simulate an API call with setTimeout
+    setTimeout(() => {
+        reportData.value = {
+            employee: selectedEmployee.value,
+            startDate: dateRange.value[0],
+            endDate: dateRange.value[1],
+            generatedDate: new Date(),
+            metrics: {
+                ticketsResolved: Math.floor(Math.random() * 100) + 50,
+                avgResolutionTime: `${Math.floor(Math.random() * 5) + 1}h ${Math.floor(Math.random() * 60)}m`,
+                customerSatisfaction: (Math.random() * 2 + 3).toFixed(1),
+                responseTime: `${Math.floor(Math.random() * 30) + 10}m`,
+                firstContactResolution: `${Math.floor(Math.random() * 30) + 60}%`,
+                kbContributions: Math.floor(Math.random() * 10)
+            },
+            performanceTrend: [
+                { month: 'Jan', resolved: Math.floor(Math.random() * 30) + 20 },
+                { month: 'Feb', resolved: Math.floor(Math.random() * 30) + 20 },
+                { month: 'Mar', resolved: Math.floor(Math.random() * 30) + 20 },
+                { month: 'Apr', resolved: Math.floor(Math.random() * 30) + 20 },
+                { month: 'May', resolved: Math.floor(Math.random() * 30) + 20 },
+                { month: 'Jun', resolved: Math.floor(Math.random() * 30) + 20 }
+            ],
+            categoryBreakdown: [
+                { category: 'Hardware', count: Math.floor(Math.random() * 40) + 10 },
+                { category: 'Software', count: Math.floor(Math.random() * 40) + 10 },
+                { category: 'Network', count: Math.floor(Math.random() * 30) + 5 },
+                { category: 'Security', count: Math.floor(Math.random() * 20) + 5 },
+                { category: 'Other', count: Math.floor(Math.random() * 15) + 5 }
+            ]
+        };
+
+        // Add to recent reports
+        const newReport = {
+            id: recentReports.value.length + 1,
+            employeeName: selectedEmployee.value.name,
+            employeeId: selectedEmployee.value.employeeId,
+            startDate: dateRange.value[0],
+            endDate: dateRange.value[1],
+            generatedDate: new Date(),
+            metrics: reportData.value.metrics
+        };
+
+        recentReports.value = [newReport, ...recentReports.value];
+
+        loading.value = false;
+        generateDialogVisible.value = false;
+
+        toast.add({ severity: 'success', summary: 'Success', detail: 'Performance report generated', life: 3000 });
+    }, 2000);
+};
+
+// Performance trend chart data
+const performanceTrendData = computed(() => {
+    if (!reportData.value || !reportData.value.performanceTrend) return null;
+
+    return {
+        labels: reportData.value.performanceTrend.map((item) => item.month),
         datasets: [
             {
-                data: [selectedEmployee.value.tickets?.open || 0, selectedEmployee.value.tickets?.resolved || 0, selectedEmployee.value.tickets?.closed || 0],
-                backgroundColor: [documentStyle.getPropertyValue('--p-indigo-500'), documentStyle.getPropertyValue('--p-purple-500'), documentStyle.getPropertyValue('--p-teal-500')],
-                hoverBackgroundColor: [documentStyle.getPropertyValue('--p-indigo-400'), documentStyle.getPropertyValue('--p-purple-400'), documentStyle.getPropertyValue('--p-teal-400')]
+                label: 'Tickets Resolved',
+                data: reportData.value.performanceTrend.map((item) => item.resolved),
+                fill: false,
+                backgroundColor: '#42A5F5',
+                borderColor: '#42A5F5',
+                tension: 0.4
             }
         ]
     };
-}
+});
 
-function setColorOptions() {
-    const documentStyle = getComputedStyle(document.documentElement);
-    const textColor = documentStyle.getPropertyValue('--text-color');
+// Category breakdown chart data
+const categoryBreakdownData = computed(() => {
+    if (!reportData.value || !reportData.value.categoryBreakdown) return null;
 
-    // Set initial pie data
-    updatePieData();
-
-    pieOptions.value = {
-        plugins: {
-            legend: {
-                labels: {
-                    usePointStyle: true,
-                    color: textColor
-                }
+    return {
+        labels: reportData.value.categoryBreakdown.map((item) => item.category),
+        datasets: [
+            {
+                data: reportData.value.categoryBreakdown.map((item) => item.count),
+                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
             }
-        }
+        ]
     };
-}
+});
+
+// Chart options
+const chartOptions = {
+    plugins: {
+        legend: {
+            position: 'bottom'
+        }
+    }
+};
+
+// View a specific report from history
+const viewReport = (report) => {
+    // Here you would typically make an API call to fetch the full report
+    // For this example, we'll simulate it
+    loading.value = true;
+
+    setTimeout(() => {
+        reportData.value = {
+            employee: {
+                name: report.employeeName,
+                employeeId: report.employeeId
+            },
+            startDate: report.startDate,
+            endDate: report.endDate,
+            generatedDate: report.generatedDate,
+            metrics: report.metrics,
+            performanceTrend: [
+                { month: 'Jan', resolved: Math.floor(Math.random() * 30) + 20 },
+                { month: 'Feb', resolved: Math.floor(Math.random() * 30) + 20 },
+                { month: 'Mar', resolved: Math.floor(Math.random() * 30) + 20 },
+                { month: 'Apr', resolved: Math.floor(Math.random() * 30) + 20 },
+                { month: 'May', resolved: Math.floor(Math.random() * 30) + 20 },
+                { month: 'Jun', resolved: Math.floor(Math.random() * 30) + 20 }
+            ],
+            categoryBreakdown: [
+                { category: 'Hardware', count: Math.floor(Math.random() * 40) + 10 },
+                { category: 'Software', count: Math.floor(Math.random() * 40) + 10 },
+                { category: 'Network', count: Math.floor(Math.random() * 30) + 5 },
+                { category: 'Security', count: Math.floor(Math.random() * 20) + 5 },
+                { category: 'Other', count: Math.floor(Math.random() * 15) + 5 }
+            ]
+        };
+
+        loading.value = false;
+    }, 1000);
+};
+
+// Export to PDF
+const exportToPdf = () => {
+    if (!reportData.value) return;
+
+    const doc = new jsPDF();
+
+    // Add title
+    doc.setFontSize(20);
+    doc.text('Employee Performance Report', 14, 22);
+
+    // Add employee info
+    doc.setFontSize(12);
+    doc.text(`Employee: ${reportData.value.employee.name} (${reportData.value.employee.employeeId})`, 14, 32);
+    doc.text(`Period: ${formatDate(reportData.value.startDate)} to ${formatDate(reportData.value.endDate)}`, 14, 38);
+    doc.text(`Generated on: ${formatDate(reportData.value.generatedDate)}`, 14, 44);
+
+    // Add metrics table
+    const metricsData = [];
+    Object.entries(reportData.value.metrics).forEach(([key, value]) => {
+        const metricName = availableMetrics.value.find((m) => m.key === key)?.name || key;
+        metricsData.push([metricName, value.toString()]);
+    });
+
+    doc.text('Performance Metrics', 14, 54);
+    doc.autoTable({
+        head: [['Metric', 'Value']],
+        body: metricsData,
+        startY: 56,
+        margin: { top: 60 },
+        styles: { cellPadding: 3 },
+        headStyles: { fillColor: [66, 139, 202] }
+    });
+
+    // Note: In a real implementation, you'd also convert the charts to images and add them to the PDF
+    // This would typically be done using html2canvas or similar library
+
+    doc.save(`performance_report_${reportData.value.employee.employeeId}_${formatDate(reportData.value.endDate)}.pdf`);
+
+    toast.add({ severity: 'success', summary: 'Success', detail: 'Report exported to PDF', life: 3000 });
+};
+
+// Reset report data
+const resetReport = () => {
+    reportData.value = null;
+};
 </script>
 
 <template>
-    <div class="flex flex-col">
-        <div class="card mt-8">
-            <div class="font-semibold text-xl mb-4">Employee Performance</div>
-            <div class="flex flex-col md:flex-row">
-                <div class="w-full md:w-5/12 flex flex-col items-center justify-center gap-3 py-2">
-                    <div class="card flex justify-center">
-                        <Listbox v-model="selectedEmployee" :options="employees" filter optionLabel="name" class="w-full md:w-full" />
-                    </div>
+    <div class="card">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-semibold">Employee Performance Reports</h1>
+            <Button label="Generate New Report" icon="pi pi-plus" severity="primary" @click="generateDialogVisible = true" />
+        </div>
+
+        <!-- Report viewing area -->
+        <div v-if="reportData" class="mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">Performance Report</h2>
+                <div class="flex gap-2">
+                    <Button label="Export to PDF" icon="pi pi-file-pdf" outlined @click="exportToPdf" />
+                    <Button icon="pi pi-times" severity="secondary" text @click="resetReport" />
                 </div>
-                <div class="w-full md:w-2/12">
-                    <Divider layout="vertical" class="!hidden md:!flex"><b>-></b></Divider>
-                    <Divider layout="horizontal" class="!flex md:!hidden" align="center"><b>-></b></Divider>
-                </div>
-                <div class="w-full md:w-5/12 flex flex-col items-center justify-center py-5">
-                    <div class="col-span-12 xl:col-span-6">
-                        <div class="card flex flex-col items-center">
-                            <div class="font-semibold text-xl mb-4">Tickets</div>
-                            <Chart type="pie" :data="pieData" :options="pieOptions"></Chart>
-                        </div>
+            </div>
+
+            <div class="p-4 border rounded-lg bg-gray-50 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <p class="text-gray-500 mb-1">Employee</p>
+                        <p class="font-medium">{{ reportData.employee.name }}</p>
+                        <p class="text-sm text-gray-600">{{ reportData.employee.employeeId }}</p>
                     </div>
                     <div>
-                        <div class="font-semibold text-xl mb-4">Rating</div>
-                        <Rating :modelValue="selectedEmployee.rating" :key="selectedEmployee.employeeId" :stars="10" />
+                        <p class="text-gray-500 mb-1">Report Period</p>
+                        <p class="font-medium">{{ formatDate(reportData.startDate) }} - {{ formatDate(reportData.endDate) }}</p>
                     </div>
                     <div>
-                        <div class="font-semibold text-xl mt-2 mb-4">Resolution Stats</div>
-                        <p>
-                            Average resolution time: <b>{{ selectedEmployee.avgResolutionTime }}</b>
-                        </p>
+                        <p class="text-gray-500 mb-1">Generated On</p>
+                        <p class="font-medium">{{ formatDate(reportData.generatedDate) }}</p>
                     </div>
                 </div>
             </div>
+
+            <!-- Performance Metrics -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div v-for="(metric, key) in reportData.metrics" :key="key" class="border rounded-lg p-4 shadow-sm">
+                    <div class="text-gray-500 text-sm mb-1">
+                        {{ availableMetrics.find((m) => m.key === key)?.name || key }}
+                    </div>
+                    <div class="text-xl font-semibold">{{ metric }}</div>
+                </div>
+            </div>
+
+            <!-- Performance Charts -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <Card class="shadow-sm">
+                    <template #title>Monthly Ticket Resolution</template>
+                    <template #content>
+                        <Chart type="line" :data="performanceTrendData" :options="chartOptions" />
+                    </template>
+                </Card>
+
+                <Card class="shadow-sm">
+                    <template #title>Tickets by Category</template>
+                    <template #content>
+                        <Chart type="doughnut" :data="categoryBreakdownData" :options="chartOptions" />
+                    </template>
+                </Card>
+            </div>
         </div>
+
+        <!-- Recent reports table -->
+        <div>
+            <h2 class="text-xl font-semibold mb-4">Recent Reports</h2>
+            <DataTable :value="recentReports" :paginator="true" :rows="10" :rowHover="true" v-model:filters="filters" filterDisplay="menu" class="p-datatable-sm" :rowsPerPageOptions="[5, 10, 25]">
+                <template #header>
+                    <div class="flex justify-between">
+                        <span class="p-input-icon-left">
+                            <i class="pi pi-search" />
+                            <InputText v-model="filters['global'].value" placeholder="Search..." />
+                        </span>
+                    </div>
+                </template>
+
+                <Column field="employeeName" header="Employee" sortable>
+                    <template #body="slotProps">
+                        <div class="flex items-center gap-2">
+                            <img :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(slotProps.data.employeeName)}`" class="w-8 h-8 rounded-full" :alt="slotProps.data.employeeName" />
+                            <div>
+                                <div>{{ slotProps.data.employeeName }}</div>
+                                <div class="text-xs text-gray-500">{{ slotProps.data.employeeId }}</div>
+                            </div>
+                        </div>
+                    </template>
+                </Column>
+
+                <Column field="startDate" header="Report Period" sortable>
+                    <template #body="slotProps"> {{ formatDate(slotProps.data.startDate) }} - {{ formatDate(slotProps.data.endDate) }} </template>
+                </Column>
+
+                <Column field="generatedDate" header="Generated Date" sortable>
+                    <template #body="slotProps">
+                        {{ formatDate(slotProps.data.generatedDate) }}
+                    </template>
+                </Column>
+
+                <Column field="metrics.ticketsResolved" header="Tickets" sortable>
+                    <template #body="slotProps">
+                        {{ slotProps.data.metrics.ticketsResolved }}
+                    </template>
+                </Column>
+
+                <Column field="metrics.customerSatisfaction" header="CSAT" sortable>
+                    <template #body="slotProps">
+                        <Rating :modelValue="slotProps.data.metrics.customerSatisfaction" :readonly="true" :cancel="false" />
+                    </template>
+                </Column>
+
+                <Column header="Actions" :exportable="false">
+                    <template #body="slotProps">
+                        <Button icon="pi pi-eye" rounded outlined severity="info" @click="viewReport(slotProps.data)" />
+                    </template>
+                </Column>
+            </DataTable>
+        </div>
+
+        <!-- Generate report dialog -->
+        <Dialog v-model:visible="generateDialogVisible" header="Generate Performance Report" :modal="true" :style="{ width: '500px' }">
+            <div class="flex flex-col gap-4">
+                <div>
+                    <label for="employee" class="block font-medium mb-2">Select Employee</label>
+                    <Dropdown v-model="selectedEmployee" :options="employees" optionLabel="name" placeholder="Select an employee" class="w-full" :filter="true" />
+                </div>
+
+                <div>
+                    <label for="dateRange" class="block font-medium mb-2">Report Period</label>
+                    <Calendar v-model="dateRange" selectionMode="range" :showIcon="true" placeholder="Select date range" class="w-full" />
+                </div>
+
+                <div>
+                    <label for="metrics" class="block font-medium mb-2">Performance Metrics</label>
+                    <MultiSelect v-model="selectedMetrics" :options="availableMetrics" optionLabel="name" optionValue="key" placeholder="Select metrics" class="w-full" :filter="true" />
+                </div>
+            </div>
+
+            <template #footer>
+                <Button label="Cancel" icon="pi pi-times" text @click="generateDialogVisible = false" />
+                <Button label="Generate" icon="pi pi-check" @click="generateReport" :loading="loading" />
+            </template>
+        </Dialog>
     </div>
 </template>
+
+<style scoped>
+.p-dialog-mask {
+    backdrop-filter: blur(4px);
+}
+</style>

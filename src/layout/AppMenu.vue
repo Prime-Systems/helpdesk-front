@@ -29,12 +29,12 @@ const model = ref([
                 label: 'Employees',
                 icon: 'pi pi-fw pi-id-card',
                 to: '/users/employees'
-            },
-            {
-                label: 'Customers',
-                icon: 'pi pi-fw pi-user',
-                to: '/users/customers'
             }
+            // {
+            //     label: 'Customers',
+            //     icon: 'pi pi-fw pi-user',
+            //     to: '/users/customers'
+            // }
         ]
     },
     {
@@ -46,17 +46,17 @@ const model = ref([
                 label: 'Employees',
                 icon: 'pi pi-fw pi-id-card',
                 to: '/performance/employees'
-            },
+            }
             // {
             //     label: 'Teams',
             //     icon: 'pi pi-fw pi-users',
             //     to: '/tickets'
             // },
-            {
-                label: 'Documents',
-                icon: 'pi pi-fw pi-file',
-                to: '/performance/documents'
-            }
+            // {
+            //     label: 'Documents',
+            //     icon: 'pi pi-fw pi-file',
+            //     to: '/performance/documents'
+            // }
         ]
     },
 

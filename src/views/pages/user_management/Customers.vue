@@ -3,14 +3,18 @@ import { CustomerService } from '@/service/CustomerPrimeService';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
 import { onBeforeMount, ref } from 'vue';
+import CustomerDetails from './CustomerDetails.vue'; // Import the new component
+
 const customers = ref([]);
 const customer = ref({});
 const customerDialog = ref(false);
+const customerDetailsDialog = ref(false); // New ref for details drawer
 const submitted = ref(false);
-const deletecustomerDialog = ref(false);
+const deleteCustomerDialog = ref(false);
 const filters1 = ref();
 const loading1 = ref(null);
 const toast = useToast();
+
 onBeforeMount(() => {
     CustomerService.getCustomersXLarge().then((data) => {
         customers.value = data;
@@ -36,9 +40,16 @@ function openNew() {
     customerDialog.value = true;
 }
 
-function editcustomer(selectedcustomer) {
-    customer.value = { ...selectedcustomer.data };
+function editCustomer(selectedCustomer) {
+    customer.value = { ...selectedCustomer.data };
     customerDialog.value = true;
+}
+
+// New function to open customer details drawer
+function openCustomerDetailsDialog(event) {
+    console.log('Row Clicked', event.data);
+    customerDetailsDialog.value = true;
+    customer.value = event.data;
 }
 
 function findIndexById(id) {
@@ -62,25 +73,26 @@ function hideDialog() {
     submitted.value = false;
 }
 
-function confirmDeletecustomer(selectedcustomer) {
-    customer.value = selectedcustomer.data;
-    deletecustomerDialog.value = true;
+function confirmDeleteCustomer(selectedCustomer) {
+    customer.value = selectedCustomer.data;
+    deleteCustomerDialog.value = true;
 }
 
-function deletecustomer() {
+function deleteCustomer() {
     customers.value = customers.value.filter((val) => val.customerId !== customer.value.customerId);
-    deletecustomerDialog.value = false;
+    deleteCustomerDialog.value = false;
     customer.value = {};
-    toast.add({ severity: 'success', summary: 'Successful', detail: 'customer Deleted', life: 3000 });
+    toast.add({ severity: 'success', summary: 'Successful', detail: 'Customer Deleted', life: 3000 });
 }
 
-function createcustomerCode() {
+function createCustomerCode() {
     const prefix = 'C-';
     const randomNumber = Math.floor(Math.random() * 1000000); // Generate a number between 0 and 999999
     const paddedNumber = String(randomNumber).padStart(6, '0'); // Pad with leading zeros to ensure 6 digits
     return prefix + paddedNumber;
 }
-function savecustomer() {
+
+function saveCustomer() {
     submitted.value = true;
 
     if (customer?.value.name?.trim()) {
@@ -88,14 +100,14 @@ function savecustomer() {
             const index = findIndexById(customer.value.customerId);
             if (index !== -1) {
                 customers.value[index] = { ...customer.value }; // Spread operator ensures reactivity
-                toast.add({ severity: 'success', summary: 'Successful', detail: 'customer Updated', life: 3000 });
+                toast.add({ severity: 'success', summary: 'Successful', detail: 'Customer Updated', life: 3000 });
             } else {
-                toast.add({ severity: 'error', summary: 'Error', detail: 'customer Not Found', life: 3000 });
+                toast.add({ severity: 'error', summary: 'Error', detail: 'Customer Not Found', life: 3000 });
             }
             customerDialog.value = false;
             customer.value = {};
         } else {
-            customer.value.customerId = createcustomerCode();
+            customer.value.customerId = createCustomerCode();
             customer.value.csatScore = 0;
             customer.value.jobTitle = 'Software Engineer';
             customer.value.department = 'Development';
@@ -104,7 +116,7 @@ function savecustomer() {
             customer.value.preferredContactMethod = 'Phone';
 
             customers.value.push(customer.value);
-            toast.add({ severity: 'success', summary: 'Successful', detail: 'customer Created', life: 3000 });
+            toast.add({ severity: 'success', summary: 'Successful', detail: 'Customer Created', life: 3000 });
         }
 
         customerDialog.value = false;
@@ -129,6 +141,8 @@ function savecustomer() {
                 :filters="filters1"
                 :globalFilterFields="['name', 'email', 'companyName', 'jobTitle', 'department']"
                 showGridlines
+                @row-click="openCustomerDetailsDialog"
+                class="[&_tr]:cursor-pointer"
             >
                 <template #header>
                     <div class="flex justify-between">
@@ -141,7 +155,7 @@ function savecustomer() {
                             <InputIcon>
                                 <i class="pi pi-search" />
                             </InputIcon>
-                            <InputText v-model="filters1['global'].value" placeholder="customer Search" />
+                            <InputText v-model="filters1['global'].value" placeholder="Customer Search" />
                         </IconField>
                     </div>
                 </template>
@@ -195,16 +209,16 @@ function savecustomer() {
                 </Column>
                 <Column :exportable="false" style="min-width: 12rem">
                     <template #body="data">
-                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editcustomer(data)" />
-                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeletecustomer(data)" />
+                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editCustomer(data)" />
+                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteCustomer(data)" />
                     </template>
                 </Column>
             </DataTable>
         </div>
 
-        <Dialog v-model:visible="customerDialog" :style="{ width: '450px' }" header="customer Details" :modal="true">
+        <Dialog v-model:visible="customerDialog" :style="{ width: '450px' }" header="Customer Details" :modal="true">
             <div class="flex flex-col gap-6">
-                <img :src="`https://avatar.iran.liara.run/public/50`" alt="customer" class="block m-auto pb-4" width="200" />
+                <img :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(customer.name || '')}`" alt="customer" class="block m-auto pb-4" width="200" />
                 <div>
                     <label for="name" class="block font-bold mb-3">Name</label>
                     <InputText id="name" v-model.trim="customer.name" required="true" autofocus :invalid="submitted && !customer.name" fluid />
@@ -225,15 +239,27 @@ function savecustomer() {
                     <InputText id="department" v-model.trim="customer.department" required="true" autofocus :invalid="submitted && !customer.department" fluid />
                     <small v-if="submitted && !customer.department" class="text-red-500">Department is required.</small>
                 </div>
+                <div>
+                    <label for="jobTitle" class="block font-bold mb-3">Job Title</label>
+                    <InputText id="jobTitle" v-model.trim="customer.jobTitle" fluid />
+                </div>
+                <div>
+                    <label for="phone" class="block font-bold mb-3">Phone Number</label>
+                    <InputText id="phone" v-model.trim="customer.phone" fluid />
+                </div>
+                <div>
+                    <label for="preferredContactMethod" class="block font-bold mb-3">Preferred Contact Method</label>
+                    <Dropdown id="preferredContactMethod" v-model="customer.preferredContactMethod" :options="['Email', 'Phone', 'SMS', 'In-person']" placeholder="Select contact method" class="w-full" />
+                </div>
             </div>
 
             <template #footer>
                 <Button label="Cancel" icon="pi pi-times" text @click="hideDialog" />
-                <Button label="Save" icon="pi pi-check" @click="savecustomer" />
+                <Button label="Save" icon="pi pi-check" @click="saveCustomer" />
             </template>
         </Dialog>
 
-        <Dialog v-model:visible="deletecustomerDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
+        <Dialog v-model:visible="deleteCustomerDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
             <div class="flex items-center gap-4">
                 <i class="pi pi-exclamation-triangle !text-3xl" />
                 <span v-if="customer"
@@ -242,10 +268,13 @@ function savecustomer() {
                 >
             </div>
             <template #footer>
-                <Button label="No" icon="pi pi-times" text @click="deletecustomerDialog = false" />
-                <Button label="Yes" icon="pi pi-check" @click="deletecustomer" />
+                <Button label="No" icon="pi pi-times" text @click="deleteCustomerDialog = false" />
+                <Button label="Yes" icon="pi pi-check" @click="deleteCustomer" />
             </template>
         </Dialog>
+
+        <!-- Customer Details Drawer -->
+        <CustomerDetails :visible="customerDetailsDialog" :customer="customer" @update:visible="customerDetailsDialog = $event" />
     </div>
 </template>
 

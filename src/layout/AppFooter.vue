@@ -7,7 +7,7 @@
     </div> -->
 
     <div class="layout-footer">
-        PrimeDesk by
-        <a href="#" target="_blank" rel="noopener noreferrer" class="text-primary font-bold hover:underline">Prime Systems Ghana</a>
+        <b>AKRB</b>Desk
+        <!-- <a href="#" target="_blank" rel="noopener noreferrer" class="text-primary font-bold hover:underline"></a> -->
     </div>
 </template>
