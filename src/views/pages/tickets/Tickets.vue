@@ -23,6 +23,10 @@ const ticketDialog = ref(false);
 const ticketDetailsDialog = ref(false);
 const deleteTicketDialog = ref(false);
 const deleteTicketsDialog = ref(false);
+const editingAssignee = ref(false);
+const selectedAssignee = ref(null);
+const editingDueDate = ref(false);
+const selectedDueDate = ref(null);
 const ticket = ref({
     title: '',
     description: '',
@@ -64,6 +68,18 @@ const newComment = ref({ text: '', private: false });
 const statuses = ref(['open', 'ongoing', 'resolved', 'closed']);
 const priorities = ref(['low', 'medium', 'high', 'urgent']);
 
+const users = ref([
+    { id: 1, name: 'John Doe', email: 'john.doe@example.com' },
+    { id: 2, name: 'Jane Smith', email: 'jane.smith@example.com' },
+    { id: 3, name: 'Michael Johnson', email: 'michael.johnson@example.com' },
+    { id: 4, name: 'Emily Davis', email: 'emily.davis@example.com' },
+    { id: 5, name: 'Robert Wilson', email: 'robert.wilson@example.com' },
+    { id: 6, name: 'Sarah Brown', email: 'sarah.brown@example.com' },
+    { id: 7, name: 'David Martinez', email: 'david.martinez@example.com' },
+    { id: 8, name: 'Lisa Anderson', email: 'lisa.anderson@example.com' },
+    { id: 9, name: 'James Taylor', email: 'james.taylor@example.com' },
+    { id: 10, name: 'Jennifer Garcia', email: 'jennifer.garcia@example.com' }
+]);
 const transformCategoryValue = (value) => {
     const category = categories.value.find((cat) => cat.value === value);
     return category ? category.label : value;
@@ -318,14 +334,19 @@ const formatDate = (date) => {
     });
 };
 
-const getDaysUntilDue = (dueDate) => {
+function getDaysUntilDue(dueDate) {
     if (!dueDate) return 0;
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const due = new Date(dueDate);
-    const diffTime = Math.abs(due - today);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-};
+    due.setHours(0, 0, 0, 0);
+    const diffTime = due - today;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
+function isPastDue(dueDate) {
+    return this.getDaysUntilDue(dueDate) < 0;
+}
 
 const fileTypeIcon = (type) => {
     return type === 'pdf' ? 'pi pi-file-pdf text-red-500' : type === 'image' ? 'pi pi-image text-blue-500' : 'pi pi-file text-gray-500';
@@ -375,6 +396,60 @@ const filteredComments = computed(() => {
     const ticketComm = comments.value.find((ticketComments) => ticketComments.ticketId == ticket.value.id);
     return ticketComm ? ticketComm.comments : [];
 });
+
+function editAssignee() {
+    // Find current assignee in users array to pre-select
+    selectedAssignee.value = users.value.find((user) => user.name === ticket.value.assignee) || null;
+    editingAssignee.value = true;
+}
+
+function saveAssignee() {
+    if (selectedAssignee.value) {
+        // Here you would update the ticket
+        // Either directly modify the ticket object if using a reactive ref
+        ticket.value.assignee = selectedAssignee.value.name;
+
+        // Or call an API method that you have in your component
+        // updateTicketAssignee(ticket.value.id, selectedAssignee.value.id);
+    }
+    editingAssignee.value = false;
+}
+
+function cancelEdit() {
+    editingAssignee.value = false;
+    selectedAssignee.value = null;
+}
+
+const viewFile = (url) => {
+    // Option 1: Open in a new tab
+    window.open(url, '_blank');
+
+    // Option 2: If you want to show in a modal/dialog instead
+    // showDocumentDialog.value = true;
+    // currentDocumentUrl.value = url;
+};
+
+function editDueDate() {
+    // Set the currently selected date to the ticket's due date
+    selectedDueDate.value = ticket.value.due_date ? new Date(ticket.value.due_date) : new Date();
+    editingDueDate.value = true;
+}
+
+function saveDueDate() {
+    if (selectedDueDate.value) {
+        // Update the ticket's due date
+        ticket.value.due_date = selectedDueDate.value;
+
+        // Here you would call your API to update the ticket
+        // updateTicketDueDate(ticket.value.id, selectedDueDate.value);
+    }
+    editingDueDate.value = false;
+}
+
+function cancelDueDateEdit() {
+    editingDueDate.value = false;
+    selectedDueDate.value = null;
+}
 </script>
 
 <template>
@@ -572,7 +647,11 @@ const filteredComments = computed(() => {
                         <div class="flex items-center gap-6 mb-2">
                             <div class="flex items-center gap-2">
                                 <i class="pi pi-clock text-gray-400"></i>
-                                <span class="text-sm">Due in {{ getDaysUntilDue(ticket.due_date) }} days</span>
+                                <span class="text-sm" :class="{ 'text-red-500': isPastDue(ticket.due_date) }">
+                                    {{ isPastDue(ticket.due_date) ? 'Late by ' : 'Due in ' }}
+                                    {{ Math.abs(getDaysUntilDue(ticket.due_date)) }}
+                                    {{ Math.abs(getDaysUntilDue(ticket.due_date)) === 1 ? 'day' : 'days' }}
+                                </span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <i class="pi pi-flag-fill text-red-500"></i>
@@ -601,14 +680,34 @@ const filteredComments = computed(() => {
                                             <div class="flex items-center">
                                                 <span class="text-gray-500 min-w-[100px]">Assignee</span>
                                                 <div class="flex items-center gap-2">
-                                                    <span>{{ ticket.assignee }}</span>
+                                                    <template v-if="editingAssignee">
+                                                        <Dropdown v-model="selectedAssignee" :options="users" optionLabel="name" placeholder="Select an Assignee" class="w-full md:w-14rem" />
+                                                        <Button icon="pi pi-check" size="small" outlined severity="success" aria-label="Save" @click="saveAssignee" />
+                                                        <Button icon="pi pi-times" size="small" outlined severity="secondary" aria-label="Cancel" @click="cancelEdit" />
+                                                    </template>
+                                                    <template v-else>
+                                                        <span>{{ ticket.assignee }}</span>
+                                                        <button class="text-gray-400 hover:text-gray-600 focus:outline-none ml-2" @click="editAssignee" title="Reassign">
+                                                            <i class="pi pi-user-edit text-sm"></i>
+                                                        </button>
+                                                    </template>
                                                 </div>
                                             </div>
                                             <div class="flex items-center">
                                                 <span class="text-gray-500 min-w-[100px]">Due Date</span>
                                                 <div class="flex items-center gap-2">
-                                                    <i class="pi pi-calendar"></i>
-                                                    <span>{{ formatDate(ticket.due_date) }}</span>
+                                                    <template v-if="editingDueDate">
+                                                        <Calendar v-model="selectedDueDate" showIcon :minDate="new Date()" dateFormat="dd/mm/yy" class="w-full md:w-14rem" />
+                                                        <Button icon="pi pi-check" size="small" outlined severity="success" aria-label="Save" @click="saveDueDate" />
+                                                        <Button icon="pi pi-times" size="small" outlined severity="secondary" aria-label="Cancel" @click="cancelDueDateEdit" />
+                                                    </template>
+                                                    <template v-else>
+                                                        <i class="pi pi-calendar"></i>
+                                                        <span>{{ formatDate(ticket.due_date) }}</span>
+                                                        <button class="text-gray-400 hover:text-gray-600 focus:outline-none ml-2" @click="editDueDate" title="Change due date">
+                                                            <i class="pi pi-pencil text-sm"></i>
+                                                        </button>
+                                                    </template>
                                                 </div>
                                             </div>
                                             <div class="flex items-center">
@@ -641,12 +740,12 @@ const filteredComments = computed(() => {
                                     <div class="mb-6">
                                         <div class="flex flex-row">
                                             <h2 class="text-lg font-semibold min-w-[100px]">Attachments</h2>
-                                            <Button icon="pi pi-download" text size="small" label="Download all" />
+                                            <!-- <Button icon="pi pi-download" text size="small" label="Download all" /> -->
                                         </div>
                                         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                            <Card v-for="(doc, index) in documents" :key="index" class="p-2 shadow-lg rounded-xl">
+                                            <Card v-for="(doc, index) in documents" :key="index" class="p-2 shadow-lg rounded-xl cursor-pointer">
                                                 <template #content>
-                                                    <div class="flex items-center gap-2">
+                                                    <div class="flex items-center gap-2" @click="viewFile(doc.url)">
                                                         <!-- File Type Icon -->
                                                         <div class="p-2 rounded-lg" :class="fileTypeClass(doc.type)">
                                                             <i :class="fileTypeIcon(doc.type)" class="text-xl"></i>
@@ -659,10 +758,10 @@ const filteredComments = computed(() => {
                                                         </div>
 
                                                         <!-- Actions -->
-                                                        <div class="flex gap-1">
+                                                        <!-- <div class="flex gap-1">
                                                             <Button icon="pi pi-eye" class="p-button-rounded p-button-text" @click="viewFile(doc.url)" />
                                                             <Button icon="pi pi-download" class="p-button-rounded p-button-text" @click="downloadFile(doc.url, doc.name)" />
-                                                        </div>
+                                                        </div> -->
                                                     </div>
                                                 </template>
                                             </Card>
