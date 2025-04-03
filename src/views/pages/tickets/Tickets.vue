@@ -345,7 +345,7 @@ function getDaysUntilDue(dueDate) {
 }
 
 function isPastDue(dueDate) {
-    return this.getDaysUntilDue(dueDate) < 0;
+    return getDaysUntilDue(dueDate) < 0;
 }
 
 const fileTypeIcon = (type) => {
