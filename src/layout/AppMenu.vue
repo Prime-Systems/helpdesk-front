@@ -29,12 +29,12 @@ const model = ref([
                 label: 'Employees',
                 icon: 'pi pi-fw pi-id-card',
                 to: '/users/employees'
+            },
+            {
+                label: 'Customers',
+                icon: 'pi pi-fw pi-user',
+                to: '/users/customers'
             }
-            // {
-            //     label: 'Customers',
-            //     icon: 'pi pi-fw pi-user',
-            //     to: '/users/customers'
-            // }
         ]
     },
     {
