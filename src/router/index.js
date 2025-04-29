@@ -1,4 +1,5 @@
 import AppLayout from '@/layout/AppLayout.vue';
+import { useAuthStore } from '@/stores/AuthStore';
 import { createRouter, createWebHistory } from 'vue-router';
 
 const router = createRouter({
@@ -7,6 +8,7 @@ const router = createRouter({
         {
             path: '/',
             component: AppLayout,
+            meta: { requiresAuth: true },
             children: [
                 {
                     path: '/',
@@ -185,9 +187,18 @@ function isLoggedIn() {
     return true;
 }
 
+// router.beforeEach((to, from, next) => {
+//     if (to.name !== 'login' && !isLoggedIn()) {
+//         next({ name: 'login' });
+//     } else {
+//         next();
+//     }
+// });
+
 router.beforeEach((to, from, next) => {
-    if (to.name !== 'login' && !isLoggedIn()) {
-        next({ name: 'login' });
+    const authStore = useAuthStore();
+    if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+        next('/auth/login');
     } else {
         next();
     }
