@@ -1,10 +1,61 @@
 <script setup>
 import FloatingConfigurator from '@/components/FloatingConfigurator.vue';
+import { useAuthStore } from '@/stores/AuthStore';
 import { ref } from 'vue';
+
+import { useToast } from 'primevue/usetoast';
+const toast = useToast();
+
+import { useRouter } from 'vue-router';
+const router = useRouter();
 
 const email = ref('');
 const password = ref('');
 const checked = ref(false);
+
+const authStore = useAuthStore();
+
+const handleLogin = async () => {
+    console.log('Login clicked');
+    try {
+        if (!email.value || !password.value) {
+            toast.add({
+                severity: 'warn',
+                summary: 'Login Failed',
+                detail: 'Please enter your email and password.',
+                life: 3000
+            });
+            return;
+        }
+
+        await authStore.login(email.value, password.value);
+
+        if (authStore.token) {
+            toast.add({
+                severity: 'success',
+                summary: 'Login Successful',
+                detail: 'Welcome back!',
+                life: 3000
+            });
+
+            router.push({ name: 'dashboard' });
+        } else {
+            toast.add({
+                severity: 'error',
+                summary: 'Login Failed',
+                detail: authStore.error || 'Invalid email or password.',
+                life: 3000
+            });
+        }
+    } catch (err) {
+        toast.add({
+            severity: 'error',
+            summary: 'Login Failed',
+            detail: err?.message || 'Unexpected error occurred.',
+            life: 3000
+        });
+    }
+};
 </script>
 
 <template>
@@ -49,7 +100,9 @@ const checked = ref(false);
                             </div>
                             <span class="font-medium no-underline ml-2 text-right cursor-pointer text-primary">Forgot password?</span>
                         </div>
-                        <Button label="Sign In" class="w-full" as="router-link" to="/"></Button>
+                        <!-- <Button label="Sign In" class="w-full" as="router-link" to="/"></Button> -->
+                        <Toast />
+                        <Button label="Sign In" class="w-full" @click="handleLogin"></Button>
                     </div>
                 </div>
             </div>

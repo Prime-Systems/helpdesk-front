@@ -1,21 +1,21 @@
-import { DepartmentService } from '@/service/DepartmentService';
+import TicketService from '@/services/TicketService.js';
 import { defineStore } from 'pinia';
 
-export const useDepartmentStore = defineStore('department', {
+export const useTicketStore = defineStore('ticket', {
     state: () => ({
-        departments: [],
+        tickets: [],
         loading: false,
         error: null
     }),
 
     actions: {
-        async fetchDepartments() {
+        async fetchTickets() {
             this.loading = true;
             this.error = null;
 
             try {
-                const response = await DepartmentService.getDepartments();
-                this.departments = response.data;
+                const response = await TicketService.getTickets();
+                this.tickets = response.data;
             } catch (error) {
                 this.error = error.message;
             } finally {
@@ -23,13 +23,13 @@ export const useDepartmentStore = defineStore('department', {
             }
         },
 
-        async addDepartment(department) {
+        async addTicket(ticket) {
             this.loading = true;
             this.error = null;
 
             try {
-                const response = await DepartmentService.addDepartment(department);
-                this.departments.push(response.data);
+                const response = await TicketService.addTicket(ticket);
+                this.tickets.push(response.data);
             } catch (error) {
                 this.error = error.message;
             } finally {
@@ -37,15 +37,15 @@ export const useDepartmentStore = defineStore('department', {
             }
         },
 
-        async updateDepartment(department) {
+        async updateTicket(ticket) {
             this.loading = true;
             this.error = null;
 
             try {
-                const response = await DepartmentService.updateDepartment(department);
-                const index = this.departments.findIndex((d) => d.id === department.id);
+                const response = await TicketService.updateTicket(ticket);
+                const index = this.tickets.findIndex((t) => t.id === ticket.id);
                 if (index !== -1) {
-                    this.departments[index] = response.data;
+                    this.tickets[index] = response.data;
                 }
             } catch (error) {
                 this.error = error.message;
@@ -54,24 +54,18 @@ export const useDepartmentStore = defineStore('department', {
             }
         },
 
-        async deleteDepartment(id) {
+        async deleteTicket(id) {
             this.loading = true;
             this.error = null;
 
             try {
-                await DepartmentService.deleteDepartment(id);
-                this.departments = this.departments.filter((d) => d.id !== id);
+                await TicketService.deleteTicket(id);
+                this.tickets = this.tickets.filter((ticket) => ticket.id !== id);
             } catch (error) {
                 this.error = error.message;
             } finally {
                 this.loading = false;
             }
         }
-    },
-
-    getters: {
-        getDepartments: (state) => state.departments,
-        getLoading: (state) => state.loading,
-        getError: (state) => state.error
     }
 });

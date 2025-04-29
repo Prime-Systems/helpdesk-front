@@ -1,21 +1,21 @@
-import { DepartmentService } from '@/service/DepartmentService';
+import { CategoryService } from '@/service/CategoryService';
 import { defineStore } from 'pinia';
 
-export const useDepartmentStore = defineStore('department', {
+export const useCategoryStore = defineStore('category', {
     state: () => ({
-        departments: [],
+        categories: [],
         loading: false,
         error: null
     }),
 
     actions: {
-        async fetchDepartments() {
+        async fetchCategories() {
             this.loading = true;
             this.error = null;
 
             try {
-                const response = await DepartmentService.getDepartments();
-                this.departments = response.data;
+                const response = await CategoryService.getCategories();
+                this.categories = response.data;
             } catch (error) {
                 this.error = error.message;
             } finally {
@@ -23,13 +23,13 @@ export const useDepartmentStore = defineStore('department', {
             }
         },
 
-        async addDepartment(department) {
+        async addCategory(category) {
             this.loading = true;
             this.error = null;
 
             try {
-                const response = await DepartmentService.addDepartment(department);
-                this.departments.push(response.data);
+                const response = await CategoryService.addCategory(category);
+                this.categories.push(response.data);
             } catch (error) {
                 this.error = error.message;
             } finally {
@@ -37,15 +37,15 @@ export const useDepartmentStore = defineStore('department', {
             }
         },
 
-        async updateDepartment(department) {
+        async updateCategory(category) {
             this.loading = true;
             this.error = null;
 
             try {
-                const response = await DepartmentService.updateDepartment(department);
-                const index = this.departments.findIndex((d) => d.id === department.id);
+                const response = await CategoryService.updateCategory(category);
+                const index = this.categories.findIndex((c) => c.id === category.id);
                 if (index !== -1) {
-                    this.departments[index] = response.data;
+                    this.categories[index] = response.data;
                 }
             } catch (error) {
                 this.error = error.message;
@@ -54,24 +54,21 @@ export const useDepartmentStore = defineStore('department', {
             }
         },
 
-        async deleteDepartment(id) {
+        async deleteCategory(id) {
             this.loading = true;
             this.error = null;
 
             try {
-                await DepartmentService.deleteDepartment(id);
-                this.departments = this.departments.filter((d) => d.id !== id);
+                await CategoryService.deleteCategory(id);
+                const index = this.categories.findIndex((c) => c.id === id);
+                if (index !== -1) {
+                    this.categories.splice(index, 1);
+                }
             } catch (error) {
                 this.error = error.message;
             } finally {
                 this.loading = false;
             }
         }
-    },
-
-    getters: {
-        getDepartments: (state) => state.departments,
-        getLoading: (state) => state.loading,
-        getError: (state) => state.error
     }
 });

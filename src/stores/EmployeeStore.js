@@ -1,21 +1,21 @@
-import { DepartmentService } from '@/service/DepartmentService';
+import EmployeeService from '@/services/EmployeeService.js';
 import { defineStore } from 'pinia';
 
-export const useDepartmentStore = defineStore('department', {
+export const useEmployeeStore = defineStore('employee', {
     state: () => ({
-        departments: [],
+        employees: [],
         loading: false,
         error: null
     }),
 
     actions: {
-        async fetchDepartments() {
+        async fetchEmployees() {
             this.loading = true;
             this.error = null;
 
             try {
-                const response = await DepartmentService.getDepartments();
-                this.departments = response.data;
+                const response = await EmployeeService.getEmployees();
+                this.employees = response.data;
             } catch (error) {
                 this.error = error.message;
             } finally {
@@ -23,13 +23,13 @@ export const useDepartmentStore = defineStore('department', {
             }
         },
 
-        async addDepartment(department) {
+        async addEmployee(employee) {
             this.loading = true;
             this.error = null;
 
             try {
-                const response = await DepartmentService.addDepartment(department);
-                this.departments.push(response.data);
+                const response = await EmployeeService.addEmployee(employee);
+                this.employees.push(response.data);
             } catch (error) {
                 this.error = error.message;
             } finally {
@@ -37,15 +37,15 @@ export const useDepartmentStore = defineStore('department', {
             }
         },
 
-        async updateDepartment(department) {
+        async updateEmployee(employee) {
             this.loading = true;
             this.error = null;
 
             try {
-                const response = await DepartmentService.updateDepartment(department);
-                const index = this.departments.findIndex((d) => d.id === department.id);
+                const response = await EmployeeService.updateEmployee(employee);
+                const index = this.employees.findIndex((e) => e.id === employee.id);
                 if (index !== -1) {
-                    this.departments[index] = response.data;
+                    this.employees[index] = response.data;
                 }
             } catch (error) {
                 this.error = error.message;
@@ -54,24 +54,18 @@ export const useDepartmentStore = defineStore('department', {
             }
         },
 
-        async deleteDepartment(id) {
+        async deleteEmployee(id) {
             this.loading = true;
             this.error = null;
 
             try {
-                await DepartmentService.deleteDepartment(id);
-                this.departments = this.departments.filter((d) => d.id !== id);
+                await EmployeeService.deleteEmployee(id);
+                this.employees = this.employees.filter((e) => e.id !== id);
             } catch (error) {
                 this.error = error.message;
             } finally {
                 this.loading = false;
             }
         }
-    },
-
-    getters: {
-        getDepartments: (state) => state.departments,
-        getLoading: (state) => state.loading,
-        getError: (state) => state.error
     }
 });
