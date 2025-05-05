@@ -70,5 +70,11 @@ export const useCategoryStore = defineStore('category', {
                 this.loading = false;
             }
         }
+    },
+
+    getters: {
+        getCategories: (state) => state.categories,
+        getLoading: (state) => state.loading,
+        getError: (state) => state.error
     }
 });

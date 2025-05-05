@@ -22,9 +22,6 @@ export const AuthService = {
     async verifyToken(token) {
         try {
             const response = await axios.get(`/auth/reauthenticate/?token=${token}`);
-            if (response.status !== 200) {
-                return null;
-            }
             return response.data;
         } catch (error) {
             return null;

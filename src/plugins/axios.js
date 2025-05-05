@@ -7,7 +7,8 @@ const axiosInstance = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'VITE_API_URL=http://16.16.202.193:8283/api/v1',
     timeout: 10000,
     headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('token') || ''}`
     }
 });
 
