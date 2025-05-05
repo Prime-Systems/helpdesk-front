@@ -1,14 +1,12 @@
 <script setup>
-import { useCategoryStore } from '@/stores/CategoryStore';
-import { useDepartmentStore } from '@/stores/DepartmentStore';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
 
 const toast = useToast();
 const activeTab = ref(0);
 const loading = ref(true);
-const categoryStore = useCategoryStore();
-const departmentStore = useDepartmentStore();
+// const categoryStore = useCategoryStore();
+// const departmentStore = useDepartmentStore();
 
 // Category Management
 const categories = ref([]);
@@ -73,12 +71,12 @@ const resolutionTimePresets = [
 // Load data
 onMounted(async () => {
     try {
-        loading.value = true;
-        await categoryStore.fetchCategories();
-        await departmentStore.fetchDepartments();
-        console.log('Categories and Departments loaded successfully');
-        console.log('Categories:', categoryStore.categories);
-        console.log('Departments:', departmentStore.departments);
+        // loading.value = true;
+        // await categoryStore.fetchCategories();
+        // await departmentStore.fetchDepartments();
+        // console.log('Categories and Departments loaded successfully');
+        // console.log('Categories:', categoryStore.categories);
+        // console.log('Departments:', departmentStore.departments);
         // Simulate API calls
         setTimeout(() => {
             // Sample data
