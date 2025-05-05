@@ -10,9 +10,14 @@ import ToastService from 'primevue/toastservice';
 
 import '@/assets/styles.scss';
 import '@/assets/tailwind.css';
+import { auth, can, role } from './directives/auth';
 
 const app = createApp(App);
 const pinia = createPinia();
+
+app.directive('can', can);
+app.directive('role', role);
+app.directive('auth', auth);
 
 app.use(router);
 app.use(PrimeVue, {

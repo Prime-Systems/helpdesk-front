@@ -9,10 +9,12 @@
     },
     "dependencies": {
         "@primevue/themes": "^4.0.0",
+        "axios": "^1.9.0",
         "chart.js": "3.3.2",
         "highlight.js": "^11.11.1",
         "jspdf": "^3.0.0",
         "jspdf-autotable": "^5.0.2",
+        "jwt-decode": "^4.0.0",
         "markdown-it": "^14.1.0",
         "pinia": "^3.0.2",
         "primeicons": "^6.0.1",

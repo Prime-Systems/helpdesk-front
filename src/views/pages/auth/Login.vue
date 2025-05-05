@@ -1,57 +1,34 @@
 <script setup>
 import FloatingConfigurator from '@/components/FloatingConfigurator.vue';
-import { useAuthStore } from '@/stores/AuthStore';
+import { useAuth } from '@/composables/useAuth';
 import { ref } from 'vue';
+
+const { login, isLoading, error, clearError } = useAuth();
 
 import { useToast } from 'primevue/usetoast';
 const toast = useToast();
-
-import { useRouter } from 'vue-router';
-const router = useRouter();
 
 const email = ref('');
 const password = ref('');
 const checked = ref(false);
 
-const authStore = useAuthStore();
-
 const handleLogin = async () => {
     console.log('Login clicked');
-    try {
-        if (!email.value || !password.value) {
-            toast.add({
-                severity: 'warn',
-                summary: 'Login Failed',
-                detail: 'Please enter your email and password.',
-                life: 3000
-            });
-            return;
-        }
+    clearError();
 
-        await authStore.login(email.value, password.value);
-
-        if (authStore.token) {
-            toast.add({
-                severity: 'success',
-                summary: 'Login Successful',
-                detail: 'Welcome back!',
-                life: 3000
-            });
-
-            router.push({ name: 'dashboard' });
-        } else {
-            toast.add({
-                severity: 'error',
-                summary: 'Login Failed',
-                detail: authStore.error || 'Invalid email or password.',
-                life: 3000
-            });
-        }
-    } catch (err) {
+    await login(email.value, password.value, checked.value);
+    if (error.value) {
         toast.add({
             severity: 'error',
-            summary: 'Login Failed',
-            detail: err?.message || 'Unexpected error occurred.',
+            summary: 'Error',
+            detail: error.value,
+            life: 3000
+        });
+    } else {
+        toast.add({
+            severity: 'success',
+            summary: 'Success',
+            detail: 'Login successful',
             life: 3000
         });
     }
