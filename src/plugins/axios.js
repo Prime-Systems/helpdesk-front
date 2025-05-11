@@ -4,11 +4,10 @@ import axios from 'axios';
 
 // Create axios instance
 const axiosInstance = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'VITE_API_URL=http://16.16.202.193:8283/api/v1',
+    baseURL: import.meta.env.VITE_API_URL || 'http://16.16.202.193:8283/api/v1',
     timeout: 10000,
     headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        'Content-Type': 'application/json'
     }
 });
 
@@ -16,6 +15,9 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
     async (config) => {
         const authStore = useAuthStore();
+
+        // Logging token in request interceptor
+        console.log('Token in request interceptor:', authStore.token);
 
         // Check if token is about to expire
         if (authStore.isAuthenticated && authStore.isTokenExpiring) {
@@ -31,9 +33,27 @@ axiosInstance.interceptors.request.use(
             config.headers.Authorization = `Bearer ${authStore.token}`;
         }
 
+        // Log the request for debugging
+        console.group('🚀 Outgoing Request');
+        console.log('URL:', `${config.baseURL}${config.url}`);
+        console.log('Method:', config.method.toUpperCase());
+        console.log('Headers:', JSON.stringify(config.headers, null, 2));
+
+        if (config.data) {
+            console.log('Request Body:', typeof config.data === 'string' ? config.data : JSON.stringify(config.data, null, 2));
+        }
+
+        if (config.params) {
+            console.log('URL Params:', config.params);
+        }
+
+        console.log('Authorization:', config.headers.Authorization ? 'Bearer Token Present' : 'No Auth Token');
+        console.groupEnd();
+
         return config;
     },
     (error) => {
+        console.error('⚠️ Request Error:', error);
         return Promise.reject(error);
     }
 );
@@ -55,8 +75,29 @@ const processQueue = (error, token = null) => {
 };
 
 axiosInstance.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        console.group('✅ Response Received');
+        console.log('Status:', response.status);
+        console.log('Status Text:', response.statusText);
+        console.log('Response Headers:', response.headers);
+        console.log('Response Data:', response.data);
+        console.groupEnd();
+        return response;
+    },
     async (error) => {
+        console.group('❌ Response Error');
+        console.log('Error:', error.message);
+        if (error.response) {
+            console.log('Status:', error.response.status);
+            console.log('Status Text:', error.response.statusText);
+            console.log('Response Headers:', error.response.headers);
+            console.log('Response Data:', error.response.data);
+        } else if (error.request) {
+            console.log('No response received');
+            console.log('Request:', error.request);
+        }
+        console.groupEnd();
+
         const originalRequest = error.config;
         const authStore = useAuthStore();
 

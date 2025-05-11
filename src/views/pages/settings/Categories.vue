@@ -1,15 +1,18 @@
 <script setup>
+import { useCategoryStore } from '@/stores/CategoryStore';
+import { useDepartmentStore } from '@/stores/DepartmentStore';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
 
 const toast = useToast();
 const activeTab = ref(0);
 const loading = ref(true);
-// const categoryStore = useCategoryStore();
-// const departmentStore = useDepartmentStore();
+const categoryStore = useCategoryStore();
+const departmentStore = useDepartmentStore();
 
 // Category Management
-const categories = ref([]);
+const categories = computed(() => categoryStore.categories || []);
+const localCategories = ref([]);
 const selectedCategory = ref(null);
 const categoryDialog = ref(false);
 const deleteCategoryDialog = ref(false);
@@ -51,10 +54,10 @@ const availableEmployees = computed(() => {
 
 // Priority options for categories
 const priorityOptions = [
-    { name: 'Low', value: 'low' },
-    { name: 'Medium', value: 'medium' },
-    { name: 'High', value: 'high' },
-    { name: 'Urgent', value: 'urgent' }
+    { name: 'Low', value: 'LOW' },
+    { name: 'Medium', value: 'MEDIUM' },
+    { name: 'High', value: 'HIGH' },
+    { name: 'Urgent', value: 'URGENT' }
 ];
 
 // Resolution time presets
@@ -72,7 +75,11 @@ const resolutionTimePresets = [
 onMounted(async () => {
     try {
         // loading.value = true;
-        // await categoryStore.fetchCategories();
+        await categoryStore.fetchCategories().then(() => {
+            console.log('Categories loaded successfully');
+            console.log('Categories:', categoryStore.categories);
+            //loading.value = false;
+        });
         // await departmentStore.fetchDepartments();
         // console.log('Categories and Departments loaded successfully');
         // console.log('Categories:', categoryStore.categories);
@@ -119,35 +126,6 @@ onMounted(async () => {
                 }
             ];
 
-            categories.value = [
-                { id: 1, name: 'Hardware Issues', description: 'Problems with physical equipment', departmentId: 1, maxResolutionTime: 48, priority: 'medium', isActive: true, requiresApproval: false, tags: ['hardware', 'equipment', 'physical'] },
-                {
-                    id: 2,
-                    name: 'Software Issues',
-                    description: 'Problems with applications and systems',
-                    departmentId: 1,
-                    maxResolutionTime: 24,
-                    priority: 'high',
-                    isActive: true,
-                    requiresApproval: false,
-                    tags: ['software', 'applications', 'systems']
-                },
-                {
-                    id: 3,
-                    name: 'Network Issues',
-                    description: 'Connectivity and network related problems',
-                    departmentId: 1,
-                    maxResolutionTime: 8,
-                    priority: 'urgent',
-                    isActive: true,
-                    requiresApproval: false,
-                    tags: ['network', 'connectivity', 'internet']
-                },
-                { id: 4, name: 'Account Access', description: 'Account access and password resets', departmentId: 2, maxResolutionTime: 4, priority: 'high', isActive: true, requiresApproval: false, tags: ['account', 'password', 'access'] },
-                { id: 5, name: 'Transaction Inquiries', description: 'Questions about transactions', departmentId: 2, maxResolutionTime: 24, priority: 'medium', isActive: true, requiresApproval: false, tags: ['transaction', 'payment', 'inquiry'] },
-                { id: 6, name: 'Document Processing', description: 'Document processing requests', departmentId: 3, maxResolutionTime: 72, priority: 'low', isActive: true, requiresApproval: true, tags: ['document', 'processing', 'paperwork'] }
-            ];
-
             employees.value = [
                 { id: 1, name: 'John Smith', email: 'john.smith@company.com', role: 'IT Manager', departmentId: 1 },
                 { id: 2, name: 'Sarah Johnson', email: 'sarah.johnson@company.com', role: 'IT Specialist', departmentId: 1 },
@@ -177,7 +155,7 @@ const openNewCategory = () => {
         description: '',
         departmentId: null,
         maxResolutionTime: 24, // in hours
-        priority: 'medium',
+        priority: 'MEDIUM',
         isActive: true,
         requiresApproval: false,
         tags: []
@@ -216,7 +194,7 @@ const saveCategory = () => {
             description: '',
             departmentId: null,
             maxResolutionTime: 24,
-            priority: 'medium',
+            priority: 'MEDIUM',
             isActive: true,
             requiresApproval: false,
             tags: []
@@ -346,13 +324,13 @@ const getPriorityClass = (priority) => {
 
 const getPriorityIcon = (priority) => {
     switch (priority) {
-        case 'low':
+        case 'LOW':
             return 'pi pi-info-circle';
-        case 'medium':
+        case 'MEDIUM':
             return 'pi pi-exclamation-circle';
-        case 'high':
+        case 'HIGH':
             return 'pi pi-exclamation-triangle';
-        case 'urgent':
+        case 'URGENT':
             return 'pi pi-ban';
         default:
             return 'pi pi-info-circle';
@@ -419,15 +397,15 @@ const getManagerOptions = computed(() => {
 
                     <Column field="maxResolutionTime" header="Resolution Time" sortable>
                         <template #body="{ data }">
-                            {{ formatTime(data.maxResolutionTime) }}
+                            {{ formatTime(data.targetResolutionTime) }}
                         </template>
                     </Column>
 
                     <Column field="priority" header="Priority" sortable>
                         <template #body="{ data }">
-                            <Tag :value="data.priority.charAt(0).toUpperCase() + data.priority.slice(1)" :class="getPriorityClass(data.priority)">
-                                <i :class="[getPriorityIcon(data.priority), 'mr-1']"></i>
-                                {{ data.priority.charAt(0).toUpperCase() + data.priority.slice(1) }}
+                            <Tag :value="data.defaultPriority.charAt(0).toUpperCase() + data.defaultPriority.slice(1)" :class="getPriorityClass(data.defaultPriority)">
+                                <i :class="[getPriorityIcon(data.defaultPriority), 'mr-1']"></i>
+                                {{ data.defaultPriority.charAt(0).toUpperCase() + data.defaultPriority.slice(1) }}
                             </Tag>
                         </template>
                     </Column>
@@ -435,7 +413,7 @@ const getManagerOptions = computed(() => {
                     <Column field="isActive" header="Status" sortable>
                         <template #body="{ data }">
                             <Tag :severity="data.isActive ? 'success' : 'danger'">
-                                {{ data.isActive ? 'Active' : 'Inactive' }}
+                                {{ data.isActive ? 'ACTIVE' : 'INACTIVE' }}
                             </Tag>
                         </template>
                     </Column>
@@ -496,7 +474,7 @@ const getManagerOptions = computed(() => {
                     <Column field="isActive" header="Status" sortable>
                         <template #body="{ data }">
                             <Tag :severity="data.isActive ? 'success' : 'danger'">
-                                {{ data.isActive ? 'Active' : 'Inactive' }}
+                                {{ data.isActive ? 'ACTIVE' : 'INACTIVE' }}
                             </Tag>
                         </template>
                     </Column>

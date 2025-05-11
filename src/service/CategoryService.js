@@ -1,9 +1,16 @@
 import axios from '@/plugins/axios';
+import { useAuthStore } from '@/stores/AuthStore';
 
 export const CategoryService = {
     async getCategories() {
         try {
+            // Log the token for debugging
+            const authStore = useAuthStore();
+            console.log('Token:', authStore.token);
             const response = await axios.get('/categories');
+            console.log('Categories:', response.data);
+            console.log('Status:', response);
+
             return response.data;
         } catch (error) {
             console.error('Error fetching categories:', error);
