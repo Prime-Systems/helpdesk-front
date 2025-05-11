@@ -122,6 +122,18 @@ export const useCategoryStore = defineStore('category', {
     getters: {
         getCategories: (state) => state.categories,
         getLoading: (state) => state.loading,
-        getError: (state) => state.error
+        getError: (state) => state.error,
+        getCategoryById: (state) => (id) => {
+            return state.categories.find((category) => category.id === id);
+        },
+        getActiveCategories: (state) => {
+            return state.categories.filter((category) => category.isActive);
+        },
+        getInactiveCategories: (state) => {
+            return state.categories.filter((category) => !category.isActive);
+        },
+        getCategoriesByDepartmentId: (state) => (departmentId) => {
+            return state.categories.filter((category) => category.departmentId === departmentId);
+        }
     }
 });
