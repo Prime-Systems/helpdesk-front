@@ -15,8 +15,6 @@ export const useCategoryStore = defineStore('category', {
 
             try {
                 const response = await CategoryService.getCategories();
-                console.log('Categoriesyyyyyyyyyyyyyyyyyyy:', response);
-                console.log(response.data);
                 this.categories = response;
             } catch (error) {
                 this.error = error.message;
@@ -75,10 +73,11 @@ export const useCategoryStore = defineStore('category', {
             this.error = null;
 
             try {
-                const response = await CategoryService.addCategory(category);
-                this.categories.push(response.data);
+                const response = await CategoryService.createCategory(category);
+                this.categories.push(response);
             } catch (error) {
                 this.error = error.message;
+                console.error('Error adding category:', error);
             } finally {
                 this.loading = false;
             }
@@ -92,7 +91,7 @@ export const useCategoryStore = defineStore('category', {
                 const response = await CategoryService.updateCategory(category);
                 const index = this.categories.findIndex((c) => c.id === category.id);
                 if (index !== -1) {
-                    this.categories[index] = response.data;
+                    this.categories[index] = response;
                 }
             } catch (error) {
                 this.error = error.message;

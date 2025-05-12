@@ -80,51 +80,17 @@ onMounted(async () => {
             console.log('Categories:', categoryStore.categories);
             //loading.value = false;
         });
-        // await departmentStore.fetchDepartments();
+        await departmentStore.fetchDepartments().then(() => {
+            console.log('Departments loaded successfully');
+            console.log('Departments:', departmentStore.departments);
+            //loading.value = false;
+        });
         // console.log('Categories and Departments loaded successfully');
         // console.log('Categories:', categoryStore.categories);
         // console.log('Departments:', departmentStore.departments);
         // Simulate API calls
         setTimeout(() => {
             // Sample data
-            departments.value = [
-                {
-                    id: 1,
-                    name: 'IT Support',
-                    description: 'Technical support and infrastructure management',
-                    managerId: 1,
-                    isActive: true,
-                    email: 'it-support@company.com',
-                    employees: [
-                        { id: 1, name: 'John Smith', email: 'john.smith@company.com', role: 'IT Manager' },
-                        { id: 2, name: 'Sarah Johnson', email: 'sarah.johnson@company.com', role: 'IT Specialist' }
-                    ]
-                },
-                {
-                    id: 2,
-                    name: 'Customer Service',
-                    description: 'Customer inquiries and account support',
-                    managerId: 3,
-                    isActive: true,
-                    email: 'customer-service@company.com',
-                    employees: [
-                        { id: 3, name: 'Michael Brown', email: 'michael.brown@company.com', role: 'CS Manager' },
-                        { id: 4, name: 'Emily Davis', email: 'emily.davis@company.com', role: 'CS Representative' }
-                    ]
-                },
-                {
-                    id: 3,
-                    name: 'Operations',
-                    description: 'Back-office operations and processing',
-                    managerId: 5,
-                    isActive: true,
-                    email: 'operations@company.com',
-                    employees: [
-                        { id: 5, name: 'Robert Wilson', email: 'robert.wilson@company.com', role: 'Operations Director' },
-                        { id: 6, name: 'Jennifer Lee', email: 'jennifer.lee@company.com', role: 'Operations Specialist' }
-                    ]
-                }
-            ];
 
             employees.value = [
                 { id: 1, name: 'John Smith', email: 'john.smith@company.com', role: 'IT Manager', departmentId: 1 },
@@ -169,22 +135,60 @@ const editCategory = (category) => {
     categoryDialog.value = true;
 };
 
-const saveCategory = () => {
+const saveCategory = async () => {
     categorySubmitted.value = true;
 
     if (categoryForm.value.name.trim() && categoryForm.value.departmentId) {
         if (categoryForm.value.id) {
-            // Update existing category
-            const index = categories.value.findIndex((c) => c.id === categoryForm.value.id);
-            if (index !== -1) {
-                categories.value[index] = { ...categoryForm.value };
+            // Update existing category - Call your store method
+            try {
+                await categoryStore.updateCategory(categoryForm.value);
                 toast.add({ severity: 'success', summary: 'Success', detail: 'Category Updated', life: 3000 });
+            } catch (error) {
+                toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update category', life: 3000 });
             }
         } else {
             // Create new category
-            categoryForm.value.id = generateId();
-            categories.value.push({ ...categoryForm.value });
-            toast.add({ severity: 'success', summary: 'Success', detail: 'Category Created', life: 3000 });
+            try {
+                categoryForm.value.id = generateId(); // If your API doesn't generate IDs
+                console.log('Category Form:', categoryForm.value);
+
+                /*
+                Reconstruct the category object to match your API requirements
+                {
+                    "id": 0,
+                    "name": "string",
+                    "description": "string",
+                    "targetResolutionTime": 0,
+                    "departmentName": "string",
+                    "departmentId": 0,
+                    "defaultPriority": "LOW",
+                    "tags": "string",
+                    "status": "ACTIVE",
+                    "requiresApproval": true
+                    }
+                   */
+                const categoryData = {
+                    id: categoryForm.value.id,
+                    name: categoryForm.value.name,
+                    description: categoryForm.value.description,
+                    targetResolutionTime: categoryForm.value.maxResolutionTime,
+                    departmentName: getDepartmentName(categoryForm.value.departmentId),
+                    departmentId: categoryForm.value.departmentId,
+                    defaultPriority: categoryForm.value.priority,
+                    tags: categoryForm.value.tags.join(','),
+                    status: categoryForm.value.isActive ? 'ACTIVE' : 'INACTIVE',
+                    requiresApproval: categoryForm.value.requiresApproval
+                };
+                await categoryStore.addCategory(categoryData);
+                toast.add({ severity: 'success', summary: 'Success', detail: 'Category Created', life: 3000 });
+
+                // Update categories list from store
+                //categories.value = await categoryStore.fetchCategories();
+            } catch (error) {
+                console.error('Error creating category:', error);
+                toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to create category', life: 3000 });
+            }
         }
 
         categoryDialog.value = false;
