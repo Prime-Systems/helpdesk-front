@@ -30,7 +30,7 @@ const categoryForm = ref({
 });
 
 // Department Management
-const departments = ref([]);
+const departments = computed(() => departmentStore.departments || []);
 const selectedDepartment = ref(null);
 const departmentDialog = ref(false);
 const deleteDepartmentDialog = ref(false);
@@ -461,18 +461,18 @@ const getManagerOptions = computed(() => {
 
                     <Column field="email" header="Contact Email" sortable>
                         <template #body="{ data }">
-                            <a :href="`mailto:${data.email}`" class="text-primary hover:underline">{{ data.email }}</a>
+                            <a :href="`mailto:${data.contactEmail}`" class="text-primary hover:underline">{{ data.contactEmail }}</a>
                         </template>
                     </Column>
 
                     <Column field="managerId" header="Manager" sortable>
                         <template #body="{ data }">
-                            {{ getEmployeeName(data.managerId) }}
+                            {{ getEmployeeName(data.departmentManager.id) }}
                         </template>
                     </Column>
 
                     <Column field="employees" header="Team Size" sortable>
-                        <template #body="{ data }"> {{ data.employees.length }} employee{{ data.employees.length !== 1 ? 's' : '' }} </template>
+                        <template #body="{ data }"> {{ data.teamMembers.length }} employee{{ data.teamMembers.length !== 1 ? 's' : '' }} </template>
                     </Column>
 
                     <Column field="isActive" header="Status" sortable>
