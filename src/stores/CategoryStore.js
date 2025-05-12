@@ -88,7 +88,7 @@ export const useCategoryStore = defineStore('category', {
             this.error = null;
 
             try {
-                const response = await CategoryService.updateCategory(category);
+                const response = await CategoryService.updateCategory(category.id, category);
                 const index = this.categories.findIndex((c) => c.id === category.id);
                 if (index !== -1) {
                     this.categories[index] = response;

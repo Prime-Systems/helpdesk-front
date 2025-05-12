@@ -131,7 +131,20 @@ const openNewCategory = () => {
 };
 
 const editCategory = (category) => {
-    categoryForm.value = { ...category };
+    //categoryForm.value = { ...category };
+    //Convert tags from string to array
+    const tagsArray = category.tags ? category.tags.split(',').map((tag) => tag.trim()) : [];
+    categoryForm.value = {
+        id: category.id,
+        name: category.name,
+        description: category.description,
+        departmentId: category.departmentId,
+        maxResolutionTime: category.targetResolutionTime,
+        priority: category.defaultPriority,
+        isActive: category.status === 'ACTIVE',
+        requiresApproval: category.requiresApproval,
+        tags: tagsArray
+    };
     categoryDialog.value = true;
 };
 
@@ -142,7 +155,20 @@ const saveCategory = async () => {
         if (categoryForm.value.id) {
             // Update existing category - Call your store method
             try {
-                await categoryStore.updateCategory(categoryForm.value);
+                // Reconstruct the category object to match your API requirements
+                const categoryData = {
+                    id: categoryForm.value.id,
+                    name: categoryForm.value.name,
+                    description: categoryForm.value.description,
+                    targetResolutionTime: categoryForm.value.maxResolutionTime,
+                    departmentName: getDepartmentName(categoryForm.value.departmentId),
+                    departmentId: categoryForm.value.departmentId,
+                    defaultPriority: categoryForm.value.priority,
+                    tags: categoryForm.value.tags.join(','),
+                    status: categoryForm.value.isActive ? 'ACTIVE' : 'INACTIVE',
+                    requiresApproval: categoryForm.value.requiresApproval
+                };
+                await categoryStore.updateCategory(categoryData);
                 toast.add({ severity: 'success', summary: 'Success', detail: 'Category Updated', life: 3000 });
             } catch (error) {
                 toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update category', life: 3000 });
@@ -211,11 +237,17 @@ const confirmDeleteCategory = (category) => {
     deleteCategoryDialog.value = true;
 };
 
-const deleteCategory = () => {
-    categories.value = categories.value.filter((c) => c.id !== selectedCategory.value.id);
-    deleteCategoryDialog.value = false;
-    toast.add({ severity: 'success', summary: 'Success', detail: 'Category Deleted', life: 3000 });
-    selectedCategory.value = null;
+const deleteCategory = async () => {
+    try {
+        await categoryStore.deleteCategory(selectedCategory.value.id);
+
+        deleteCategoryDialog.value = false;
+        toast.add({ severity: 'success', summary: 'Success', detail: 'Category Deleted', life: 3000 });
+        selectedCategory.value = null;
+    } catch (error) {
+        console.error('Error deleting category:', error);
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete category', life: 3000 });
+    }
 };
 
 // Department Methods
