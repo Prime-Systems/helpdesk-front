@@ -49,7 +49,7 @@ const departmentForm = ref({
 const employees = ref([]);
 const selectedEmployees = ref([]);
 const availableEmployees = computed(() => {
-    return employees.value.filter((e) => !departmentForm.value.employees.some((de) => de.id === e.id));
+    return employees.value.filter((e) => !departmentForm.value.teamMembers.some((de) => de.id === e.id));
 });
 
 // Priority options for categories
@@ -644,12 +644,12 @@ const getManagerOptions = computed(() => {
 
                         <div class="field">
                             <label for="dept-email" class="font-medium mb-2 block">Contact Email</label>
-                            <InputText id="dept-email" v-model.trim="departmentForm.email" type="email" />
+                            <InputText id="dept-email" v-model.trim="departmentForm.contactEmail" type="email" />
                         </div>
 
                         <div class="field">
                             <label for="dept-manager" class="font-medium mb-2 block">Department Manager</label>
-                            <Dropdown id="dept-manager" v-model="departmentForm.managerId" :options="getManagerOptions" optionLabel="label" optionValue="value" placeholder="Select a Manager" />
+                            <Dropdown id="dept-manager" v-model="departmentForm.departmentManager.id" :options="getManagerOptions" optionLabel="label" optionValue="value" placeholder="Select a Manager" />
                         </div>
 
                         <div class="field-checkbox">
@@ -663,10 +663,11 @@ const getManagerOptions = computed(() => {
                     <div class="grid grid-cols-1 gap-4">
                         <div class="field mb-4">
                             <label class="font-medium mb-2 block">Current Team Members</label>
-                            <div v-if="departmentForm.employees.length === 0" class="text-gray-500 text-center py-4 border rounded">No employees currently assigned to this department</div>
+                            <div v-if="departmentForm.teamMembers.length === 0" class="text-gray-500 text-center py-4 border rounded">No employees currently assigned to this department</div>
                             <div v-else class="border rounded overflow-hidden">
-                                <DataTable :value="departmentForm.employees" dataKey="id" class="p-datatable-sm">
-                                    <Column field="name" header="Name"></Column>
+                                <DataTable :value="departmentForm.teamMembers" dataKey="id" class="p-datatable-sm">
+                                    <Column field="firstName" header="First Name"></Column>
+                                    <Column field="lastName" header="Last Name"></Column>
                                     <Column field="email" header="Email"></Column>
                                     <Column field="role" header="Role"></Column>
                                     <Column header="Actions" style="width: 100px">
@@ -688,7 +689,7 @@ const getManagerOptions = computed(() => {
                                         <template #option="slotProps">
                                             <div class="flex align-items-center">
                                                 <div>
-                                                    <div>{{ slotProps.option.name }}</div>
+                                                    <div>{{ slotProps.option.firstName }} {{ slotProps.option.lastName }}</div>
                                                     <div class="text-xs text-gray-500">{{ slotProps.option.email }} • {{ slotProps.option.role }}</div>
                                                 </div>
                                             </div>
