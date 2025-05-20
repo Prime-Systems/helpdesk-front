@@ -280,17 +280,28 @@ const openNewDepartment = () => {
 };
 
 const editDepartment = (department) => {
-    // Create a deep copy to avoid mutating the original data
     departmentForm.value = {
         id: department.id,
         name: department.name,
         description: department.description,
-        departmentManager: department.departmentManager,
+        contactEmail: department.contactEmail,
         status: department.status || 'ACTIVE',
-        contactEmail: department.contactEmail || '',
-        teamMembers: Array.isArray(department.teamMembers) ? [...department.teamMembers] : []
+        departmentManager: department.departmentManager
+            ? {
+                  id: department.departmentManager.id,
+                  firstName: department.departmentManager.firstName,
+                  lastName: department.departmentManager.lastName
+              }
+            : null,
+        teamMembers:
+            department.teamMembers?.map((member) => ({
+                id: member.id,
+                firstName: member.firstName,
+                lastName: member.lastName,
+                email: member.email,
+                role: member.role
+            })) || []
     };
-
     departmentDialog.value = true;
 };
 
@@ -299,32 +310,50 @@ const saveDepartment = async () => {
 
     if (departmentForm.value.name.trim()) {
         try {
+            // Prepare the department data
             const departmentData = {
-                id: departmentForm.value.id,
+                id: departmentForm.value.id || 0,
                 name: departmentForm.value.name,
                 description: departmentForm.value.description,
-                departmentManager: departmentForm.value.departmentManager,
                 contactEmail: departmentForm.value.contactEmail,
                 status: departmentForm.value.status,
-                teamMembers: departmentForm.value.teamMembers
+                teamSize: departmentForm.value.teamMembers?.length || 0,
+                departmentManager: null, // Initialize as null
+                teamMembers: departmentForm.value.teamMembers.map((member) => ({
+                    id: member.id,
+                    firstName: member.firstName,
+                    lastName: member.lastName,
+                    email: member.email || '',
+                    role: member.role || 'EMPLOYEE'
+                }))
             };
 
+            // Only include manager if one is selected
+            if (departmentForm.value.departmentManager && departmentForm.value.departmentManager.id) {
+                departmentData.departmentManager = {
+                    id: departmentForm.value.departmentManager.id,
+                    firstName: departmentForm.value.departmentManager.firstName,
+                    lastName: departmentForm.value.departmentManager.lastName
+                };
+            }
+
             if (departmentForm.value.id) {
-                // Update existing department
                 await departmentStore.updateDepartment(departmentData);
                 toast.add({ severity: 'success', summary: 'Success', detail: 'Department Updated', life: 3000 });
             } else {
-                // Create new department
-                departmentData.id = generateId(); // If your API doesn't generate IDs
                 await departmentStore.addDepartment(departmentData);
                 toast.add({ severity: 'success', summary: 'Success', detail: 'Department Created', life: 3000 });
             }
 
             departmentDialog.value = false;
-            resetDepartmentForm();
         } catch (error) {
             console.error('Error saving department:', error);
-            toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to save department', life: 3000 });
+            toast.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: 'Failed to save department: ' + (error.response?.data?.message || error.message),
+                life: 5000
+            });
         }
     }
 };
@@ -701,8 +730,7 @@ const getEmployeesByDepartment = (departmentId) => {
 
                         <div class="field">
                             <label for="dept-manager" class="font-medium mb-2 block">Department Manager</label>
-                            <!-- <Dropdown id="dept-manager" v-model="departmentForm.departmentManagerId" :options="getManagerOptions" optionLabel="label" optionValue="value" placeholder="Select a Manager" /> -->
-                            <Dropdown id="dept-manager" v-model="departmentForm.departmentManager" :options="employees" optionLabel="label" placeholder="Select a Manager">
+                            <Dropdown id="dept-manager" v-model="departmentForm.departmentManager" :options="employees" optionLabel="firstName" placeholder="Select a Manager">
                                 <template #value="slotProps">
                                     <div v-if="slotProps.value">{{ slotProps.value.firstName }} {{ slotProps.value.lastName }}</div>
                                     <span v-else>
