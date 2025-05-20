@@ -1,6 +1,7 @@
 <script setup>
 import { useCategoryStore } from '@/stores/CategoryStore';
 import { useDepartmentStore } from '@/stores/DepartmentStore';
+import { useEmployeeStore } from '@/stores/EmployeeStore';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
 
@@ -9,6 +10,7 @@ const activeTab = ref(0);
 const loading = ref(true);
 const categoryStore = useCategoryStore();
 const departmentStore = useDepartmentStore();
+const employeeStore = useEmployeeStore();
 
 // Category Management
 const categories = computed(() => categoryStore.categories || []);
@@ -39,18 +41,30 @@ const departmentForm = ref({
     id: null,
     name: '',
     description: '',
-    managerId: null,
-    isActive: true,
-    email: '',
-    employees: []
+    departmentManager: null, // Store the full manager object here
+    status: 'ACTIVE',
+    contactEmail: '',
+    teamMembers: []
 });
 
 // Employee Management (for department assignment)
-const employees = ref([]);
+const employees = computed(() => employeeStore.employees || []);
 const selectedEmployees = ref([]);
 const availableEmployees = computed(() => {
-    return employees.value.filter((e) => !departmentForm.value.teamMembers.some((de) => de.id === e.id));
+    // Filter out employees already in the department
+    return employees.value.filter((employee) => {
+        // Check if employee is already in the team members
+        const isAlreadyInTeam = departmentForm.value.teamMembers?.some((member) => member.id === employee.id);
+
+        return !isAlreadyInTeam;
+    });
 });
+
+// Create a helper for employee display in MultiSelect
+const formatEmployeeName = (employee) => {
+    if (!employee) return '';
+    return `${employee.firstName} ${employee.lastName}`;
+};
 
 // Priority options for categories
 const priorityOptions = [
@@ -85,28 +99,28 @@ onMounted(async () => {
             console.log('Departments:', departmentStore.departments);
             //loading.value = false;
         });
-        // console.log('Categories and Departments loaded successfully');
-        // console.log('Categories:', categoryStore.categories);
-        // console.log('Departments:', departmentStore.departments);
-        // Simulate API calls
-        setTimeout(() => {
-            // Sample data
+        await employeeStore.fetchEmployees().then(() => {
+            console.log('Employees loaded successfully');
+            console.log('Employees:', employeeStore.employees);
+            //loading.value = false;
+        });
+        loading.value = false;
 
-            employees.value = [
-                { id: 1, name: 'John Smith', email: 'john.smith@company.com', role: 'IT Manager', departmentId: 1 },
-                { id: 2, name: 'Sarah Johnson', email: 'sarah.johnson@company.com', role: 'IT Specialist', departmentId: 1 },
-                { id: 3, name: 'Michael Brown', email: 'michael.brown@company.com', role: 'CS Manager', departmentId: 2 },
-                { id: 4, name: 'Emily Davis', email: 'emily.davis@company.com', role: 'CS Representative', departmentId: 2 },
-                { id: 5, name: 'Robert Wilson', email: 'robert.wilson@company.com', role: 'Operations Director', departmentId: 3 },
-                { id: 6, name: 'Jennifer Lee', email: 'jennifer.lee@company.com', role: 'Operations Specialist', departmentId: 3 },
-                { id: 7, name: 'David Martin', email: 'david.martin@company.com', role: 'IT Specialist', departmentId: 1 },
-                { id: 8, name: 'Jessica Taylor', email: 'jessica.taylor@company.com', role: 'CS Representative', departmentId: 2 },
-                { id: 9, name: 'Thomas Anderson', email: 'thomas.anderson@company.com', role: 'Operations Analyst', departmentId: 3 },
-                { id: 10, name: 'Amanda Clark', email: 'amanda.clark@company.com', role: 'HR Specialist', departmentId: null }
-            ];
+        departmentStore.$subscribe((mutation, state) => {
+            if (state.departments) {
+                state.departments.forEach((department) => {
+                    // Ensure teamMembers is always an array
+                    if (!department.teamMembers) {
+                        department.teamMembers = [];
+                    }
 
-            loading.value = false;
-        }, 800);
+                    // Ensure departmentManager is always an object
+                    if (!department.departmentManager) {
+                        department.departmentManager = { id: null };
+                    }
+                });
+            }
+        });
     } catch (error) {
         toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load data', life: 3000 });
         loading.value = false;
@@ -256,49 +270,76 @@ const openNewDepartment = () => {
         id: null,
         name: '',
         description: '',
-        managerId: null,
-        isActive: true,
-        email: '',
-        employees: []
+        departmentManagerId: null,
+        status: 'ACTIVE',
+        contactEmail: '',
+        teamMembers: []
     };
     departmentSubmitted.value = false;
     departmentDialog.value = true;
 };
 
 const editDepartment = (department) => {
-    departmentForm.value = { ...department };
+    // Create a deep copy to avoid mutating the original data
+    departmentForm.value = {
+        id: department.id,
+        name: department.name,
+        description: department.description,
+        departmentManager: department.departmentManager,
+        status: department.status || 'ACTIVE',
+        contactEmail: department.contactEmail || '',
+        teamMembers: Array.isArray(department.teamMembers) ? [...department.teamMembers] : []
+    };
+
     departmentDialog.value = true;
 };
 
-const saveDepartment = () => {
+const saveDepartment = async () => {
     departmentSubmitted.value = true;
 
     if (departmentForm.value.name.trim()) {
-        if (departmentForm.value.id) {
-            // Update existing department
-            const index = departments.value.findIndex((d) => d.id === departmentForm.value.id);
-            if (index !== -1) {
-                departments.value[index] = { ...departmentForm.value };
-                toast.add({ severity: 'success', summary: 'Success', detail: 'Department Updated', life: 3000 });
-            }
-        } else {
-            // Create new department
-            departmentForm.value.id = generateId();
-            departments.value.push({ ...departmentForm.value });
-            toast.add({ severity: 'success', summary: 'Success', detail: 'Department Created', life: 3000 });
-        }
+        try {
+            const departmentData = {
+                id: departmentForm.value.id,
+                name: departmentForm.value.name,
+                description: departmentForm.value.description,
+                departmentManager: departmentForm.value.departmentManager,
+                contactEmail: departmentForm.value.contactEmail,
+                status: departmentForm.value.status,
+                teamMembers: departmentForm.value.teamMembers
+            };
 
-        departmentDialog.value = false;
-        departmentForm.value = {
-            id: null,
-            name: '',
-            description: '',
-            managerId: null,
-            isActive: true,
-            email: '',
-            employees: []
-        };
+            if (departmentForm.value.id) {
+                // Update existing department
+                await departmentStore.updateDepartment(departmentData);
+                toast.add({ severity: 'success', summary: 'Success', detail: 'Department Updated', life: 3000 });
+            } else {
+                // Create new department
+                departmentData.id = generateId(); // If your API doesn't generate IDs
+                await departmentStore.addDepartment(departmentData);
+                toast.add({ severity: 'success', summary: 'Success', detail: 'Department Created', life: 3000 });
+            }
+
+            departmentDialog.value = false;
+            resetDepartmentForm();
+        } catch (error) {
+            console.error('Error saving department:', error);
+            toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to save department', life: 3000 });
+        }
     }
+};
+
+// Add a helper method to reset the department form
+const resetDepartmentForm = () => {
+    departmentForm.value = {
+        id: null,
+        name: '',
+        description: '',
+        departmentManager: null, // Reset to null
+        status: 'ACTIVE',
+        contactEmail: '',
+        teamMembers: []
+    };
 };
 
 const confirmDeleteDepartment = (department) => {
@@ -306,35 +347,28 @@ const confirmDeleteDepartment = (department) => {
     deleteDepartmentDialog.value = true;
 };
 
-const deleteDepartment = () => {
-    departments.value = departments.value.filter((d) => d.id !== selectedDepartment.value.id);
-    // Update categories that reference this department
-    categories.value.forEach((category) => {
-        if (category.departmentId === selectedDepartment.value.id) {
-            category.departmentId = null;
-        }
-    });
-    // Update employees that reference this department
-    employees.value.forEach((employee) => {
-        if (employee.departmentId === selectedDepartment.value.id) {
-            employee.departmentId = null;
-        }
-    });
-    deleteDepartmentDialog.value = false;
-    toast.add({ severity: 'success', summary: 'Success', detail: 'Department Deleted', life: 3000 });
-    selectedDepartment.value = null;
+const deleteDepartment = async () => {
+    try {
+        await departmentStore.deleteDepartment(selectedDepartment.value.id);
+        deleteDepartmentDialog.value = false;
+        toast.add({ severity: 'success', summary: 'Success', detail: 'Department Deleted', life: 3000 });
+        selectedDepartment.value = null;
+    } catch (error) {
+        console.error('Error deleting department:', error);
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete department', life: 3000 });
+    }
 };
 
 // Employee Management
 const addEmployeeToDepartment = () => {
     if (selectedEmployees.value.length) {
-        departmentForm.value.employees = [...departmentForm.value.employees, ...selectedEmployees.value];
+        departmentForm.value.teamMembers = [...departmentForm.value.teamMembers, ...selectedEmployees.value];
         selectedEmployees.value = [];
     }
 };
 
 const removeEmployeeFromDepartment = (employee) => {
-    departmentForm.value.employees = departmentForm.value.employees.filter((e) => e.id !== employee.id);
+    departmentForm.value.teamMembers = departmentForm.value.teamMembers.filter((e) => e.id !== employee.id);
 };
 
 // Utils
@@ -393,12 +427,27 @@ const getEmployeeName = (employeeId) => {
     return employee ? employee.name : 'Unassigned';
 };
 
+const getEmployeeFullName = (employee) => {
+    if (!employee) return 'Unassigned';
+    return `${employee.firstName} ${employee.lastName}`;
+};
+
+const getEmployeeById = (employeeId) => {
+    return employees.value.find((e) => e.id === employeeId);
+};
+
+// Update getManagerOptions computed property
 const getManagerOptions = computed(() => {
     return employees.value.map((e) => ({
-        label: e.name,
+        label: `${e.firstName} ${e.lastName}`,
         value: e.id
     }));
 });
+
+// Add a method to get employees by department
+const getEmployeesByDepartment = (departmentId) => {
+    return employees.value.filter((e) => e.departmentId === departmentId);
+};
 </script>
 
 <template>
@@ -491,26 +540,29 @@ const getManagerOptions = computed(() => {
                         </template>
                     </Column>
 
-                    <Column field="email" header="Contact Email" sortable>
+                    <Column field="contactEmail" header="Contact Email" sortable>
                         <template #body="{ data }">
                             <a :href="`mailto:${data.contactEmail}`" class="text-primary hover:underline">{{ data.contactEmail }}</a>
                         </template>
                     </Column>
 
-                    <Column field="managerId" header="Manager" sortable>
+                    <Column field="departmentManager" header="Manager" sortable>
                         <template #body="{ data }">
-                            {{ getEmployeeName(data.departmentManager.id) }}
+                            <div v-if="data.departmentManager">
+                                {{ getEmployeeFullName(data.departmentManager) }}
+                            </div>
+                            <div v-else class="text-gray-500">Unassigned</div>
                         </template>
                     </Column>
 
-                    <Column field="employees" header="Team Size" sortable>
-                        <template #body="{ data }"> {{ data.teamMembers.length }} employee{{ data.teamMembers.length !== 1 ? 's' : '' }} </template>
+                    <Column field="teamMembers" header="Team Size" sortable>
+                        <template #body="{ data }"> {{ data.teamMembers?.length || 0 }} employee{{ (data.teamMembers?.length || 0) !== 1 ? 's' : '' }} </template>
                     </Column>
 
-                    <Column field="isActive" header="Status" sortable>
+                    <Column field="status" header="Status" sortable>
                         <template #body="{ data }">
-                            <Tag :severity="data.isActive ? 'success' : 'danger'">
-                                {{ data.isActive ? 'ACTIVE' : 'INACTIVE' }}
+                            <Tag :severity="data.status === 'ACTIVE' ? 'success' : 'danger'">
+                                {{ data.status }}
                             </Tag>
                         </template>
                     </Column>
@@ -649,11 +701,25 @@ const getManagerOptions = computed(() => {
 
                         <div class="field">
                             <label for="dept-manager" class="font-medium mb-2 block">Department Manager</label>
-                            <Dropdown id="dept-manager" v-model="departmentForm.departmentManager.id" :options="getManagerOptions" optionLabel="label" optionValue="value" placeholder="Select a Manager" />
+                            <!-- <Dropdown id="dept-manager" v-model="departmentForm.departmentManagerId" :options="getManagerOptions" optionLabel="label" optionValue="value" placeholder="Select a Manager" /> -->
+                            <Dropdown id="dept-manager" v-model="departmentForm.departmentManager" :options="employees" optionLabel="label" placeholder="Select a Manager">
+                                <template #value="slotProps">
+                                    <div v-if="slotProps.value">{{ slotProps.value.firstName }} {{ slotProps.value.lastName }}</div>
+                                    <span v-else>
+                                        {{ slotProps.placeholder }}
+                                    </span>
+                                </template>
+                                <template #option="slotProps">
+                                    <div>
+                                        {{ slotProps.option.firstName }} {{ slotProps.option.lastName }}
+                                        <div class="text-xs text-gray-500">{{ slotProps.option.email }}</div>
+                                    </div>
+                                </template>
+                            </Dropdown>
                         </div>
 
                         <div class="field-checkbox">
-                            <Checkbox id="dept-isActive" v-model="departmentForm.isActive" :binary="true" />
+                            <Checkbox id="dept-isActive" v-model="departmentForm.status" :binary="false" :true-value="'ACTIVE'" :false-value="'INACTIVE'" />
                             <label for="dept-isActive" class="ml-2">Active</label>
                         </div>
                     </div>
@@ -663,7 +729,7 @@ const getManagerOptions = computed(() => {
                     <div class="grid grid-cols-1 gap-4">
                         <div class="field mb-4">
                             <label class="font-medium mb-2 block">Current Team Members</label>
-                            <div v-if="departmentForm.teamMembers.length === 0" class="text-gray-500 text-center py-4 border rounded">No employees currently assigned to this department</div>
+                            <div v-if="!departmentForm.teamMembers?.length" class="text-gray-500 text-center py-4 border rounded">No employees currently assigned to this department</div>
                             <div v-else class="border rounded overflow-hidden">
                                 <DataTable :value="departmentForm.teamMembers" dataKey="id" class="p-datatable-sm">
                                     <Column field="firstName" header="First Name"></Column>
@@ -685,7 +751,7 @@ const getManagerOptions = computed(() => {
                             <label class="font-medium mb-2 block">Add Team Members</label>
                             <div class="grid grid-cols-1 gap-4">
                                 <div class="field">
-                                    <MultiSelect v-model="selectedEmployees" :options="availableEmployees" optionLabel="name" placeholder="Select Employees" display="chip" class="w-full">
+                                    <MultiSelect v-model="selectedEmployees" :options="availableEmployees" optionLabel="firstName" placeholder="Select Employees" display="chip" class="w-full">
                                         <template #option="slotProps">
                                             <div class="flex align-items-center">
                                                 <div>
@@ -694,6 +760,7 @@ const getManagerOptions = computed(() => {
                                                 </div>
                                             </div>
                                         </template>
+                                        <template #chip="slotProps"> {{ slotProps.value.firstName }} {{ slotProps.value.lastName }} </template>
                                     </MultiSelect>
                                 </div>
 

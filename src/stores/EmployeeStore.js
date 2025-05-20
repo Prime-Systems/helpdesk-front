@@ -1,4 +1,4 @@
-import EmployeeService from '@/services/EmployeeService.js';
+import { EmployeeService } from '@/service/EmployeeService';
 import { defineStore } from 'pinia';
 
 export const useEmployeeStore = defineStore('employee', {
@@ -15,7 +15,7 @@ export const useEmployeeStore = defineStore('employee', {
 
             try {
                 const response = await EmployeeService.getEmployees();
-                this.employees = response.data;
+                this.employees = response;
             } catch (error) {
                 this.error = error.message;
             } finally {
@@ -29,7 +29,7 @@ export const useEmployeeStore = defineStore('employee', {
 
             try {
                 const response = await EmployeeService.addEmployee(employee);
-                this.employees.push(response.data);
+                this.employees.push(response);
             } catch (error) {
                 this.error = error.message;
             } finally {
@@ -45,7 +45,7 @@ export const useEmployeeStore = defineStore('employee', {
                 const response = await EmployeeService.updateEmployee(employee);
                 const index = this.employees.findIndex((e) => e.id === employee.id);
                 if (index !== -1) {
-                    this.employees[index] = response.data;
+                    this.employees[index] = response;
                 }
             } catch (error) {
                 this.error = error.message;
@@ -66,6 +66,18 @@ export const useEmployeeStore = defineStore('employee', {
             } finally {
                 this.loading = false;
             }
+        }
+    },
+
+    getters: {
+        getEmployees: (state) => state.employees,
+        isLoading: (state) => state.loading,
+        getError: (state) => state.error,
+        getEmployeeById: (state) => (id) => {
+            return state.employees.find((employee) => employee.id === id);
+        },
+        getEmployeeCount: (state) => {
+            return state.employees.length;
         }
     }
 });

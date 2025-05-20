@@ -12,56 +12,16 @@ export const useDepartmentStore = defineStore('department', {
         async fetchDepartments() {
             this.loading = true;
             this.error = null;
-
             try {
-                const response = await DepartmentService.getDepartments();
-                this.departments = response;
+                console.log('Fetching departments from API...');
+                const data = await DepartmentService.getDepartments();
+                this.departments = data;
+                console.log('Departments fetched successfully:', this.departments);
+                return this.departments;
             } catch (error) {
-                this.error = error.message;
-
                 console.error('Error fetching departments:', error);
-
-                if (import.meta.env.DEV) {
-                    //Dummy data for development
-                    this.departments = [
-                        {
-                            id: 1,
-                            name: 'IT Support',
-                            description: 'Technical support and infrastructure management',
-                            managerId: 1,
-                            isActive: true,
-                            email: 'it-support@company.com',
-                            employees: [
-                                { id: 1, name: 'John Smith', email: 'john.smith@company.com', role: 'IT Manager' },
-                                { id: 2, name: 'Sarah Johnson', email: 'sarah.johnson@company.com', role: 'IT Specialist' }
-                            ]
-                        },
-                        {
-                            id: 2,
-                            name: 'Customer Service',
-                            description: 'Customer inquiries and account support',
-                            managerId: 3,
-                            isActive: true,
-                            email: 'customer-service@company.com',
-                            employees: [
-                                { id: 3, name: 'Michael Brown', email: 'michael.brown@company.com', role: 'CS Manager' },
-                                { id: 4, name: 'Emily Davis', email: 'emily.davis@company.com', role: 'CS Representative' }
-                            ]
-                        },
-                        {
-                            id: 3,
-                            name: 'Operations',
-                            description: 'Back-office operations and processing',
-                            managerId: 5,
-                            isActive: true,
-                            email: 'operations@company.com',
-                            employees: [
-                                { id: 5, name: 'Robert Wilson', email: 'robert.wilson@company.com', role: 'Operations Director' },
-                                { id: 6, name: 'Jennifer Lee', email: 'jennifer.lee@company.com', role: 'Operations Specialist' }
-                            ]
-                        }
-                    ];
-                }
+                this.error = error.message || 'Failed to fetch departments';
+                throw error;
             } finally {
                 this.loading = false;
             }
@@ -70,12 +30,14 @@ export const useDepartmentStore = defineStore('department', {
         async addDepartment(department) {
             this.loading = true;
             this.error = null;
-
             try {
-                const response = await DepartmentService.createDepartment(department);
-                this.departments.push(response);
+                const newDepartment = await DepartmentService.createDepartment(department);
+                this.departments.push(newDepartment);
+                return newDepartment;
             } catch (error) {
-                this.error = error.message;
+                console.error('Error creating department:', error);
+                this.error = error.message || 'Failed to create department';
+                throw error;
             } finally {
                 this.loading = false;
             }
@@ -84,15 +46,17 @@ export const useDepartmentStore = defineStore('department', {
         async updateDepartment(department) {
             this.loading = true;
             this.error = null;
-
             try {
-                const response = await DepartmentService.updateDepartment(department);
+                const updatedDepartment = await DepartmentService.updateDepartment(department.id, department);
                 const index = this.departments.findIndex((d) => d.id === department.id);
                 if (index !== -1) {
-                    this.departments[index] = response.data;
+                    this.departments[index] = updatedDepartment;
                 }
+                return updatedDepartment;
             } catch (error) {
-                this.error = error.message;
+                console.error('Error updating department:', error);
+                this.error = error.message || 'Failed to update department';
+                throw error;
             } finally {
                 this.loading = false;
             }
@@ -101,12 +65,14 @@ export const useDepartmentStore = defineStore('department', {
         async deleteDepartment(id) {
             this.loading = true;
             this.error = null;
-
             try {
                 await DepartmentService.deleteDepartment(id);
                 this.departments = this.departments.filter((d) => d.id !== id);
+                return true;
             } catch (error) {
-                this.error = error.message;
+                console.error('Error deleting department:', error);
+                this.error = error.message || 'Failed to delete department';
+                throw error;
             } finally {
                 this.loading = false;
             }
@@ -114,8 +80,28 @@ export const useDepartmentStore = defineStore('department', {
     },
 
     getters: {
-        getDepartments: (state) => state.departments,
-        getLoading: (state) => state.loading,
-        getError: (state) => state.error
+        departmentById: (state) => (id) => {
+            return state.departments.find((d) => d.id === id) || null;
+        },
+
+        departmentsByManager: (state) => (managerId) => {
+            return state.departments.filter((d) => d.departmentManager?.id === managerId);
+        },
+
+        activeDepartments: (state) => {
+            return state.departments.filter((d) => d.status === 'ACTIVE');
+        },
+
+        getDepartmentsWithEmployees: (state) => {
+            return state.departments.filter((d) => d.teamMembers?.length > 0);
+        },
+
+        getDepartmentsCount: (state) => {
+            return state.departments.length;
+        },
+
+        getActiveDepartmentsCount: (state) => {
+            return state.departments.filter((d) => d.status === 'ACTIVE').length;
+        }
     }
 });

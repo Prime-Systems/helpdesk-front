@@ -3,94 +3,93 @@ import axios from '@/plugins/axios';
 export const DepartmentService = {
     async getDepartments() {
         try {
+            console.log('Making request to get departments');
             const response = await axios.get('/departments');
-            return response.data;
+
+            // Ensure consistent format
+            const departments = response.data.map((dept) => {
+                return {
+                    ...dept,
+                    teamMembers: dept.teamMembers || [],
+                    departmentManager: dept.departmentManager || { id: null }
+                };
+            });
+
+            return departments;
         } catch (error) {
             console.error('Error fetching departments:', error);
             throw error;
         }
     },
 
-    async getDepartmentById(departmentId) {
+    async getDepartmentById(id) {
         try {
-            const response = await axios.get(`/departments/${departmentId}`);
+            const response = await axios.get(`/departments/${id}`);
             return response.data;
         } catch (error) {
-            console.error('Error fetching department:', error);
+            console.error(`Error fetching department ${id}:`, error);
             throw error;
         }
     },
 
-    async createDepartment(departmentData) {
+    async createDepartment(department) {
         try {
-            const response = await axios.post('/departments', departmentData);
+            const response = await axios.post('/departments', department);
             return response.data;
         } catch (error) {
             console.error('Error creating department:', error);
             throw error;
         }
     },
-    async updateDepartment(departmentId, departmentData) {
+
+    async updateDepartment(id, department) {
         try {
-            const response = await axios.put(`/departments/${departmentId}`, departmentData);
+            const response = await axios.put(`/departments/${id}`, department);
             return response.data;
         } catch (error) {
-            console.error('Error updating department:', error);
+            console.error(`Error updating department ${id}:`, error);
             throw error;
         }
     },
 
-    async deleteDepartment(departmentId) {
+    async deleteDepartment(id) {
         try {
-            const response = await axios.delete(`/departments/${departmentId}`);
+            const response = await axios.delete(`/departments/${id}`);
             return response.data;
         } catch (error) {
-            console.error('Error deleting department:', error);
+            console.error(`Error deleting department ${id}:`, error);
+            throw error;
+        }
+    },
+
+    // Additional helper methods if needed
+    async getDepartmentEmployees(departmentId) {
+        try {
+            const response = await axios.get(`/departments/${departmentId}/employees`);
+            return response.data;
+        } catch (error) {
+            console.error(`Error fetching employees for department ${departmentId}:`, error);
+            throw error;
+        }
+    },
+
+    async addEmployeeToDepartment(departmentId, employeeId) {
+        try {
+            const response = await axios.post(`/departments/${departmentId}/employees/${employeeId}`);
+            return response.data;
+        } catch (error) {
+            console.error(`Error adding employee ${employeeId} to department ${departmentId}:`, error);
+            throw error;
+        }
+    },
+
+    async removeEmployeeFromDepartment(departmentId, employeeId) {
+        try {
+            const response = await axios.delete(`/departments/${departmentId}/employees/${employeeId}`);
+            return response.data;
+        } catch (error) {
+            console.error(`Error removing employee ${employeeId} from department ${departmentId}:`, error);
             throw error;
         }
     }
 };
-
-// export const DepartmentService = {
-//     getData() {
-//         return [
-//             {
-//                 id: 'd1',
-//                 name: 'IT',
-//                 description: 'Handles all IT-related issues.',
-//                 manager_id: 'm1',
-//                 is_active: true,
-//                 email: 'it@example.com',
-//                 phone: '123-456-7890',
-//                 created_at: '2024-08-01T10:00:00',
-//                 updated_at: '2024-08-01T10:00:00'
-//             },
-//             {
-//                 id: 'd2',
-//                 name: 'HR',
-//                 description: 'Manages human resources and employee relations.',
-//                 manager_id: 'm2',
-//                 is_active: true,
-//                 email: 'hr@example.com',
-//                 phone: '123-456-7891',
-//                 created_at: '2024-08-01T10:00:00',
-//                 updated_at: '2024-08-01T10:00:00'
-//             },
-//             {
-//                 id: 'd3',
-//                 name: 'Finance',
-//                 description: 'Responsible for financial planning and analysis.',
-//                 manager_id: 'm3',
-//                 is_active: true,
-//                 email: 'finance@example.com',
-//                 phone: '123-456-7892',
-//                 created_at: '2024-08-01T10:00:00',
-//                 updated_at: '2024-08-01T10:00:00'
-//             }
-//         ];
-//     },
-
-//     getDepartments() {
-//         return Promise.resolve(this.getData());
-//     }
-// };
