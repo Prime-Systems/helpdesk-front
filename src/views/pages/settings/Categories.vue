@@ -310,32 +310,32 @@ const saveDepartment = async () => {
 
     if (departmentForm.value.name.trim()) {
         try {
+            // Prepare team members data
+            const teamMembersData = departmentForm.value.teamMembers.map((member) => ({
+                id: member.employeeId || member.id,
+                firstName: member.firstName,
+                lastName: member.lastName,
+                email: member.email || '',
+                role: member.role || 'EMPLOYEE'
+            }));
+
             // Prepare the department data
             const departmentData = {
                 id: departmentForm.value.id || 0,
                 name: departmentForm.value.name,
                 description: departmentForm.value.description,
                 contactEmail: departmentForm.value.contactEmail,
-                status: departmentForm.value.status,
-                teamSize: departmentForm.value.teamMembers?.length || 0,
-                departmentManager: null, // Initialize as null
-                teamMembers: departmentForm.value.teamMembers.map((member) => ({
-                    id: member.id,
-                    firstName: member.firstName,
-                    lastName: member.lastName,
-                    email: member.email || '',
-                    role: member.role || 'EMPLOYEE'
-                }))
-            };
-
-            // Only include manager if one is selected
-            if (departmentForm.value.departmentManager && departmentForm.value.departmentManager.id) {
-                departmentData.departmentManager = {
-                    id: departmentForm.value.departmentManager.id,
+                status: typeof departmentForm.value.status === 'string' ? departmentForm.value.status : 'ACTIVE', // Ensure status is always a string
+                teamSize: teamMembersData.length,
+                departmentManager: {
+                    id: departmentForm.value.departmentManager.employeeId || departmentForm.value.departmentManager.id,
                     firstName: departmentForm.value.departmentManager.firstName,
                     lastName: departmentForm.value.departmentManager.lastName
-                };
-            }
+                },
+                teamMembers: teamMembersData
+            };
+
+            console.log('Final payload:', JSON.stringify(departmentData, null, 2));
 
             if (departmentForm.value.id) {
                 await departmentStore.updateDepartment(departmentData);
