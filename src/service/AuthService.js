@@ -21,7 +21,7 @@ export const AuthService = {
 
     async verifyToken(token) {
         try {
-            const response = await axios.get(`/auth/reauthenticate/?token=${token}`);
+            const response = await axios.post(`/auth/reauthenticate?token=${token}`);
             return response.data;
         } catch (error) {
             return null;
