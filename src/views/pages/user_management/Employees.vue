@@ -16,7 +16,8 @@ const loading1 = ref(null);
 const toast = useToast();
 
 onBeforeMount(() => {
-    EmployeeService.getEmployeesXLarge().then((data) => {
+    loading1.value = true;
+    EmployeeService.getEmployees().then((data) => {
         employees.value = data;
         loading1.value = false;
     });
@@ -163,28 +164,52 @@ function saveEmployee() {
                 </template>
                 <template #empty> No employees found. </template>
                 <template #loading> Loading employees data. Please wait. </template>
-                <Column field="name" header="Name" style="min-width: 12rem">
+                <Column field="employeeId" header="Employee ID" :frozen="true" style="min-width: 10rem">
                     <template #body="{ data }">
-                        {{ data.name }}
-                    </template>
-                    <template #filter="{ filterModel }">
-                        <InputText v-model="filterModel.value" type="text" placeholder="Search by name" />
+                        {{ data.employeeId }}
                     </template>
                 </Column>
+
+                <Column field="firstName" header="First Name" style="min-width: 12rem">
+                    <template #body="{ data }">
+                        {{ data.firstName }}
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by first name" />
+                    </template>
+                </Column>
+                <Column field="lastName" header="Last Name" style="min-width: 12rem">
+                    <template #body="{ data }">
+                        {{ data.lastName }}
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by last name" />
+                    </template>
+                </Column>
+
+                <Column field="department" header="Department" style="min-width: 12rem">
+                    <template #body="{ data }">
+                        {{ data.departmentName }}
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by department" />
+                    </template>
+                </Column>
+                <Column field="email" header="Email" style="min-width: 15rem">
+                    <template #body="{ data }">
+                        {{ data.email }}
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by email" />
+                    </template>
+                </Column>
+
                 <Column field="branch" header="Branch" style="min-width: 12rem">
                     <template #body="{ data }">
                         {{ data.branch }}
                     </template>
                     <template #filter="{ filterModel }">
                         <InputText v-model="filterModel.value" type="text" placeholder="Search by branch" />
-                    </template>
-                </Column>
-                <Column field="department" header="Department" style="min-width: 12rem">
-                    <template #body="{ data }">
-                        {{ data.department }}
-                    </template>
-                    <template #filter="{ filterModel }">
-                        <InputText v-model="filterModel.value" type="text" placeholder="Search by department" />
                     </template>
                 </Column>
 
