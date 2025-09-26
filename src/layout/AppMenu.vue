@@ -37,28 +37,28 @@ const model = ref([
             }
         ]
     },
-    {
-        label: 'Performance Reports',
-        icon: 'pi pi-fw pi-star',
-        to: '/tickets',
-        items: [
-            {
-                label: 'Employees',
-                icon: 'pi pi-fw pi-id-card',
-                to: '/performance/employees'
-            }
-            // {
-            //     label: 'Teams',
-            //     icon: 'pi pi-fw pi-users',
-            //     to: '/tickets'
-            // },
-            // {
-            //     label: 'Documents',
-            //     icon: 'pi pi-fw pi-file',
-            //     to: '/performance/documents'
-            // }
-        ]
-    },
+    // {
+    //     label: 'Performance Reports',
+    //     icon: 'pi pi-fw pi-star',
+    //     to: '/tickets',
+    //     items: [
+    //         {
+    //             label: 'Employees',
+    //             icon: 'pi pi-fw pi-id-card',
+    //             to: '/performance/employees'
+    //         }
+    //         // {
+    //         //     label: 'Teams',
+    //         //     icon: 'pi pi-fw pi-users',
+    //         //     to: '/tickets'
+    //         // },
+    //         // {
+    //         //     label: 'Documents',
+    //         //     icon: 'pi pi-fw pi-file',
+    //         //     to: '/performance/documents'
+    //         // }
+    //     ]
+    // },
 
     {
         label: 'Knowledge Base',
