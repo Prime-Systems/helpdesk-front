@@ -2,12 +2,15 @@
 import { useAuthStore } from '@/stores/AuthStore';
 import axios from 'axios';
 
+const isNgrok = import.meta.env.VITE_API_URL?.includes('ngrok-free.app');
+
 // Create axios instance
 const axiosInstance = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://16.16.202.193:8283/api/v1',
     timeout: 10000,
     headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(isNgrok && { 'ngrok-skip-browser-warning': 'true' })
     }
 });
 
