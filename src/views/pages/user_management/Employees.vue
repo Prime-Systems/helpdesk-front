@@ -1,10 +1,13 @@
 <script setup>
+import { DepartmentService } from '@/service/DepartmentService';
 import { EmployeeService } from '@/service/EmployeeService';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
 import { onBeforeMount, ref } from 'vue';
 import EmployeeDetails from './EmployeeDetails.vue'; // Import the new component
 
+const departments = ref([]);
+const department = ref({});
 const employees = ref([]);
 const employee = ref({});
 const employeeDialog = ref(false);
@@ -14,6 +17,7 @@ const deleteEmployeeDialog = ref(false);
 const filters1 = ref();
 const loading1 = ref(null);
 const toast = useToast();
+const roles = [{ label: 'Employee', value: 'EMPLOYEE' }, { label: 'Team Lead', value: 'TEAM_LEAD' }, { label: 'Manager', value: 'MANAGER' }, { label: 'Director', value: 'DIRECTOR' }, { label: 'Admin', value: 'ADMIN' }];
 
 onBeforeMount(() => {
     loading1.value = true;
@@ -21,6 +25,10 @@ onBeforeMount(() => {
         employees.value = data;
         loading1.value = false;
     });
+
+    DepartmentService.getDepartments().then((data) => {
+      departments.value = data;
+    })
 
     initFilters1();
 });
@@ -247,7 +255,10 @@ function saveEmployee() {
                 </div>
                 <div>
                     <label for="department" class="block font-bold mb-3">Department</label>
-                    <InputText id="department" v-model.trim="employee.department" required="true" autofocus :invalid="submitted && !employee.department" fluid />
+                    <!-- <InputText id="department" v-model.trim="employee.department" required="true" autofocus :invalid="submitted && !employee.department" fluid /> -->
+                    <Dropdown id="department" v-model="employee.department" :options="departments" 
+                        optionLabel="name"
+                        optionValue="id" placeholder="Select department" class="w-full" :invalid="submitted && !employee.department" fluid />
                     <small v-if="submitted && !employee.department" class="text-red-500">Department is required.</small>
                 </div>
                 <div>
@@ -256,7 +267,8 @@ function saveEmployee() {
                 </div>
                 <div>
                     <label for="role" class="block font-bold mb-3">Role</label>
-                    <Dropdown id="role" v-model="employee.role" :options="['Employee', 'Team Lead', 'Manager', 'Director']" placeholder="Select a role" class="w-full" />
+                    <Dropdown id="role" v-model="employee.role" :options="roles" optionLabel="label"
+                        optionValue="value" placeholder="Select a role" class="w-full" />
                 </div>
             </div>
 
