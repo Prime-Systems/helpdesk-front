@@ -12,7 +12,7 @@ export const useAuthStore = defineStore('auth', {
         initialized: false,
         rememberMe: false,
         tokenExpiresAt: null,
-        refreshTokenExpiresAt: null
+        refreshTokenExpiresAt: null,
     }),
 
     actions: {
@@ -176,6 +176,7 @@ export const useAuthStore = defineStore('auth', {
             if (token) {
                 const decodedToken = jwtDecode(token);
                 console.log('Decoded token:', decodedToken);
+                this.user = decodedToken;
                 this.tokenExpiresAt = decodedToken.exp * 1000; // Convert to milliseconds
             }
 
@@ -320,11 +321,12 @@ export const useAuthStore = defineStore('auth', {
         isAuthenticated: (state) => !!state.token,
         isLoading: (state) => state.loading,
         hasError: (state) => !!state.error,
-        userRole: (state) => state.user?.role || null,
-        userName: (state) => state.user?.name || null,
-        userEmail: (state) => state.user?.email || null,
+        userRole: (state) => state.userRole || null,
+        userName: (state) => state.userName || null,
+        userEmail: (state) => state.userEmail || null,
+        userId: (state) => state.userId || null,
         currentError: (state) => state.error,
-        hasRole: (state) => (role) => state.user?.roles?.includes(role) || false,
+        hasRole: (state) => (role) => state.userRole === role,
         hasPermission: (state) => (permission) => state.user?.permissions?.includes(permission) || false,
         tokenExpiration: (state) => (state.tokenExpiresAt ? new Date(state.tokenExpiresAt) : null),
         isTokenExpiring: (state) => {

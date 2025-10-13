@@ -1,4 +1,5 @@
 <script setup>
+import { useAuth } from '@/composables/useAuth';
 import { DepartmentService } from '@/service/DepartmentService';
 import { EmployeeService } from '@/service/EmployeeService';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
@@ -6,6 +7,7 @@ import { useToast } from 'primevue/usetoast';
 import { onBeforeMount, ref } from 'vue';
 import EmployeeDetails from './EmployeeDetails.vue'; // Import the new component
 
+const {user} = useAuth();
 const departments = ref([]);
 const department = ref({});
 const employees = ref([]);
@@ -90,6 +92,7 @@ function confirmDeleteEmployee(selectedEmployee) {
 function deleteEmployee() {
     employees.value = employees.value.filter((val) => val.employeeId !== employee.value.employeeId);
     deleteEmployeeDialog.value = false;
+    EmployeeService.deleteEmployee( employee.value.employeeId );
     employee.value = {};
     toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Deleted', life: 3000 });
 }
@@ -102,12 +105,15 @@ function createEmployeeCode() {
 }
 
 function saveEmployee() {
+
     submitted.value = true;
 
-    if (employee?.value.name?.trim()) {
+    if (employee?.value.firstName?.trim()) {
         if (employee.value.employeeId) {
             const index = findIndexById(employee.value.employeeId);
             if (index !== -1) {
+              console.log('Updating employee:', employee.value);
+              EmployeeService.updateEmployee(employee.value);
                 employees.value[index] = { ...employee.value }; // Spread operator ensures reactivity
                 toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Updated', life: 3000 });
             } else {
@@ -117,15 +123,20 @@ function saveEmployee() {
             employee.value = {};
         } else {
             employee.value.employeeId = createEmployeeCode();
+            employee.value.firstName = employee.value.firstName ? employee.value.firstName : '';
+            employee.value.lastName = employee.value.lastName ? employee.value.lastName : '';
             employee.value.photo = 'product-placeholder.svg';
             employee.value.branch = employee.value.branch ? employee.value.branch : 'Head Office';
-            employee.value.department = employee.value.department ? employee.value.department : 'IT';
+            employee.value.departmentName = employee.value.department ? employee.value.department : '';
+            employee.value.departmentId = employee.value.department ? employee.value.department : '';
+            employee.value.createdBy = user.value.userId;
             employee.value.rating = 0;
-            employee.value.role = 'Employee';
-            employee.value.email = employee.value.email ? employee.value.email : 'email@email.com';
-            employee.value.phone = employee.value.phone ? employee.value.phone : '1234567890';
+            employee.value.role = employee.value.role ? employee.value.role : 'EMPLOYEE';
+            employee.value.email = employee.value.email ? employee.value.email : '';
+            employee.value.phone = employee.value.phone ? employee.value.phone : '';
             employee.value.hireDate = new Date();
 
+            EmployeeService.addEmployee(employee.value);
             employees.value.push(employee.value);
             toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Created', life: 3000 });
         }
@@ -237,11 +248,16 @@ function saveEmployee() {
 
         <Dialog v-model:visible="employeeDialog" :style="{ width: '450px' }" header="Employee Details" :modal="true">
             <div class="flex flex-col gap-6">
-                <img :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(employee.name || '')}`" alt="employee" class="block m-auto pb-4" width="200" />
+                <img :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(employee.firstName || '')}`" alt="employee" class="block m-auto pb-4" width="200" />
                 <div>
-                    <label for="name" class="block font-bold mb-3">Name</label>
-                    <InputText id="name" v-model.trim="employee.name" required="true" autofocus :invalid="submitted && !employee.name" fluid />
-                    <small v-if="submitted && !employee.name" class="text-red-500">Name is required.</small>
+                    <label for="firstName" class="block font-bold mb-3">First Name</label>
+                    <InputText id="firstName" v-model.trim="employee.firstName" required="true" autofocus :invalid="submitted && !employee.firstName" fluid />
+                    <small v-if="submitted && !employee.firstName" class="text-red-500">First Name is required.</small>
+                </div>
+                <div>
+                    <label for="lastName" class="block font-bold mb-3">Last Name</label>
+                    <InputText id="lastName" v-model.trim="employee.lastName" required="true" autofocus :invalid="submitted && !employee.lastName" fluid />
+                    <small v-if="submitted && !employee.lastName" class="text-red-500">Last Name is required.</small>
                 </div>
                 <div>
                     <label for="email" class="block font-bold mb-3">Email Address</label>
