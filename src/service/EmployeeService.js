@@ -12,6 +12,7 @@ export const EmployeeService = {
     },
 
     async updateEmployee(employee) {
+      console.log('EmployeeService - Updating employee:', employee.id);
         const response = await axios.put(`/users/${employee.id}`, employee);
         return response.data;
     },
