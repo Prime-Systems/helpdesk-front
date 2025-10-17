@@ -22,14 +22,14 @@ const handleLogin = async () => {
             severity: 'error',
             summary: 'Error',
             detail: error.value,
-            life: 3000
+            life: 300000
         });
     } else {
         toast.add({
             severity: 'success',
             summary: 'Success',
             detail: 'Login successful',
-            life: 3000
+            life: 300000
         });
     }
 };
