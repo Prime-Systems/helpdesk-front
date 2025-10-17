@@ -13,14 +13,41 @@ export const TicketService = {
         return response.data;
     },
 
-    async createTicket(ticketDto, file) {
+    async createTicket(ticketData, file) {
         const formData = new FormData();
-        formData.append('ticketDto', new Blob([JSON.stringify(ticketDto)], { type: 'application/json' }));
+
+        // Append individual fields as required by the backend
+        formData.append('title', ticketData.title);
+        formData.append('description', ticketData.description);
+        formData.append('categoryId', ticketData.categoryId);
+        formData.append('tags', ticketData.tags || '');
+        formData.append('createdById', ticketData.createdById);
+
         if (file) {
-            formData.append('file', file);
+            formData.append('attachment', file);
         }
 
         const response = await axios.post('/tickets', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+    },
+
+    async updateTicket(ticketId, ticketData, file) {
+        const formData = new FormData();
+
+        // Append individual fields for update
+        formData.append('title', ticketData.title);
+        formData.append('description', ticketData.description);
+        formData.append('categoryId', ticketData.categoryId);
+        formData.append('tags', ticketData.tags || '');
+        // Note: For update, you might need different parameters based on your backend
+
+        if (file) {
+            formData.append('attachment', file);
+        }
+
+        const response = await axios.put(`/tickets/${ticketId}`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         return response.data;
@@ -39,7 +66,6 @@ export const TicketService = {
     },
 
     async addFeedback(ticketId, feedback) {
-        // feedback: { userId, comment, rating }
         const response = await axios.post(`/tickets/${ticketId}/feedback`, feedback);
         return response.data;
     },
@@ -50,7 +76,6 @@ export const TicketService = {
     },
 
     async addComment(ticketId, comment) {
-        // comment: { comment, userId }
         const response = await axios.post(`/tickets/${ticketId}/comments`, comment);
         return response.data;
     },

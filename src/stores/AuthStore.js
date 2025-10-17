@@ -12,7 +12,7 @@ export const useAuthStore = defineStore('auth', {
         initialized: false,
         rememberMe: false,
         tokenExpiresAt: null,
-        refreshTokenExpiresAt: null,
+        refreshTokenExpiresAt: null
     }),
 
     actions: {
@@ -33,13 +33,8 @@ export const useAuthStore = defineStore('auth', {
                             this.clearAuth();
                         }
                     } else {
-                        // Token is valid, verify with backend
-                        const user = await AuthService.verifyToken(token);
-                        if (user) {
-                            this.setAuth(user, token, refreshToken);
-                        } else {
-                            this.clearAuth();
-                        }
+                        // Token is valid, set user from token
+                        this.setAuthFromToken(token, refreshToken);
                     }
                 }
             } catch (error) {
@@ -54,9 +49,11 @@ export const useAuthStore = defineStore('auth', {
             this.loading = true;
             this.error = null;
             try {
-                const { user, token, refreshToken } = await AuthService.login(email, password);
+                const response = await AuthService.login(email, password);
                 this.rememberMe = rememberMe;
-                this.setAuth(user, token, refreshToken);
+
+                // Extract user info from token
+                this.setAuthFromToken(response.token, response.refreshToken);
                 return true;
             } catch (err) {
                 this.handleAuthError(err);
@@ -70,8 +67,8 @@ export const useAuthStore = defineStore('auth', {
             this.loading = true;
             this.error = null;
             try {
-                const { user, token, refreshToken } = await AuthService.register(userData);
-                this.setAuth(user, token, refreshToken);
+                const response = await AuthService.register(userData);
+                this.setAuthFromToken(response.token, response.refreshToken);
                 return true;
             } catch (err) {
                 this.handleAuthError(err);
@@ -100,8 +97,8 @@ export const useAuthStore = defineStore('auth', {
             }
 
             try {
-                const { token, refreshToken, user } = await AuthService.refreshToken(this.refreshToken);
-                this.setAuth(user, token, refreshToken);
+                const response = await AuthService.refreshToken(this.refreshToken);
+                this.setAuthFromToken(response.token, response.refreshToken);
                 return true;
             } catch (error) {
                 console.error('Token refresh failed:', error);
@@ -110,73 +107,25 @@ export const useAuthStore = defineStore('auth', {
             }
         },
 
-        async forgotPassword(email) {
-            this.loading = true;
-            this.error = null;
-            try {
-                await AuthService.forgotPassword(email);
-                return true;
-            } catch (err) {
-                this.handleAuthError(err);
-                return false;
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        async resetPassword(token, newPassword) {
-            this.loading = true;
-            this.error = null;
-            try {
-                await AuthService.resetPassword(token, newPassword);
-                return true;
-            } catch (err) {
-                this.handleAuthError(err);
-                return false;
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        async changePassword(currentPassword, newPassword) {
-            this.loading = true;
-            this.error = null;
-            try {
-                await AuthService.changePassword(currentPassword, newPassword);
-                return true;
-            } catch (err) {
-                this.handleAuthError(err);
-                return false;
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        async updateProfile(profileData) {
-            this.loading = true;
-            this.error = null;
-            try {
-                const updatedUser = await AuthService.updateProfile(profileData);
-                this.user = { ...this.user, ...updatedUser };
-                return true;
-            } catch (err) {
-                this.handleAuthError(err);
-                return false;
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        setAuth(user, token, refreshToken = null) {
-            this.user = user;
+        // New method to extract user from token
+        setAuthFromToken(token, refreshToken = null) {
             this.token = token;
             this.refreshToken = refreshToken;
 
-            // Decode tokens to get expiration times
+            // Decode token to get user information
             if (token) {
                 const decodedToken = jwtDecode(token);
                 console.log('Decoded token:', decodedToken);
-                this.user = decodedToken;
+
+                // Create user object from token claims
+                this.user = {
+                    id: decodedToken.userId,
+                    email: decodedToken.email || decodedToken.sub,
+                    role: decodedToken.role,
+                    changePassword: decodedToken['change password'] // Handle space in claim name
+                    // Add other claims as needed
+                };
+
                 this.tokenExpiresAt = decodedToken.exp * 1000; // Convert to milliseconds
             }
 
@@ -190,6 +139,12 @@ export const useAuthStore = defineStore('auth', {
 
             // Set default authorization header
             this.setAuthHeader(token);
+        },
+
+        // Keep your existing setAuth method for backward compatibility
+        setAuth(user, token, refreshToken = null) {
+            this.user = user;
+            this.setAuthFromToken(token, refreshToken);
         },
 
         clearAuth() {
@@ -314,20 +269,52 @@ export const useAuthStore = defineStore('auth', {
 
         clearError() {
             this.error = null;
+        },
+
+        // Update AuthService calls if needed to match your API response
+        async updateProfile(profileData) {
+            this.loading = true;
+            this.error = null;
+            try {
+                const updatedUser = await AuthService.updateProfile(profileData);
+                // Merge updated user data with existing user
+                this.user = { ...this.user, ...updatedUser };
+                return true;
+            } catch (err) {
+                this.handleAuthError(err);
+                return false;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // Add method to fetch full user profile
+        async fetchUserProfile() {
+            try {
+                // If your API has an endpoint to get full user details
+                const userProfile = await AuthService.getUserProfile();
+                this.user = { ...this.user, ...userProfile };
+                return true;
+            } catch (error) {
+                console.error('Failed to fetch user profile:', error);
+                return false;
+            }
         }
     },
 
     getters: {
-        isAuthenticated: (state) => !!state.token,
+        isAuthenticated: (state) => !!state.token && !!state.user,
         isLoading: (state) => state.loading,
         hasError: (state) => !!state.error,
-        userRole: (state) => state.userRole || null,
-        userName: (state) => state.userName || null,
-        userEmail: (state) => state.userEmail || null,
-        userId: (state) => state.userId || null,
+        userRole: (state) => state.user?.role || null,
+        userName: (state) => state.user?.name || state.user?.email?.split('@')[0] || null,
+        userEmail: (state) => state.user?.email || null,
+        userId: (state) => state.user?.id || null,
         currentError: (state) => state.error,
-        hasRole: (state) => (role) => state.userRole === role,
-        hasPermission: (state) => (permission) => state.user?.permissions?.includes(permission) || false,
+        hasRole: (state) => (role) => state.user?.role === role,
+        needsPasswordChange: (state) => state.user?.changePassword === true,
+
+        // Fix these getters to use the user object
         tokenExpiration: (state) => (state.tokenExpiresAt ? new Date(state.tokenExpiresAt) : null),
         isTokenExpiring: (state) => {
             if (!state.tokenExpiresAt) return false;

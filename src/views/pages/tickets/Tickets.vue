@@ -6,6 +6,7 @@ import { TicketService } from '@/service/TicketService';
 import { FilterMatchMode } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
 import { computed, onBeforeMount, ref } from 'vue';
+const loading = ref(false);
 
 onBeforeMount(() => {
     TicketService.getTickets().then((data) => {
@@ -25,16 +26,33 @@ onBeforeMount(() => {
         console.log('Tickets', tickets.value);
     });
 
+    // CategoryService.getCategories().then((data) => {
+    //     categories.value = data.map((cat) => ({
+    //         label: cat.displayName,
+    //         value: cat.name
+    //     }));
+    //     console.log('Categories', categories.value);
+    // });
+
     CategoryService.getCategories().then((data) => {
         categories.value = data.map((cat) => ({
-            label: cat.displayName,
-            value: cat.name
+            label: cat.name, // Use 'name' instead of 'displayName'
+            value: cat.name, // Use 'name' to match ticket.categoryName
+            data: cat // Store the full category object for reference
         }));
         console.log('Categories', categories.value);
     });
 
+    // EmployeeService.getEmployees().then((data) => {
+    //     users.value = data;
+    //     console.log('Users', users.value);
+    // });
+
     EmployeeService.getEmployees().then((data) => {
-        users.value = data;
+        users.value = data.map((user) => ({
+            ...user,
+            name: `${user.firstName} ${user.lastName}`.trim() // Create full name
+        }));
         console.log('Users', users.value);
     });
 
@@ -161,7 +179,7 @@ const onUpload = (event) => {
 };
 
 // Fixed: Save ticket function
-function saveTicket() {
+async function saveTicket() {
     submitted.value = true;
 
     if (ticket.value?.title?.trim()) {
@@ -174,10 +192,16 @@ function saveTicket() {
                     ticket.value.categoryName = ticket.value.categoryName.value;
                 }
 
-                tickets.value.splice(index, 1, { ...ticket.value });
-            }
+                //Make api call to update ticket
+                const response = await TicketService.updateTicket(ticket.value.id, ticketData);
 
-            toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Updated', life: 3000 });
+                if (response) {
+                    tickets.value.splice(index, 1, { ...ticket.value });
+                    toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Updated', life: 3000 });
+                } else {
+                    toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update ticket', life: 3000 });
+                }
+            }
         } else {
             // Create new ticket
             ticket.value.id = createId();
@@ -194,10 +218,17 @@ function saveTicket() {
                 ticket.value.assignedUserName = selectedAssignee.value.name;
                 ticket.value.assignedUserEmail = selectedAssignee.value.email;
             }
+            console.log('Creating Ticket', ticket.value);
 
-            tickets.value.push({ ...ticket.value });
+            // Make API call to create ticket
+            const response = await TicketService.createTicket(ticket.value);
 
-            toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Created', life: 3000 });
+            if (response) {
+                tickets.value.unshift({ ...ticket.value });
+                toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Created', life: 3000 });
+            } else {
+                toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to create ticket', life: 3000 });
+            }
         }
 
         ticketDialog.value = false;
@@ -218,24 +249,113 @@ function saveTicket() {
     }
 }
 
+// async function saveTicket() {
+//     submitted.value = true;
+
+//     if (ticket.value?.title?.trim()) {
+//         try {
+//             // Prepare the ticket data for API
+//             const ticketData = {
+//                 title: ticket.value.title,
+//                 description: ticket.value.description,
+//                 categoryName: ticket.value.categoryName,
+//                 tags: ticket.value.tags,
+//                 attachmentUrl: ticket.value.attachmentUrl,
+//                 assignedUserName: selectedAssignee.value ? selectedAssignee.value.name : '',
+//                 assignedUserEmail: selectedAssignee.value ? selectedAssignee.value.email : '',
+//                 dueDate: ticket.value.dueDate,
+//                 priority: ticket.value.priority,
+//                 status: ticket.value.status
+//             };
+
+//             if (ticket.value.id) {
+//                 // Update existing ticket
+//                 const response = await TicketService.updateTicket(ticket.value.id, ticketData);
+
+//                 // Update local state
+//                 const index = findIndexById(ticket.value.id);
+//                 if (index !== -1) {
+//                     tickets.value.splice(index, 1, {
+//                         ...tickets.value[index],
+//                         ...ticketData,
+//                         // Preserve existing fields that might not be in ticketData
+//                         id: ticket.value.id,
+//                         createdAt: tickets.value[index].createdAt,
+//                         commentCount: tickets.value[index].commentCount
+//                     });
+//                 }
+
+//                 toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Updated', life: 3000 });
+//             } else {
+//                 // Create new ticket
+//                 const response = await TicketService.createTicket(ticketData);
+
+//                 // Add the new ticket to the local list
+//                 const newTicket = {
+//                     ...ticketData,
+//                     id: response.id || createId(),
+//                     createdAt: new Date().toISOString(),
+//                     commentCount: 0
+//                 };
+//                 tickets.value.unshift(newTicket);
+
+//                 toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Created', life: 3000 });
+//             }
+
+//             ticketDialog.value = false;
+//             resetTicketForm();
+//         } catch (error) {
+//             console.error('Error saving ticket:', error);
+//             const errorMessage = error.response?.data?.message || 'Failed to save ticket. Please try again.';
+//             toast.add({
+//                 severity: 'error',
+//                 summary: 'Error',
+//                 detail: errorMessage,
+//                 life: 5000
+//             });
+//         }
+//     } else {
+//         toast.add({
+//             severity: 'warn',
+//             summary: 'Validation Error',
+//             detail: 'Title is required',
+//             life: 3000
+//         });
+//     }
+// }
+
+function resetTicketForm() {
+    ticket.value = {
+        title: '',
+        description: '',
+        categoryName: null,
+        tags: '',
+        attachmentUrl: null,
+        assignedUserName: '',
+        assignedUserEmail: '',
+        dueDate: null,
+        priority: 'MEDIUM',
+        status: 'OPEN'
+    };
+    selectedAssignee.value = null;
+    submitted.value = false;
+}
+
 // Fixed: Remove the removeAttachment function since we only have one URL
 function removeAttachment() {
     ticket.value.attachmentUrl = null;
     toast.add({ severity: 'info', summary: 'File Removed', detail: 'Attachment has been removed', life: 3000 });
 }
 
+// Update the editTicket function to handle the new user structure
 function editTicket(prod) {
     // Copy ticket
     ticket.value = { ...prod };
 
-    // Normalize category (always object)
-    if (prod.categoryName) {
-        ticket.value.categoryName = categories.value.find((cat) => cat.value === prod.categoryName) || null;
-    } else {
-        ticket.value.categoryName = null;
-    }
+    // Set category (it's already a string from API)
+    ticket.value.categoryName = prod.categoryName;
 
-    // Normalize assignee (always object)
+    // Set assignee - match by the full name we created
     if (prod.assignedUserName) {
         selectedAssignee.value = users.value.find((user) => user.name === prod.assignedUserName) || null;
     } else {
@@ -250,11 +370,44 @@ function confirmDeleteTicket(prod) {
     deleteTicketDialog.value = true;
 }
 
-function deleteTicket() {
-    tickets.value = tickets.value.filter((val) => val.id !== ticket.value.id);
-    deleteTicketDialog.value = false;
-    ticket.value = {};
-    toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Deleted', life: 3000 });
+async function deleteTicket() {
+    try {
+        await TicketService.deleteTicket(ticket.value.id);
+        tickets.value = tickets.value.filter((val) => val.id !== ticket.value.id);
+        deleteTicketDialog.value = false;
+        ticket.value = {};
+        toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Deleted', life: 3000 });
+    } catch (error) {
+        console.error('Error deleting ticket:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: 'Failed to delete ticket',
+            life: 5000
+        });
+    }
+}
+
+async function deleteSelectedTickets() {
+    try {
+        // Delete each selected ticket
+        const deletePromises = selectedTickets.value.map((ticket) => TicketService.deleteTicket(ticket.id));
+        await Promise.all(deletePromises);
+
+        // Update local state
+        tickets.value = tickets.value.filter((val) => !selectedTickets.value.includes(val));
+        deleteTicketsDialog.value = false;
+        selectedTickets.value = null;
+        toast.add({ severity: 'success', summary: 'Successful', detail: 'Tickets Deleted', life: 3000 });
+    } catch (error) {
+        console.error('Error deleting tickets:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: 'Failed to delete some tickets',
+            life: 5000
+        });
+    }
 }
 
 function findIndexById(id) {
@@ -279,13 +432,6 @@ function exportCSV() {
 
 function confirmDeleteSelected() {
     deleteTicketsDialog.value = true;
-}
-
-function deleteSelectedTickets() {
-    tickets.value = tickets.value.filter((val) => !selectedTickets.value.includes(val));
-    deleteTicketsDialog.value = false;
-    selectedTickets.value = null;
-    toast.add({ severity: 'success', summary: 'Successful', detail: 'Tickets Deleted', life: 3000 });
 }
 
 function getStatusLabel(status) {
@@ -405,13 +551,38 @@ function editAssignee() {
     editingAssignee.value = true;
 }
 
+// function saveAssignee() {
+//     if (selectedAssignee.value) {
+//         ticket.value.assignedUserName = selectedAssignee.value.name;
+//         ticket.value.assignedUserEmail = selectedAssignee.value.email;
+
+//         TicketService.reassignTicket(ticket.value.id, selectedAssignee.value.name, selectedAssignee.value.email)
+//             .then((response) => {
+//                 toast.add({ severity: 'success', summary: 'Successful', detail: 'Assignee Updated', life: 3000 });
+//             })
+//             .catch((error) => {
+//                 console.error('Error reassigning ticket:', error);
+//                 toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update assignee', life: 3000 });
+//             });
+//     }
+//     editingAssignee.value = false;
+// }
+
 function saveAssignee() {
     if (selectedAssignee.value) {
         ticket.value.assignedUserName = selectedAssignee.value.name;
         ticket.value.assignedUserEmail = selectedAssignee.value.email;
 
-        TicketService.reassignTicket(ticket.value.id, selectedAssignee.value.name, selectedAssignee.value.email)
+        // Use the actual user ID from the selected assignee
+        TicketService.reassignTicket(ticket.value.id, selectedAssignee.value.id)
             .then((response) => {
+                // Update local state
+                const index = findIndexById(ticket.value.id);
+                if (index !== -1) {
+                    tickets.value[index].assignedUserName = selectedAssignee.value.name;
+                    tickets.value[index].assignedUserEmail = selectedAssignee.value.email;
+                }
+
                 toast.add({ severity: 'success', summary: 'Successful', detail: 'Assignee Updated', life: 3000 });
             })
             .catch((error) => {
@@ -633,36 +804,64 @@ function onCategoryChange() {
                     <Textarea id="description" v-model="ticket.description" required="true" rows="3" class="w-full" />
                 </div>
 
+                <!-- Fixed Category Select -->
                 <div>
                     <label for="categoryName" class="block font-bold mb-3">Category</label>
-                    <Select id="categoryName" v-model="ticket.categoryName" :options="categories" optionLabel="name" optionValue="id" placeholder="Select a category" class="w-full">
+                    <Dropdown id="categoryName" v-model="ticket.categoryName" :options="categories" optionLabel="label" optionValue="value" placeholder="Select a category" class="w-full" @change="onCategoryChange">
+                        <template #value="slotProps">
+                            <div v-if="slotProps.value" class="flex items-center">
+                                <span>{{ slotProps.value }}</span>
+                            </div>
+                            <span v-else>
+                                {{ slotProps.placeholder }}
+                            </span>
+                        </template>
                         <template #option="slotProps">
                             <div class="flex flex-col p-2">
                                 <div class="flex justify-between items-center mb-1">
-                                    <span class="font-medium">{{ slotProps.option.name }}</span>
-                                    <Tag :value="slotProps.option.defaultPriority" :severity="getPriorityLabel(slotProps.option.defaultPriority)" size="small" />
+                                    <span class="font-medium">{{ slotProps.option.label }}</span>
+                                    <Tag :value="slotProps.option.data.defaultPriority" :severity="getPriorityLabel(slotProps.option.data.defaultPriority)" size="small" />
                                 </div>
-                                <span class="text-sm text-gray-600">{{ slotProps.option.departmentName }}</span>
-                                <span class="text-xs text-gray-500">Target: {{ slotProps.option.targetResolutionTime }}h</span>
+                                <span class="text-sm text-gray-600">{{ slotProps.option.data.departmentName }}</span>
+                                <span class="text-xs text-gray-500">Target: {{ slotProps.option.data.targetResolutionTime }}h</span>
                             </div>
                         </template>
-                    </Select>
+                    </Dropdown>
                 </div>
 
                 <div>
                     <label for="assignee" class="block font-bold mb-3">Assignee</label>
-                    <Select id="categoryName" v-model="ticket.categoryName" :options="categories" optionLabel="name" optionValue="id" placeholder="Select a category" class="w-full">
-                        <template #option="slotProps">
-                            <div class="flex flex-col p-2">
-                                <div class="flex justify-between items-center mb-1">
-                                    <span class="font-medium">{{ slotProps.option.name }}</span>
-                                    <Tag :value="slotProps.option.defaultPriority" :severity="getPriorityLabel(slotProps.option.defaultPriority)" size="small" />
+                    <Dropdown id="assignee" v-model="selectedAssignee" :options="users" optionLabel="name" placeholder="Select an assignee" class="w-full" filter :showClear="true">
+                        <template #value="slotProps">
+                            <div v-if="slotProps.value" class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <span class="text-sm font-medium text-blue-600"> {{ slotProps.value.firstName?.[0] }}{{ slotProps.value.lastName?.[0] }} </span>
                                 </div>
-                                <span class="text-sm text-gray-600">{{ slotProps.option.departmentName }}</span>
-                                <span class="text-xs text-gray-500">Target: {{ slotProps.option.targetResolutionTime }}h</span>
+                                <div class="flex flex-col">
+                                    <span class="font-medium">{{ slotProps.value.name }}</span>
+                                    <span class="text-xs text-gray-500">{{ slotProps.value.departmentName }}</span>
+                                </div>
+                            </div>
+                            <span v-else class="text-gray-400">
+                                {{ slotProps.placeholder }}
+                            </span>
+                        </template>
+                        <template #option="slotProps">
+                            <div class="flex items-center gap-3 p-2">
+                                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <span class="text-sm font-medium text-blue-600"> {{ slotProps.option.firstName?.[0] }}{{ slotProps.option.lastName?.[0] }} </span>
+                                </div>
+                                <div class="flex flex-col flex-1">
+                                    <span class="font-medium">{{ slotProps.option.name }}</span>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs text-gray-500">{{ slotProps.option.departmentName }}</span>
+                                        <span class="text-xs text-gray-400">{{ slotProps.option.role }}</span>
+                                    </div>
+                                    <span class="text-xs text-gray-400 truncate">{{ slotProps.option.email }}</span>
+                                </div>
                             </div>
                         </template>
-                    </Select>
+                    </Dropdown>
                 </div>
 
                 <div>
@@ -791,8 +990,7 @@ function onCategoryChange() {
                                                 <span class="text-gray-500 min-w-[120px]">Assignee</span>
                                                 <div class="flex items-center gap-2">
                                                     <template v-if="editingAssignee">
-                                                        <Select v-model="selectedAssignee" :options="users" optionLabel="name" placeholder="Select an Assignee" filter class="w-full md:w-56">
-                                                            <!-- Selected value template -->
+                                                        <Dropdown v-model="selectedAssignee" :options="users" optionLabel="name" placeholder="Select an Assignee" class="w-full md:w-56" filter>
                                                             <template #value="slotProps">
                                                                 <div v-if="slotProps.value" class="flex items-center gap-2">
                                                                     <div class="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
@@ -803,14 +1001,12 @@ function onCategoryChange() {
                                                                         <span class="text-xs text-gray-500">{{ slotProps.value.departmentName }}</span>
                                                                     </div>
                                                                 </div>
-                                                                <span v-else>
+                                                                <span v-else class="text-gray-400">
                                                                     {{ slotProps.placeholder }}
                                                                 </span>
                                                             </template>
-
-                                                            <!-- Option template -->
                                                             <template #option="slotProps">
-                                                                <div class="flex items-center gap-2">
+                                                                <div class="flex items-center gap-2 p-2">
                                                                     <div class="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
                                                                         <span class="text-xs font-medium text-blue-600"> {{ slotProps.option.firstName?.[0] }}{{ slotProps.option.lastName?.[0] }} </span>
                                                                     </div>
@@ -820,17 +1016,19 @@ function onCategoryChange() {
                                                                     </div>
                                                                 </div>
                                                             </template>
-                                                        </Select>
-
+                                                        </Dropdown>
                                                         <Button icon="pi pi-check" size="small" outlined severity="success" @click="saveAssignee" />
                                                         <Button icon="pi pi-times" size="small" outlined severity="secondary" @click="cancelEdit" />
                                                     </template>
                                                     <template v-else>
                                                         <div class="flex items-center gap-3">
-                                                            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                            <div v-if="ticket.assignedUserName" class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
                                                                 <span class="text-sm font-medium text-blue-600">
                                                                     {{ getEmployeeDetails(ticket.assignedUserName)?.firstName?.[0] || 'U' }}{{ getEmployeeDetails(ticket.assignedUserName)?.lastName?.[0] || '' }}
                                                                 </span>
+                                                            </div>
+                                                            <div v-else class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                                                <i class="pi pi-user text-gray-400 text-sm"></i>
                                                             </div>
                                                             <div class="flex flex-col">
                                                                 <span class="font-medium">{{ ticket.assignedUserName || 'Unassigned' }}</span>
