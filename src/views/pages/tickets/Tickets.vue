@@ -82,6 +82,9 @@ const selectedDueDate = ref(null);
 const userId = computed(() => authStore.user?.id);
 const editingStatus = ref(false);
 const selectedStatus = ref(null);
+const loadingComments = ref(false);
+const addingComment = ref(false);
+const ticketComments = ref([]); // Store comments by ticket ID
 
 // Fixed ticket object with proper defaults
 const ticket = ref({
@@ -160,10 +163,13 @@ function hideDialog() {
     submitted.value = false;
 }
 
-function openTicketDetailsDialog(event) {
+async function openTicketDetailsDialog(event) {
     console.log('Row Clicked', event.data);
     ticketDetailsDialog.value = true;
     ticket.value = { ...event.data };
+
+    // Fetch comments for this ticket
+    await fetchComments(ticket.value.id);
 }
 
 function initFilters() {
@@ -489,42 +495,146 @@ const fileTypeClass = (type) => {
     return type === 'pdf' ? 'bg-red-100 text-red-500' : type === 'image' ? 'bg-blue-100 text-blue-500' : 'bg-gray-100 text-gray-500';
 };
 
-const addComment = (ticketId) => {
-    if (newComment.value.text.trim() !== '') {
-        const ticketComments = comments.value.find((ticket) => ticket.ticketId === ticketId);
+// Fetch comments for a specific ticket
+async function fetchComments(ticketId) {
+    if (!ticketId) return;
 
-        if (ticketComments) {
-            ticketComments.comments.push({
-                commentId: `c${ticketComments.comments.length + 1}`,
-                timestamp: new Date().toISOString(),
-                comment: newComment.value.text,
-                visibility: newComment.value.private ? 'private' : 'public',
-                author: 'You'
-            });
-        } else {
-            comments.value.push({
-                ticketId,
-                comments: [
-                    {
-                        commentId: 'c1',
-                        timestamp: new Date().toISOString(),
-                        comment: newComment.value.text,
-                        visibility: newComment.value.private ? 'private' : 'public',
-                        author: 'You'
-                    }
-                ]
-            });
+    loadingComments.value = true;
+    try {
+        const response = await TicketService.getComments(ticketId);
+        console.log('Fetched comments:', response);
+
+        // Store comments by ticket ID
+        ticketComments.value[ticketId] = response;
+    } catch (error) {
+        console.error('Error fetching comments:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: 'Failed to load comments',
+            life: 3000
+        });
+    } finally {
+        loadingComments.value = false;
+    }
+}
+
+// Enhanced addComment function with proper CommentDto structure
+async function addComment(ticketId) {
+    // Add proper null checks
+    if (!newComment.value?.text?.trim() || !ticketId) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Warning',
+            detail: 'Please enter a comment',
+            life: 3000
+        });
+        return;
+    }
+
+    addingComment.value = true;
+    try {
+        // Prepare comment data according to your CommentDto structure
+        const commentData = {
+            userId: authStore.userId,
+            comment: newComment.value.text.trim(),
+            timestamp: new Date().toISOString(),
+            authorName: authStore.user?.name || `${authStore.user?.firstName} ${authStore.user?.lastName}`.trim(),
+            authorEmail: authStore.user?.email,
+            authorRole: authStore.user?.role
+        };
+
+        console.log('Sending comment data:', commentData);
+
+        const response = await TicketService.addComment(ticketId, commentData);
+        console.log('Comment added:', response);
+
+        // Add the new comment to local state
+        if (!ticketComments.value[ticketId]) {
+            ticketComments.value[ticketId] = [];
         }
 
-        newComment.value.text = '';
-        newComment.value.private = false;
-    }
-};
+        // Create a comment object with the response data
+        const newCommentObj = {
+            id: response.id,
+            userId: response.userId || commentData.userId,
+            comment: response.comment || commentData.comment,
+            timestamp: response.timestamp || commentData.timestamp,
+            authorName: response.authorName || commentData.authorName,
+            authorEmail: response.authorEmail || commentData.authorEmail,
+            authorRole: response.authorRole || commentData.authorRole,
+            // For backward compatibility with your existing display
+            author: response.authorName || commentData.authorName,
+            createdAt: response.timestamp || commentData.timestamp
+        };
 
+        ticketComments.value[ticketId].unshift(newCommentObj);
+
+        // Update ticket comment count
+        const ticketIndex = findIndexById(ticketId);
+        if (ticketIndex !== -1) {
+            tickets.value[ticketIndex].commentCount = (tickets.value[ticketIndex].commentCount || 0) + 1;
+        }
+
+        // Clear the comment form
+        newComment.value.text = '';
+        newComment.value.isPrivate = false;
+
+        toast.add({
+            severity: 'success',
+            summary: 'Success',
+            detail: 'Comment added successfully',
+            life: 3000
+        });
+    } catch (error) {
+        console.error('Error adding comment:', error);
+        const errorMessage = error.response?.data?.message || 'Failed to add comment';
+        toast.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: errorMessage,
+            life: 5000
+        });
+    } finally {
+        addingComment.value = false;
+    }
+}
+
+// Enhanced filteredComments computed property
 const filteredComments = computed(() => {
-    const ticketComm = comments.value.find((ticketComments) => ticketComments.ticketId == ticket.value.id);
-    return ticketComm ? ticketComm.comments : [];
+    if (!ticket.value?.id) return [];
+
+    const comments = ticketComments.value[ticket.value.id] || [];
+
+    // Sort comments by date (newest first)
+    return comments.sort((a, b) => {
+        const dateA = new Date(a.createdAt || a.timestamp);
+        const dateB = new Date(b.createdAt || b.timestamp);
+        return dateB - dateA;
+    });
 });
+
+// Helper functions for comment display
+function getCommentAuthorName(comment) {
+    if (comment.author) return comment.author;
+    if (comment.userId === authStore.userId) return 'You';
+
+    // If we have user data, try to find the user
+    const user = users.value.find((u) => u.id === comment.userId);
+    return user ? user.name : 'Unknown User';
+}
+
+function getCommentAuthorInitials(comment) {
+    const name = getCommentAuthorName(comment);
+    if (name === 'You') return 'Y';
+    if (name === 'Unknown User') return 'U';
+
+    const nameParts = name.split(' ');
+    if (nameParts.length >= 2) {
+        return (nameParts[0][0] + nameParts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+}
 
 function editAssignee() {
     selectedAssignee.value = users.value.find((user) => user.name === ticket.value.assignedUserName) || null;
@@ -1145,28 +1255,62 @@ function onCategoryChange() {
                             <!-- Comments Tab -->
                             <TabPanel value="1">
                                 <div class="space-y-4">
+                                    <!-- Loading State -->
+                                    <div v-if="loadingComments" class="flex justify-center items-center py-8">
+                                        <ProgressSpinner style="width: 40px; height: 40px" strokeWidth="4" />
+                                        <span class="ml-3">Loading comments...</span>
+                                    </div>
+
+                                    <!-- No Comments State -->
+                                    <div v-else-if="filteredComments.length === 0" class="text-center py-8 text-gray-500">
+                                        <i class="pi pi-comments text-4xl mb-2"></i>
+                                        <p>No comments yet</p>
+                                        <p class="text-sm">Be the first to add a comment</p>
+                                    </div>
+
                                     <!-- List Comments -->
-                                    <div v-for="comment in filteredComments" :key="comment.commentId" class="p-3 border rounded-lg bg-gray-50 dark:bg-gray-800">
-                                        <div class="flex items-center justify-between">
-                                            <p class="font-medium">{{ comment.author }}</p>
-                                            <p class="text-xs text-gray-500">{{ formatDate(comment.timestamp) }}</p>
+                                    <div v-else class="space-y-3 max-h-96 overflow-y-auto">
+                                        <div v-for="comment in filteredComments" :key="comment.id || comment.commentId" class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                        <span class="text-sm font-medium text-blue-600">
+                                                            {{ getCommentAuthorInitials(comment) }}
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <p class="font-medium text-sm">{{ getCommentAuthorName(comment) }}</p>
+                                                        <p class="text-xs text-gray-500">{{ formatDate(comment.createdAt || comment.timestamp) }}</p>
+                                                    </div>
+                                                </div>
+                                                <Tag v-if="comment.visibility === 'PRIVATE'" value="Private" severity="secondary" size="small" />
+                                            </div>
+                                            <p class="text-sm text-gray-700 mt-2 whitespace-pre-wrap">{{ comment.comment || comment.content }}</p>
+
+                                            <!-- Comment Actions -->
+                                            <div class="flex items-center gap-2 mt-3 pt-2 border-t border-gray-200">
+                                                <small class="text-gray-500 text-xs">
+                                                    {{ comment.role ? `• ${comment.role}` : '' }}
+                                                </small>
+                                            </div>
                                         </div>
-                                        <p class="text-sm mt-2" :class="{ 'italic text-gray-400': comment.visibility == 'private' }">
-                                            {{ comment.comment }}
-                                            <span v-if="comment.visibility == 'private'">(Private)</span>
-                                        </p>
                                     </div>
 
                                     <!-- Add New Comment -->
-                                    <div class="mt-4">
-                                        <Textarea v-model="newComment.text" rows="3" class="w-full" placeholder="Add a comment..." />
-                                        <div class="flex items-center justify-between mt-2">
-                                            <div class="flex items-center gap-2">
-                                                <Checkbox v-model="newComment.private" :binary="true" />
-                                                <label for="privateComment">Private</label>
-                                            </div>
-                                            <Button label="Post" icon="pi pi-send" class="p-button-sm" @click="addComment(ticket.id)" />
+                                    <!-- Add New Comment -->
+                                    <div class="mt-6 border-t pt-4">
+                                        <div class="mb-3">
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Add a comment</label>
+                                            <Textarea v-model="newComment.text" rows="3" class="w-full" placeholder="Type your comment here..." :disabled="addingComment" />
                                         </div>
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-3">
+                                                <Checkbox v-model="newComment.isPrivate" :binary="true" inputId="privateComment" :disabled="addingComment" />
+                                                <label for="privateComment" class="text-sm text-gray-600">Private comment</label>
+                                            </div>
+                                            <Button label="Post Comment" icon="pi pi-send" class="p-button-sm" @click="addComment(ticket.id)" :loading="addingComment" :disabled="!newComment.text?.trim()" />
+                                        </div>
+                                        <small class="text-gray-500 text-xs mt-2 block"> Private comments are only visible to support staff </small>
                                     </div>
                                 </div>
                             </TabPanel>
