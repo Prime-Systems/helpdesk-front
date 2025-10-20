@@ -3,10 +3,13 @@ import { CategoryService } from '@/service/CategoryService';
 import { CommentService } from '@/service/CommentService';
 import { EmployeeService } from '@/service/EmployeeService';
 import { TicketService } from '@/service/TicketService';
+import { useAuthStore } from '@/stores/AuthStore';
 import { FilterMatchMode } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
 import { computed, onBeforeMount, ref } from 'vue';
 const loading = ref(false);
+
+const authStore = useAuthStore();
 
 onBeforeMount(() => {
     TicketService.getTickets().then((data) => {
@@ -38,7 +41,8 @@ onBeforeMount(() => {
         categories.value = data.map((cat) => ({
             label: cat.name, // Use 'name' instead of 'displayName'
             value: cat.name, // Use 'name' to match ticket.categoryName
-            data: cat // Store the full category object for reference
+            data: cat, // Store the full category object for reference
+            id: cat.id
         }));
         console.log('Categories', categories.value);
     });
@@ -75,6 +79,7 @@ const editingAssignee = ref(false);
 const selectedAssignee = ref(null);
 const editingDueDate = ref(false);
 const selectedDueDate = ref(null);
+const userId = computed(() => authStore.user?.id);
 
 // Fixed ticket object with proper defaults
 const ticket = ref({
@@ -208,16 +213,28 @@ async function saveTicket() {
             ticket.value.createdAt = new Date().toISOString();
             ticket.value.commentCount = 0;
 
+            console.log('Categroy object before assignment:', ticket.value.categoryName);
+
             // Ensure categoryName is properly set
-            if (ticket.value.categoryName && typeof ticket.value.categoryName === 'object') {
-                ticket.value.categoryName = ticket.value.categoryName.value;
+            // if (ticket.value.categoryName && typeof ticket.value.categoryName === 'object') {
+            //     ticket.value.categoryName = ticket.value.categoryName.value;
+            // }
+
+            //Set categoryId based on selected category
+            console.log('Category after assignment:', ticket.value.categoryName);
+            const selectedCategory = categories.value.find((category) => category.value === ticket.value.categoryName);
+            if (selectedCategory) {
+                ticket.value.categoryId = selectedCategory.id;
             }
+
+            console.log('Category ID set to:', ticket.value.categoryId);
 
             // Set assignee if selected
             if (selectedAssignee.value) {
                 ticket.value.assignedUserName = selectedAssignee.value.name;
                 ticket.value.assignedUserEmail = selectedAssignee.value.email;
             }
+            ticket.value.createdById = userId.value;
             console.log('Creating Ticket', ticket.value);
 
             // Make API call to create ticket
