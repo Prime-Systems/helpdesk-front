@@ -80,6 +80,8 @@ const selectedAssignee = ref(null);
 const editingDueDate = ref(false);
 const selectedDueDate = ref(null);
 const userId = computed(() => authStore.user?.id);
+const editingStatus = ref(false);
+const selectedStatus = ref(null);
 
 // Fixed ticket object with proper defaults
 const ticket = ref({
@@ -266,81 +268,6 @@ async function saveTicket() {
     }
 }
 
-// async function saveTicket() {
-//     submitted.value = true;
-
-//     if (ticket.value?.title?.trim()) {
-//         try {
-//             // Prepare the ticket data for API
-//             const ticketData = {
-//                 title: ticket.value.title,
-//                 description: ticket.value.description,
-//                 categoryName: ticket.value.categoryName,
-//                 tags: ticket.value.tags,
-//                 attachmentUrl: ticket.value.attachmentUrl,
-//                 assignedUserName: selectedAssignee.value ? selectedAssignee.value.name : '',
-//                 assignedUserEmail: selectedAssignee.value ? selectedAssignee.value.email : '',
-//                 dueDate: ticket.value.dueDate,
-//                 priority: ticket.value.priority,
-//                 status: ticket.value.status
-//             };
-
-//             if (ticket.value.id) {
-//                 // Update existing ticket
-//                 const response = await TicketService.updateTicket(ticket.value.id, ticketData);
-
-//                 // Update local state
-//                 const index = findIndexById(ticket.value.id);
-//                 if (index !== -1) {
-//                     tickets.value.splice(index, 1, {
-//                         ...tickets.value[index],
-//                         ...ticketData,
-//                         // Preserve existing fields that might not be in ticketData
-//                         id: ticket.value.id,
-//                         createdAt: tickets.value[index].createdAt,
-//                         commentCount: tickets.value[index].commentCount
-//                     });
-//                 }
-
-//                 toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Updated', life: 3000 });
-//             } else {
-//                 // Create new ticket
-//                 const response = await TicketService.createTicket(ticketData);
-
-//                 // Add the new ticket to the local list
-//                 const newTicket = {
-//                     ...ticketData,
-//                     id: response.id || createId(),
-//                     createdAt: new Date().toISOString(),
-//                     commentCount: 0
-//                 };
-//                 tickets.value.unshift(newTicket);
-
-//                 toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Created', life: 3000 });
-//             }
-
-//             ticketDialog.value = false;
-//             resetTicketForm();
-//         } catch (error) {
-//             console.error('Error saving ticket:', error);
-//             const errorMessage = error.response?.data?.message || 'Failed to save ticket. Please try again.';
-//             toast.add({
-//                 severity: 'error',
-//                 summary: 'Error',
-//                 detail: errorMessage,
-//                 life: 5000
-//             });
-//         }
-//     } else {
-//         toast.add({
-//             severity: 'warn',
-//             summary: 'Validation Error',
-//             detail: 'Title is required',
-//             life: 3000
-//         });
-//     }
-// }
-
 function resetTicketForm() {
     ticket.value = {
         title: '',
@@ -356,6 +283,42 @@ function resetTicketForm() {
     };
     selectedAssignee.value = null;
     submitted.value = false;
+}
+
+function editStatus() {
+    selectedStatus.value = ticket.value.status;
+    editingStatus.value = true;
+}
+
+function saveStatus() {
+    if (selectedStatus.value) {
+        ticket.value.status = selectedStatus.value;
+
+        // Call API to update ticket status
+        TicketService.updateStatus(ticket.value.id, selectedStatus.value, authStore.userId)
+            .then((response) => {
+                // Update local state
+                const index = findIndexById(ticket.value.id);
+                if (index !== -1) {
+                    tickets.value[index].status = selectedStatus.value;
+                }
+
+                toast.add({ severity: 'success', summary: 'Successful', detail: 'Status Updated', life: 3000 });
+            })
+            .catch((error) => {
+                console.error('Error updating status:', error);
+                toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update status', life: 3000 });
+
+                // Revert local change if API call fails
+                selectedStatus.value = ticket.value.status;
+            });
+    }
+    editingStatus.value = false;
+}
+
+function cancelStatusEdit() {
+    editingStatus.value = false;
+    selectedStatus.value = null;
 }
 
 // Fixed: Remove the removeAttachment function since we only have one URL
@@ -800,7 +763,7 @@ function onCategoryChange() {
 
                 <Column :exportable="false" style="min-width: 12rem">
                     <template #body="{ data }">
-                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editTicket(data)" />
+                        <!--<Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editTicket(data)" />-->
                         <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteTicket(data)" />
                     </template>
                 </Column>
@@ -1094,7 +1057,33 @@ function onCategoryChange() {
 
                                             <div class="flex items-center">
                                                 <span class="text-gray-500 min-w-[120px]">Status</span>
-                                                <Tag :value="transformPriorityAndStatus(ticket.status)" :severity="getStatusLabel(ticket.status)" />
+                                                <div class="flex items-center gap-2">
+                                                    <template v-if="editingStatus">
+                                                        <Dropdown v-model="selectedStatus" :options="['OPEN', 'ONGOING', 'RESOLVED', 'CLOSED']" placeholder="Select Status" class="w-full md:w-40">
+                                                            <template #value="slotProps">
+                                                                <div v-if="slotProps.value" class="flex items-center">
+                                                                    <Tag :value="transformPriorityAndStatus(slotProps.value)" :severity="getStatusLabel(slotProps.value)" />
+                                                                </div>
+                                                                <span v-else class="text-gray-400">
+                                                                    {{ slotProps.placeholder }}
+                                                                </span>
+                                                            </template>
+                                                            <template #option="slotProps">
+                                                                <div class="flex items-center p-2">
+                                                                    <Tag :value="transformPriorityAndStatus(slotProps.option)" :severity="getStatusLabel(slotProps.option)" />
+                                                                </div>
+                                                            </template>
+                                                        </Dropdown>
+                                                        <Button icon="pi pi-check" size="small" outlined severity="success" @click="saveStatus" />
+                                                        <Button icon="pi pi-times" size="small" outlined severity="secondary" @click="cancelStatusEdit" />
+                                                    </template>
+                                                    <template v-else>
+                                                        <Tag :value="transformPriorityAndStatus(ticket.status)" :severity="getStatusLabel(ticket.status)" />
+                                                        <button class="text-gray-400 hover:text-gray-600 focus:outline-none ml-2" @click="editStatus" title="Change status">
+                                                            <i class="pi pi-pencil text-sm"></i>
+                                                        </button>
+                                                    </template>
+                                                </div>
                                             </div>
 
                                             <div class="flex items-center">
