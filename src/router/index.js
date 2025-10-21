@@ -167,7 +167,8 @@ const router = createRouter({
         {
             path: '/auth/login',
             name: 'login',
-            component: () => import('@/views/pages/auth/Login.vue')
+            component: () => import('@/views/pages/auth/Login.vue'),
+            meta: { requiresGuest: true }
         },
         {
             path: '/auth/access',
@@ -185,12 +186,41 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore();
 
+    // Ensure auth is initialized before proceeding
     if (!authStore.initialized) {
-        await authStore.initialize();
+        try {
+            await authStore.initialize();
+        } catch (error) {
+            console.error('Auth initialization failed:', error);
+            authStore.clearAuth();
+        }
     }
 
-    if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-        next('/auth/login');
+    // Check if route requires authentication
+    if (to.matched.some((record) => record.meta.requiresAuth)) {
+        if (!authStore.isAuthenticated) {
+            // Save intended URL for redirect after login
+            sessionStorage.setItem('redirectPath', to.fullPath);
+            next('/auth/login');
+        } else {
+            // Check if token needs refresh
+            if (authStore.isTokenExpiring) {
+                const refreshed = await authStore.refreshSession();
+                if (!refreshed) {
+                    sessionStorage.setItem('redirectPath', to.fullPath);
+                    next('/auth/login');
+                    return;
+                }
+            }
+            next();
+        }
+    } else if (to.matched.some((record) => record.meta.requiresGuest)) {
+        // Routes that should only be accessible to guests (like login)
+        if (authStore.isAuthenticated) {
+            next('/'); // or dashboard
+        } else {
+            next();
+        }
     } else {
         next();
     }

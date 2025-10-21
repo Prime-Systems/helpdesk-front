@@ -24,16 +24,17 @@ export const useAuthStore = defineStore('auth', {
                 const refreshToken = this.getStoredRefreshToken();
 
                 if (token) {
-                    // Check if token is expired
-                    if (this.isTokenExpired(token)) {
-                        if (refreshToken && !this.isTokenExpired(refreshToken)) {
-                            await this.refreshSession();
-                        } else {
-                            this.clearAuth();
-                        }
-                    } else {
+                    // Verify token with backend to ensure it's still valid
+                    const isValid = await this.verifyTokenWithBackend(token);
+
+                    if (isValid && !this.isTokenExpired(token)) {
                         // Token is valid, set user from token
                         this.setAuthFromToken(token, refreshToken);
+                    } else if (refreshToken && !this.isTokenExpired(refreshToken)) {
+                        // Try to refresh the token
+                        await this.refreshSession();
+                    } else {
+                        this.clearAuth();
                     }
                 }
             } catch (error) {
@@ -41,6 +42,15 @@ export const useAuthStore = defineStore('auth', {
                 this.clearAuth();
             } finally {
                 this.initialized = true;
+            }
+        },
+
+        async verifyTokenWithBackend(token) {
+            try {
+                const response = await AuthService.verifyToken(token);
+                return response !== null;
+            } catch (error) {
+                return false;
             }
         },
 
@@ -187,15 +197,24 @@ export const useAuthStore = defineStore('auth', {
         },
 
         getStoredToken() {
-            const cookieToken = this.getCookie('token');
-            if (cookieToken) return cookieToken;
-            return localStorage.getItem('token');
+            // Check sessionStorage first, then localStorage
+            const sessionToken = sessionStorage.getItem('token');
+            if (sessionToken) return sessionToken;
+
+            const localToken = localStorage.getItem('token');
+            if (localToken) return localToken;
+
+            return this.getCookie('token');
         },
 
         getStoredRefreshToken() {
-            const cookieRefreshToken = this.getCookie('refreshToken');
-            if (cookieRefreshToken) return cookieRefreshToken;
-            return localStorage.getItem('refreshToken');
+            const sessionRefreshToken = sessionStorage.getItem('refreshToken');
+            if (sessionRefreshToken) return sessionRefreshToken;
+
+            const localRefreshToken = localStorage.getItem('refreshToken');
+            if (localRefreshToken) return localRefreshToken;
+
+            return this.getCookie('refreshToken');
         },
 
         storeTokens(token, refreshToken) {
@@ -204,12 +223,17 @@ export const useAuthStore = defineStore('auth', {
                 if (refreshToken) {
                     localStorage.setItem('refreshToken', refreshToken);
                 }
+                // Clear session storage when using persistent storage
+                sessionStorage.removeItem('token');
+                sessionStorage.removeItem('refreshToken');
             } else {
-                // Store in sessionStorage for session-only persistence
                 sessionStorage.setItem('token', token);
                 if (refreshToken) {
                     sessionStorage.setItem('refreshToken', refreshToken);
                 }
+                // Clear local storage when using session storage
+                localStorage.removeItem('token');
+                localStorage.removeItem('refreshToken');
             }
         },
 

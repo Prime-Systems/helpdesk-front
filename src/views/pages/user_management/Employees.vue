@@ -1,16 +1,18 @@
 <script setup>
 import { useAuth } from '@/composables/useAuth';
-import { DepartmentService } from '@/service/DepartmentService';
-import { EmployeeService } from '@/service/EmployeeService';
+import { useDepartmentStore } from '@/stores/departmentStore';
+import { useEmployeeStore } from '@/stores/EmployeeStore';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
-import { onBeforeMount, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import EmployeeDetails from './EmployeeDetails.vue'; // Import the new component
 
-const {user} = useAuth();
+const { user } = useAuth();
 const departments = ref([]);
 const department = ref({});
 const employees = ref([]);
+const departmentStore = useDepartmentStore();
+const employeeStore = useEmployeeStore();
 const employee = ref({});
 const employeeDialog = ref(false);
 const employeeDetailsDialog = ref(false); // New ref for details drawer
@@ -19,20 +21,38 @@ const deleteEmployeeDialog = ref(false);
 const filters1 = ref();
 const loading1 = ref(null);
 const toast = useToast();
-const roles = [{ label: 'Employee', value: 'EMPLOYEE' }, { label: 'Team Lead', value: 'TEAM_LEAD' }, { label: 'Manager', value: 'MANAGER' }, { label: 'Director', value: 'DIRECTOR' }, { label: 'Admin', value: 'ADMIN' }];
+const roles = [
+    { label: 'Employee', value: 'EMPLOYEE' },
+    { label: 'Team Lead', value: 'TEAM_LEAD' },
+    { label: 'Manager', value: 'MANAGER' },
+    { label: 'Director', value: 'DIRECTOR' },
+    { label: 'Admin', value: 'ADMIN' }
+];
+// Initialize filters immediately
+initFilters1();
 
-onBeforeMount(() => {
+// Use onMounted instead of onBeforeMount for async operations
+onMounted(async () => {
     loading1.value = true;
-    EmployeeService.getEmployees().then((data) => {
-        employees.value = data;
+
+    try {
+        // Use stores instead of direct service calls
+        await employeeStore.fetchEmployees();
+        employees.value = employeeStore.employees;
+
+        await departmentStore.fetchDepartments();
+        departments.value = departmentStore.departments;
+    } catch (error) {
+        console.error('Error loading data:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: 'Failed to load data',
+            life: 3000
+        });
+    } finally {
         loading1.value = false;
-    });
-
-    DepartmentService.getDepartments().then((data) => {
-      departments.value = data;
-    })
-
-    initFilters1();
+    }
 });
 
 function initFilters1() {
@@ -92,7 +112,7 @@ function confirmDeleteEmployee(selectedEmployee) {
 function deleteEmployee() {
     employees.value = employees.value.filter((val) => val.employeeId !== employee.value.employeeId);
     deleteEmployeeDialog.value = false;
-    EmployeeService.deleteEmployee( employee.value.employeeId );
+    EmployeeService.deleteEmployee(employee.value.employeeId);
     employee.value = {};
     toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Deleted', life: 3000 });
 }
@@ -104,45 +124,60 @@ function createEmployeeCode() {
     return prefix + paddedNumber;
 }
 
-function saveEmployee() {
-
+async function saveEmployee() {
     submitted.value = true;
 
     if (employee?.value.firstName?.trim()) {
-        if (employee.value.employeeId) {
-            const index = findIndexById(employee.value.employeeId);
-            if (index !== -1) {
-              console.log('Updating employee:', employee.value);
-              EmployeeService.updateEmployee(employee.value);
-                employees.value[index] = { ...employee.value }; // Spread operator ensures reactivity
-                toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Updated', life: 3000 });
+        try {
+            if (employee.value.employeeId) {
+                // Update existing employee
+                await employeeStore.updateEmployee(employee.value);
+                employees.value = employeeStore.employees;
+                toast.add({
+                    severity: 'success',
+                    summary: 'Successful',
+                    detail: 'Employee Updated',
+                    life: 3000
+                });
             } else {
-                toast.add({ severity: 'error', summary: 'Error', detail: 'Employee Not Found', life: 3000 });
+                // Create new employee
+                const newEmployee = {
+                    ...employee.value,
+                    employeeId: createEmployeeCode(),
+                    firstName: employee.value.firstName || '',
+                    lastName: employee.value.lastName || '',
+                    photo: 'product-placeholder.svg',
+                    branch: employee.value.branch || 'Head Office',
+                    departmentName: employee.value.department ? departmentStore.departments.find((d) => d.id === employee.value.department)?.name || '' : '',
+                    departmentId: employee.value.department || '',
+                    createdBy: user.value?.userId,
+                    rating: 0,
+                    role: employee.value.role || 'EMPLOYEE',
+                    email: employee.value.email || '',
+                    phone: employee.value.phone || '',
+                    hireDate: new Date()
+                };
+
+                await employeeStore.addEmployee(newEmployee);
+                employees.value = employeeStore.employees;
+                toast.add({
+                    severity: 'success',
+                    summary: 'Successful',
+                    detail: 'Employee Created',
+                    life: 3000
+                });
             }
+
             employeeDialog.value = false;
             employee.value = {};
-        } else {
-            employee.value.employeeId = createEmployeeCode();
-            employee.value.firstName = employee.value.firstName ? employee.value.firstName : '';
-            employee.value.lastName = employee.value.lastName ? employee.value.lastName : '';
-            employee.value.photo = 'product-placeholder.svg';
-            employee.value.branch = employee.value.branch ? employee.value.branch : 'Head Office';
-            employee.value.departmentName = employee.value.department ? employee.value.department : '';
-            employee.value.departmentId = employee.value.department ? employee.value.department : '';
-            employee.value.createdBy = user.value.userId;
-            employee.value.rating = 0;
-            employee.value.role = employee.value.role ? employee.value.role : 'EMPLOYEE';
-            employee.value.email = employee.value.email ? employee.value.email : '';
-            employee.value.phone = employee.value.phone ? employee.value.phone : '';
-            employee.value.hireDate = new Date();
-
-            EmployeeService.addEmployee(employee.value);
-            employees.value.push(employee.value);
-            toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Created', life: 3000 });
+        } catch (error) {
+            toast.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: employeeStore.error || 'Failed to save employee',
+                life: 3000
+            });
         }
-
-        employeeDialog.value = false;
-        employee.value = {};
     }
 }
 </script>
@@ -272,9 +307,7 @@ function saveEmployee() {
                 <div>
                     <label for="department" class="block font-bold mb-3">Department</label>
                     <!-- <InputText id="department" v-model.trim="employee.department" required="true" autofocus :invalid="submitted && !employee.department" fluid /> -->
-                    <Dropdown id="department" v-model="employee.department" :options="departments" 
-                        optionLabel="name"
-                        optionValue="id" placeholder="Select department" class="w-full" :invalid="submitted && !employee.department" fluid />
+                    <Dropdown id="department" v-model="employee.department" :options="departments" optionLabel="name" optionValue="id" placeholder="Select department" class="w-full" :invalid="submitted && !employee.department" fluid />
                     <small v-if="submitted && !employee.department" class="text-red-500">Department is required.</small>
                 </div>
                 <div>
@@ -283,8 +316,7 @@ function saveEmployee() {
                 </div>
                 <div>
                     <label for="role" class="block font-bold mb-3">Role</label>
-                    <Dropdown id="role" v-model="employee.role" :options="roles" optionLabel="label"
-                        optionValue="value" placeholder="Select a role" class="w-full" />
+                    <Dropdown id="role" v-model="employee.role" :options="roles" optionLabel="label" optionValue="value" placeholder="Select a role" class="w-full" />
                 </div>
             </div>
 
