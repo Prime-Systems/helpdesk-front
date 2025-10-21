@@ -1,5 +1,5 @@
 <script setup>
-import { useAuth } from '@/composables/useAuth';
+import { useAuthStore } from '@/stores/AuthStore';
 import { useDepartmentStore } from '@/stores/departmentStore';
 import { useEmployeeStore } from '@/stores/EmployeeStore';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
@@ -7,7 +7,7 @@ import { useToast } from 'primevue/usetoast';
 import { onMounted, ref } from 'vue';
 import EmployeeDetails from './EmployeeDetails.vue'; // Import the new component
 
-const { user } = useAuth();
+const authStore = useAuthStore();
 const departments = ref([]);
 const department = ref({});
 const employees = ref([]);
@@ -21,6 +21,13 @@ const deleteEmployeeDialog = ref(false);
 const filters1 = ref();
 const loading1 = ref(null);
 const toast = useToast();
+const genderOptions = [
+    { label: 'Male', value: 'MALE' },
+    { label: 'Female', value: 'FEMALE' },
+    { label: 'Other', value: 'OTHER' }
+];
+
+// Update your existing roles to match your backend Role enum
 const roles = [
     { label: 'Employee', value: 'EMPLOYEE' },
     { label: 'Team Lead', value: 'TEAM_LEAD' },
@@ -127,11 +134,35 @@ function createEmployeeCode() {
 async function saveEmployee() {
     submitted.value = true;
 
+    //Print the logged in user details
+    console.log('Logged in User:', authStore.userId);
+    console.log('Logged in User Role:', authStore.role);
+    console.log('Logged in User Email:', authStore.email);
+
     if (employee?.value.firstName?.trim()) {
         try {
+            // Prepare the user data according to your DTO structure
+            const userData = {
+                // From AdminSignUpDto
+                firstName: employee.value.firstName || '',
+                lastName: employee.value.lastName || '',
+                otherNames: employee.value.otherNames || '',
+                employeeId: employee.value.employeeId || createEmployeeCode(),
+                email: employee.value.email || '',
+                phone: employee.value.phone || '',
+                profilePictureUrl: 'product-placeholder.svg', // Default image
+                gender: employee.value.gender || 'MALE', // Default gender, adjust as needed
+                departmentId: employee.value.department || '', // From department dropdown
+
+                // From UserDto
+                branch: employee.value.branch || 'Head Office',
+                createdBy: authStore.userId,
+                role: employee.value.role || 'EMPLOYEE' // Default role
+            };
+
             if (employee.value.employeeId) {
                 // Update existing employee
-                await employeeStore.updateEmployee(employee.value);
+                await employeeStore.updateEmployee(userData);
                 employees.value = employeeStore.employees;
                 toast.add({
                     severity: 'success',
@@ -141,24 +172,7 @@ async function saveEmployee() {
                 });
             } else {
                 // Create new employee
-                const newEmployee = {
-                    ...employee.value,
-                    employeeId: createEmployeeCode(),
-                    firstName: employee.value.firstName || '',
-                    lastName: employee.value.lastName || '',
-                    photo: 'product-placeholder.svg',
-                    branch: employee.value.branch || 'Head Office',
-                    departmentName: employee.value.department ? departmentStore.departments.find((d) => d.id === employee.value.department)?.name || '' : '',
-                    departmentId: employee.value.department || '',
-                    createdBy: user.value?.userId,
-                    rating: 0,
-                    role: employee.value.role || 'EMPLOYEE',
-                    email: employee.value.email || '',
-                    phone: employee.value.phone || '',
-                    hireDate: new Date()
-                };
-
-                await employeeStore.addEmployee(newEmployee);
+                await employeeStore.addEmployee(userData);
                 employees.value = employeeStore.employees;
                 toast.add({
                     severity: 'success',
@@ -170,6 +184,7 @@ async function saveEmployee() {
 
             employeeDialog.value = false;
             employee.value = {};
+            submitted.value = false;
         } catch (error) {
             toast.add({
                 severity: 'error',
@@ -281,42 +296,61 @@ async function saveEmployee() {
             </DataTable>
         </div>
 
-        <Dialog v-model:visible="employeeDialog" :style="{ width: '450px' }" header="Employee Details" :modal="true">
-            <div class="flex flex-col gap-6">
-                <img :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(employee.firstName || '')}`" alt="employee" class="block m-auto pb-4" width="200" />
-                <div>
-                    <label for="firstName" class="block font-bold mb-3">First Name</label>
-                    <InputText id="firstName" v-model.trim="employee.firstName" required="true" autofocus :invalid="submitted && !employee.firstName" fluid />
-                    <small v-if="submitted && !employee.firstName" class="text-red-500">First Name is required.</small>
+        <Dialog v-model:visible="employeeDialog" :style="{ width: '550px' }" header="Employee Details" :modal="true">
+            <div class="flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="firstName" class="block font-bold mb-2">First Name *</label>
+                        <InputText id="firstName" v-model.trim="employee.firstName" required="true" autofocus :invalid="submitted && !employee.firstName" class="w-full" />
+                        <small v-if="submitted && !employee.firstName" class="text-red-500">First Name is required.</small>
+                    </div>
+                    <div>
+                        <label for="lastName" class="block font-bold mb-2">Last Name *</label>
+                        <InputText id="lastName" v-model.trim="employee.lastName" required="true" :invalid="submitted && !employee.lastName" class="w-full" />
+                        <small v-if="submitted && !employee.lastName" class="text-red-500">Last Name is required.</small>
+                    </div>
                 </div>
+
                 <div>
-                    <label for="lastName" class="block font-bold mb-3">Last Name</label>
-                    <InputText id="lastName" v-model.trim="employee.lastName" required="true" autofocus :invalid="submitted && !employee.lastName" fluid />
-                    <small v-if="submitted && !employee.lastName" class="text-red-500">Last Name is required.</small>
+                    <label for="otherNames" class="block font-bold mb-2">Other Names</label>
+                    <InputText id="otherNames" v-model.trim="employee.otherNames" class="w-full" />
                 </div>
-                <div>
-                    <label for="email" class="block font-bold mb-3">Email Address</label>
-                    <InputText id="email" v-model.trim="employee.email" required="true" autofocus :invalid="submitted && !employee.email" fluid />
-                    <small v-if="submitted && !employee.email" class="text-red-500">Email is required.</small>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="email" class="block font-bold mb-2">Email Address *</label>
+                        <InputText id="email" v-model.trim="employee.email" required="true" :invalid="submitted && !employee.email" class="w-full" />
+                        <small v-if="submitted && !employee.email" class="text-red-500">Email is required.</small>
+                    </div>
+                    <div>
+                        <label for="phone" class="block font-bold mb-2">Phone *</label>
+                        <InputText id="phone" v-model.trim="employee.phone" required="true" :invalid="submitted && !employee.phone" class="w-full" />
+                        <small v-if="submitted && !employee.phone" class="text-red-500">Phone is required.</small>
+                    </div>
                 </div>
-                <div>
-                    <label for="branch" class="block font-bold mb-3">Branch</label>
-                    <InputText id="branch" v-model.trim="employee.branch" required="true" autofocus :invalid="submitted && !employee.branch" fluid />
-                    <small v-if="submitted && !employee.branch" class="text-red-500">Branch is required.</small>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="branch" class="block font-bold mb-2">Branch *</label>
+                        <InputText id="branch" v-model.trim="employee.branch" required="true" :invalid="submitted && !employee.branch" class="w-full" />
+                        <small v-if="submitted && !employee.branch" class="text-red-500">Branch is required.</small>
+                    </div>
+                    <div>
+                        <label for="department" class="block font-bold mb-2">Department *</label>
+                        <Dropdown id="department" v-model="employee.department" :options="departmentStore.departments" optionLabel="name" optionValue="id" placeholder="Select department" class="w-full" :invalid="submitted && !employee.department" />
+                        <small v-if="submitted && !employee.department" class="text-red-500">Department is required.</small>
+                    </div>
                 </div>
-                <div>
-                    <label for="department" class="block font-bold mb-3">Department</label>
-                    <!-- <InputText id="department" v-model.trim="employee.department" required="true" autofocus :invalid="submitted && !employee.department" fluid /> -->
-                    <Dropdown id="department" v-model="employee.department" :options="departments" optionLabel="name" optionValue="id" placeholder="Select department" class="w-full" :invalid="submitted && !employee.department" fluid />
-                    <small v-if="submitted && !employee.department" class="text-red-500">Department is required.</small>
-                </div>
-                <div>
-                    <label for="phone" class="block font-bold mb-3">Phone</label>
-                    <InputText id="phone" v-model.trim="employee.phone" fluid />
-                </div>
-                <div>
-                    <label for="role" class="block font-bold mb-3">Role</label>
-                    <Dropdown id="role" v-model="employee.role" :options="roles" optionLabel="label" optionValue="value" placeholder="Select a role" class="w-full" />
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="gender" class="block font-bold mb-2">Gender</label>
+                        <Dropdown id="gender" v-model="employee.gender" :options="genderOptions" optionLabel="label" optionValue="value" placeholder="Select gender" class="w-full" />
+                    </div>
+                    <div>
+                        <label for="role" class="block font-bold mb-2">Role</label>
+                        <Dropdown id="role" v-model="employee.role" :options="roles" optionLabel="label" optionValue="value" placeholder="Select a role" class="w-full" />
+                    </div>
                 </div>
             </div>
 

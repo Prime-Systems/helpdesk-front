@@ -23,32 +23,36 @@ export const useEmployeeStore = defineStore('employee', {
             }
         },
 
-        async addEmployee(employee) {
+        async addEmployee(employeeData) {
             this.loading = true;
             this.error = null;
 
             try {
-                const response = await EmployeeService.addEmployee(employee);
+                const response = await EmployeeService.addEmployee(employeeData);
                 this.employees.push(response);
+                return response;
             } catch (error) {
                 this.error = error.message;
+                throw error;
             } finally {
                 this.loading = false;
             }
         },
 
-        async updateEmployee(employee) {
+        async updateEmployee(employeeData) {
             this.loading = true;
             this.error = null;
 
             try {
-                const response = await EmployeeService.updateEmployee(employee);
-                const index = this.employees.findIndex((e) => e.id === employee.id);
+                const response = await EmployeeService.updateEmployee(employeeData);
+                const index = this.employees.findIndex((e) => e.id === employeeData.id);
                 if (index !== -1) {
                     this.employees[index] = response;
                 }
+                return response;
             } catch (error) {
                 this.error = error.message;
+                throw error;
             } finally {
                 this.loading = false;
             }
