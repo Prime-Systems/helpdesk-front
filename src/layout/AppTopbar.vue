@@ -26,7 +26,7 @@ const userName = authStore.userName; // Or userEmail, depending on what you have
 
 <template>
     <div class="layout-topbar">
-        <div class="layout-topbar-logo-container">
+        <div class="layout-topbar-logo-container mr-2">
             <button class="layout-menu-button layout-topbar-action" @click="onMenuToggle">
                 <i class="pi pi-bars"></i>
             </button>
@@ -50,17 +50,17 @@ const userName = authStore.userName; // Or userEmail, depending on what you have
                     </g>
                 </svg>
 
-                <span><b>AKRB</b>Desk</span>
+                <!-- Do not show on smaller screens -->
+                <span class="hidden md:inline"><b>AKRB</b>Desk</span>
             </router-link>
         </div>
 
         <div class="layout-topbar-actions">
-            <!-- User Info Section (Optional) -->
-            <div v-if="isAuthenticated" class="flex items-center gap-2 mr-4 text-sm text-surface-700 dark:text-surface-0">
+            <!-- User Info Section On small screens show in dropdown menu -->
+            <div class="layout-user-info hidden lg:flex items-center mr-3" v-if="isAuthenticated">
                 <i class="pi pi-user text-surface-500"></i>
-                <span>Welcome, {{ userName || 'User' }}</span>
+                <span class="">Welcome, {{ userName || 'User' }}</span>
             </div>
-
             <div class="layout-config-menu">
                 <button type="button" class="layout-topbar-action" @click="toggleDarkMode">
                     <i :class="['pi', { 'pi-moon': isDarkTheme, 'pi-sun': !isDarkTheme }]"></i>
@@ -76,12 +76,6 @@ const userName = authStore.userName; // Or userEmail, depending on what you have
                     <AppConfigurator />
                 </div>
             </div>
-
-            <!-- Logout Button -->
-            <button v-if="isAuthenticated" type="button" class="layout-topbar-action layout-topbar-action-logout" @click="handleLogout" title="Logout">
-                <i class="pi pi-sign-out"></i>
-                <span class="hidden lg:inline">Logout</span>
-            </button>
 
             <button
                 class="layout-topbar-menu-button layout-topbar-action"
@@ -105,12 +99,18 @@ const userName = authStore.userName; // Or userEmail, depending on what you have
                         <span>Profile</span>
                     </button>
                     <!-- Logout in dropdown menu -->
-                    <button v-if="isAuthenticated" type="button" class="layout-topbar-action text-red-500 hover:text-red-600" @click="handleLogout">
+                    <!-- <button v-if="isAuthenticated" type="button" class="layout-topbar-action text-red-500 hover:text-red-600" @click="handleLogout">
                         <i class="pi pi-sign-out"></i>
                         <span>Logout</span>
-                    </button>
+                    </button> -->
                 </div>
             </div>
+
+            <!-- Logout Button -->
+            <button v-if="isAuthenticated" type="button" class="layout-topbar-action layout-topbar-action-logout" @click="handleLogout" title="Logout">
+                <i class="pi pi-sign-out"></i>
+                <span class="hidden lg:inline">Logout</span>
+            </button>
         </div>
     </div>
 </template>
