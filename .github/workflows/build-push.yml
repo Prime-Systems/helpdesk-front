@@ -1,0 +1,45 @@
+name: Build and Push Docker Image
+
+# Run this workflow only when you push to the 'main' branch
+on:
+    push:
+        branches: ['main']
+
+jobs:
+    build-and-push:
+        runs-on: ubuntu-latest
+
+        steps:
+            # 1. Get your code
+            - name: Check out code
+              uses: actions/checkout@v4
+
+            # 2. Set up GitHub Secrets for your variables
+            #    Go to Repo > Settings > Secrets and variables > Actions
+            #    - DOCKER_USERNAME: Your Docker Hub username
+            #    - DOCKER_PASSWORD: Your Docker Hub access token
+            #    - VITE_API_URL: Your *production* API URL (e.g., http://192.168.1.50:3000)
+
+            # 3. Create the .env.production file *just for the build*
+            #    This "bakes" your production variables into the static files
+            - name: Create .env.production file
+              run: |
+                  echo "VITE_API_URL=${{ secrets.VITE_API_URL }}" >> .env.production
+                  echo "VITE_APP_TITLE=My Internal App" >> .env.production
+
+            # 4. Log in to Docker Hub
+            - name: Log in to Docker Hub
+              uses: docker/login-action@v3
+              with:
+                  username: ${{ secrets.DOCKER_USERNAME }}
+                  password: ${{ secrets.DOCKER_PASSWORD }}
+
+            # 5. Build and push the image
+            #    This uses the 'Dockerfile' from our previous chat
+            - name: Build and push Docker image
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  file: ./Dockerfile
+                  push: true
+                  tags: ${{ secrets.DOCKER_USERNAME }}/helpfront:latest
