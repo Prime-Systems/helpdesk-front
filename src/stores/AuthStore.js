@@ -20,26 +20,21 @@ export const useAuthStore = defineStore('auth', {
             if (this.initialized) return;
 
             try {
-                // Check for tokens in cookies first (more secure)
                 const token = this.getStoredToken();
                 const refreshToken = this.getStoredRefreshToken();
 
                 if (token) {
-                    // Check if token is expired
-                    if (this.isTokenExpired(token)) {
-                        if (refreshToken && !this.isTokenExpired(refreshToken)) {
-                            await this.refreshSession();
-                        } else {
-                            this.clearAuth();
-                        }
+                    // Verify token with backend to ensure it's still valid
+                    const isValid = await this.verifyTokenWithBackend(token);
+
+                    if (isValid && !this.isTokenExpired(token)) {
+                        // Token is valid, set user from token
+                        this.setAuthFromToken(token, refreshToken);
+                    } else if (refreshToken && !this.isTokenExpired(refreshToken)) {
+                        // Try to refresh the token
+                        await this.refreshSession();
                     } else {
-                        // Token is valid, verify with backend
-                        const user = await AuthService.verifyToken(token);
-                        if (user) {
-                            this.setAuth(user, token, refreshToken);
-                        } else {
-                            this.clearAuth();
-                        }
+                        this.clearAuth();
                     }
                 }
             } catch (error) {
@@ -50,13 +45,24 @@ export const useAuthStore = defineStore('auth', {
             }
         },
 
+        async verifyTokenWithBackend(token) {
+            try {
+                const response = await AuthService.verifyToken(token);
+                return response !== null;
+            } catch (error) {
+                return false;
+            }
+        },
+
         async login(email, password, rememberMe = false) {
             this.loading = true;
             this.error = null;
             try {
-                const { user, token, refreshToken } = await AuthService.login(email, password);
+                const response = await AuthService.login(email, password);
                 this.rememberMe = rememberMe;
-                this.setAuth(user, token, refreshToken);
+
+                // Extract user info from token
+                this.setAuthFromToken(response.token, response.refreshToken);
                 return true;
             } catch (err) {
                 this.handleAuthError(err);
@@ -70,8 +76,8 @@ export const useAuthStore = defineStore('auth', {
             this.loading = true;
             this.error = null;
             try {
-                const { user, token, refreshToken } = await AuthService.register(userData);
-                this.setAuth(user, token, refreshToken);
+                const response = await AuthService.register(userData);
+                this.setAuthFromToken(response.token, response.refreshToken);
                 return true;
             } catch (err) {
                 this.handleAuthError(err);
@@ -100,8 +106,8 @@ export const useAuthStore = defineStore('auth', {
             }
 
             try {
-                const { token, refreshToken, user } = await AuthService.refreshToken(this.refreshToken);
-                this.setAuth(user, token, refreshToken);
+                const response = await AuthService.refreshToken(this.refreshToken);
+                this.setAuthFromToken(response.token, response.refreshToken);
                 return true;
             } catch (error) {
                 console.error('Token refresh failed:', error);
@@ -110,78 +116,37 @@ export const useAuthStore = defineStore('auth', {
             }
         },
 
-        async forgotPassword(email) {
-            this.loading = true;
-            this.error = null;
-            try {
-                await AuthService.forgotPassword(email);
-                return true;
-            } catch (err) {
-                this.handleAuthError(err);
-                return false;
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        async resetPassword(token, newPassword) {
-            this.loading = true;
-            this.error = null;
-            try {
-                await AuthService.resetPassword(token, newPassword);
-                return true;
-            } catch (err) {
-                this.handleAuthError(err);
-                return false;
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        async changePassword(currentPassword, newPassword) {
-            this.loading = true;
-            this.error = null;
-            try {
-                await AuthService.changePassword(currentPassword, newPassword);
-                return true;
-            } catch (err) {
-                this.handleAuthError(err);
-                return false;
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        async updateProfile(profileData) {
-            this.loading = true;
-            this.error = null;
-            try {
-                const updatedUser = await AuthService.updateProfile(profileData);
-                this.user = { ...this.user, ...updatedUser };
-                return true;
-            } catch (err) {
-                this.handleAuthError(err);
-                return false;
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        setAuth(user, token, refreshToken = null) {
-            this.user = user;
+        // Method to extract user from token
+        setAuthFromToken(token, refreshToken = null) {
             this.token = token;
             this.refreshToken = refreshToken;
 
-            // Decode tokens to get expiration times
+            // Decode token to get user information
             if (token) {
                 const decodedToken = jwtDecode(token);
                 console.log('Decoded token:', decodedToken);
-                this.tokenExpiresAt = decodedToken.exp * 1000; // Convert to milliseconds
+
+                // Create user object from token claims
+                this.user = {
+                    id: decodedToken.userId,
+                    email: decodedToken.email || decodedToken.sub,
+                    role: decodedToken.role,
+                    changePassword: decodedToken['change password'] // Handle space in claim name
+                    // Add other claims as needed
+                };
+
+                // Store expiration time in milliseconds
+                this.tokenExpiresAt = decodedToken.exp * 1000;
             }
 
             if (refreshToken) {
-                const decodedRefreshToken = jwtDecode(refreshToken);
-                this.refreshTokenExpiresAt = decodedRefreshToken.exp * 1000;
+                try {
+                    const decodedRefreshToken = jwtDecode(refreshToken);
+                    this.refreshTokenExpiresAt = decodedRefreshToken.exp * 1000;
+                } catch (error) {
+                    console.error('Error decoding refresh token:', error);
+                    this.refreshTokenExpiresAt = null;
+                }
             }
 
             // Store tokens based on remember me preference
@@ -189,6 +154,11 @@ export const useAuthStore = defineStore('auth', {
 
             // Set default authorization header
             this.setAuthHeader(token);
+        },
+
+        setAuth(user, token, refreshToken = null) {
+            this.user = user;
+            this.setAuthFromToken(token, refreshToken);
         },
 
         clearAuth() {
@@ -206,50 +176,68 @@ export const useAuthStore = defineStore('auth', {
             this.removeAuthHeader();
         },
 
-        // Token management helpers
+        // Token management helpers - FIXED
         isTokenExpired(token) {
             try {
                 const decoded = jwtDecode(token);
-                const currentTime = Date.now() / 1000;
+                const currentTime = Date.now() / 1000; // Current time in seconds
                 return decoded.exp < currentTime;
             } catch {
                 return true;
             }
         },
 
-        getStoredToken() {
-            // Try cookies first, then localStorage
-            const cookieToken = this.getCookie('token');
-            if (cookieToken) return cookieToken;
+        // Auto-refresh token if expiring soon
+        async autoRefreshIfNeeded() {
+            if (this.token && this.isTokenExpiring) {
+                console.log('Token expiring soon, attempting refresh...');
+                return await this.refreshSession();
+            }
+            return true;
+        },
 
-            return localStorage.getItem('token');
+        getStoredToken() {
+            // Check sessionStorage first, then localStorage
+            const sessionToken = sessionStorage.getItem('token');
+            if (sessionToken) return sessionToken;
+
+            const localToken = localStorage.getItem('token');
+            if (localToken) return localToken;
+
+            return this.getCookie('token');
         },
 
         getStoredRefreshToken() {
-            const cookieRefreshToken = this.getCookie('refreshToken');
-            if (cookieRefreshToken) return cookieRefreshToken;
+            const sessionRefreshToken = sessionStorage.getItem('refreshToken');
+            if (sessionRefreshToken) return sessionRefreshToken;
 
-            return localStorage.getItem('refreshToken');
+            const localRefreshToken = localStorage.getItem('refreshToken');
+            if (localRefreshToken) return localRefreshToken;
+
+            return this.getCookie('refreshToken');
         },
 
         storeTokens(token, refreshToken) {
             if (this.rememberMe) {
-                // Store in localStorage for persistence
                 localStorage.setItem('token', token);
                 if (refreshToken) {
                     localStorage.setItem('refreshToken', refreshToken);
                 }
+                // Clear session storage when using persistent storage
+                sessionStorage.removeItem('token');
+                sessionStorage.removeItem('refreshToken');
             } else {
-                // Store in session storage or cookies
-                this.setCookie('token', token, this.tokenExpiresAt);
+                sessionStorage.setItem('token', token);
                 if (refreshToken) {
-                    this.setCookie('refreshToken', refreshToken, this.refreshTokenExpiresAt);
+                    sessionStorage.setItem('refreshToken', refreshToken);
                 }
+                // Clear local storage when using session storage
+                localStorage.removeItem('token');
+                localStorage.removeItem('refreshToken');
             }
         },
 
         clearStoredTokens() {
-            // Clear from all storage locations
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
             sessionStorage.removeItem('token');
@@ -267,7 +255,6 @@ export const useAuthStore = defineStore('auth', {
                 cookieOptions.push(`expires=${expiresDate.toUTCString()}`);
             }
 
-            // Add Secure flag in production
             if (process.env.NODE_ENV === 'production') {
                 cookieOptions.push('Secure');
             }
@@ -305,7 +292,6 @@ export const useAuthStore = defineStore('auth', {
         handleAuthError(err) {
             this.error = err.response?.data?.message || err.message || 'An error occurred';
 
-            // Handle specific error codes
             if (err.response?.status === 401) {
                 this.clearAuth();
             }
@@ -317,20 +303,57 @@ export const useAuthStore = defineStore('auth', {
     },
 
     getters: {
-        isAuthenticated: (state) => !!state.token,
+        isAuthenticated: (state) => !!state.token && !!state.user,
         isLoading: (state) => state.loading,
         hasError: (state) => !!state.error,
         userRole: (state) => state.user?.role || null,
-        userName: (state) => state.user?.name || null,
+        userName: (state) => state.user?.name || state.user?.email?.split('@')[0] || null,
         userEmail: (state) => state.user?.email || null,
+        userId: (state) => state.user?.id || null,
         currentError: (state) => state.error,
-        hasRole: (state) => (role) => state.user?.roles?.includes(role) || false,
-        hasPermission: (state) => (permission) => state.user?.permissions?.includes(permission) || false,
-        tokenExpiration: (state) => (state.tokenExpiresAt ? new Date(state.tokenExpiresAt) : null),
+        hasRole: (state) => (role) => state.user?.role === role,
+        needsPasswordChange: (state) => state.user?.changePassword === true,
+
+        // Token expiration getters
+        tokenExpiration: (state) => {
+            return state.tokenExpiresAt ? new Date(state.tokenExpiresAt) : null;
+        },
+
+        refreshTokenExpiration: (state) => {
+            return state.refreshTokenExpiresAt ? new Date(state.refreshTokenExpiresAt) : null;
+        },
+
+        // Check if token is expiring soon (less than 5 minutes)
         isTokenExpiring: (state) => {
             if (!state.tokenExpiresAt) return false;
             const timeUntilExpiry = state.tokenExpiresAt - Date.now();
             return timeUntilExpiry < 5 * 60 * 1000; // Less than 5 minutes
+        },
+
+        // Check if refresh token is expiring soon
+        isRefreshTokenExpiring: (state) => {
+            if (!state.refreshTokenExpiresAt) return false;
+            const timeUntilExpiry = state.refreshTokenExpiresAt - Date.now();
+            return timeUntilExpiry < 30 * 60 * 1000; // Less than 30 minutes
+        },
+
+        // Get time until token expiration in minutes
+        minutesUntilTokenExpiry: (state) => {
+            if (!state.tokenExpiresAt) return 0;
+            const timeUntilExpiry = state.tokenExpiresAt - Date.now();
+            return Math.max(0, Math.floor(timeUntilExpiry / (60 * 1000)));
+        },
+
+        // Get time until refresh token expiration in minutes
+        minutesUntilRefreshTokenExpiry: (state) => {
+            if (!state.refreshTokenExpiresAt) return 0;
+            const timeUntilExpiry = state.refreshTokenExpiresAt - Date.now();
+            return Math.max(0, Math.floor(timeUntilExpiry / (60 * 1000)));
+        },
+
+        // Check if token is valid and not expiring soon
+        hasValidToken: (state) => {
+            return state.token && !state.isTokenExpiring;
         }
     }
 });

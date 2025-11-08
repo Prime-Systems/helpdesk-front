@@ -1,11 +1,18 @@
 <script setup>
-import { EmployeeService } from '@/service/EmployeeService';
+import { useAuthStore } from '@/stores/AuthStore';
+import { useDepartmentStore } from '@/stores/departmentStore';
+import { useEmployeeStore } from '@/stores/EmployeeStore';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
-import { onBeforeMount, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import EmployeeDetails from './EmployeeDetails.vue'; // Import the new component
 
+const authStore = useAuthStore();
+const departments = ref([]);
+const department = ref({});
 const employees = ref([]);
+const departmentStore = useDepartmentStore();
+const employeeStore = useEmployeeStore();
 const employee = ref({});
 const employeeDialog = ref(false);
 const employeeDetailsDialog = ref(false); // New ref for details drawer
@@ -14,14 +21,45 @@ const deleteEmployeeDialog = ref(false);
 const filters1 = ref();
 const loading1 = ref(null);
 const toast = useToast();
+const genderOptions = [
+    { label: 'Male', value: 'MALE' },
+    { label: 'Female', value: 'FEMALE' },
+    { label: 'Other', value: 'OTHER' }
+];
 
-onBeforeMount(() => {
-    EmployeeService.getEmployeesXLarge().then((data) => {
-        employees.value = data;
+// Update your existing roles to match your backend Role enum
+const roles = [
+    { label: 'Employee', value: 'EMPLOYEE' },
+    { label: 'Team Lead', value: 'TEAM_LEAD' },
+    { label: 'Manager', value: 'MANAGER' },
+    { label: 'Director', value: 'DIRECTOR' },
+    { label: 'Admin', value: 'ADMIN' }
+];
+// Initialize filters immediately
+initFilters1();
+
+// Use onMounted instead of onBeforeMount for async operations
+onMounted(async () => {
+    loading1.value = true;
+
+    try {
+        // Use stores instead of direct service calls
+        await employeeStore.fetchEmployees();
+        employees.value = employeeStore.employees;
+
+        await departmentStore.fetchDepartments();
+        departments.value = departmentStore.departments;
+    } catch (error) {
+        console.error('Error loading data:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: 'Failed to load data',
+            life: 3000
+        });
+    } finally {
         loading1.value = false;
-    });
-
-    initFilters1();
+    }
 });
 
 function initFilters1() {
@@ -81,6 +119,7 @@ function confirmDeleteEmployee(selectedEmployee) {
 function deleteEmployee() {
     employees.value = employees.value.filter((val) => val.employeeId !== employee.value.employeeId);
     deleteEmployeeDialog.value = false;
+    EmployeeService.deleteEmployee(employee.value.employeeId);
     employee.value = {};
     toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Deleted', life: 3000 });
 }
@@ -92,37 +131,68 @@ function createEmployeeCode() {
     return prefix + paddedNumber;
 }
 
-function saveEmployee() {
+async function saveEmployee() {
     submitted.value = true;
 
-    if (employee?.value.name?.trim()) {
-        if (employee.value.employeeId) {
-            const index = findIndexById(employee.value.employeeId);
-            if (index !== -1) {
-                employees.value[index] = { ...employee.value }; // Spread operator ensures reactivity
-                toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Updated', life: 3000 });
+    //Print the logged in user details
+    console.log('Logged in User:', authStore.userId);
+    console.log('Logged in User Role:', authStore.role);
+    console.log('Logged in User Email:', authStore.email);
+
+    if (employee?.value.firstName?.trim()) {
+        try {
+            // Prepare the user data according to your DTO structure
+            const userData = {
+                // From AdminSignUpDto
+                firstName: employee.value.firstName || '',
+                lastName: employee.value.lastName || '',
+                otherNames: employee.value.otherNames || '',
+                employeeId: employee.value.employeeId || createEmployeeCode(),
+                email: employee.value.email || '',
+                phone: employee.value.phone || '',
+                profilePictureUrl: 'product-placeholder.svg', // Default image
+                gender: employee.value.gender || 'MALE', // Default gender, adjust as needed
+                departmentId: employee.value.department || '', // From department dropdown
+
+                // From UserDto
+                branch: employee.value.branch || 'Head Office',
+                createdBy: authStore.userId,
+                role: employee.value.role || 'EMPLOYEE' // Default role
+            };
+
+            if (employee.value.employeeId) {
+                // Update existing employee
+                await employeeStore.updateEmployee(userData);
+                employees.value = employeeStore.employees;
+                toast.add({
+                    severity: 'success',
+                    summary: 'Successful',
+                    detail: 'Employee Updated',
+                    life: 3000
+                });
             } else {
-                toast.add({ severity: 'error', summary: 'Error', detail: 'Employee Not Found', life: 3000 });
+                // Create new employee
+                await employeeStore.addEmployee(userData);
+                employees.value = employeeStore.employees;
+                toast.add({
+                    severity: 'success',
+                    summary: 'Successful',
+                    detail: 'Employee Created',
+                    life: 3000
+                });
             }
+
             employeeDialog.value = false;
             employee.value = {};
-        } else {
-            employee.value.employeeId = createEmployeeCode();
-            employee.value.photo = 'product-placeholder.svg';
-            employee.value.branch = employee.value.branch ? employee.value.branch : 'Head Office';
-            employee.value.department = employee.value.department ? employee.value.department : 'IT';
-            employee.value.rating = 0;
-            employee.value.role = 'Employee';
-            employee.value.email = employee.value.email ? employee.value.email : 'email@email.com';
-            employee.value.phone = employee.value.phone ? employee.value.phone : '1234567890';
-            employee.value.hireDate = new Date();
-
-            employees.value.push(employee.value);
-            toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Created', life: 3000 });
+            submitted.value = false;
+        } catch (error) {
+            toast.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: employeeStore.error || 'Failed to save employee',
+                life: 3000
+            });
         }
-
-        employeeDialog.value = false;
-        employee.value = {};
     }
 }
 </script>
@@ -163,28 +233,52 @@ function saveEmployee() {
                 </template>
                 <template #empty> No employees found. </template>
                 <template #loading> Loading employees data. Please wait. </template>
-                <Column field="name" header="Name" style="min-width: 12rem">
+                <Column field="employeeId" header="Employee ID" :frozen="true" style="min-width: 10rem">
                     <template #body="{ data }">
-                        {{ data.name }}
-                    </template>
-                    <template #filter="{ filterModel }">
-                        <InputText v-model="filterModel.value" type="text" placeholder="Search by name" />
+                        {{ data.employeeId }}
                     </template>
                 </Column>
+
+                <Column field="firstName" header="First Name" style="min-width: 12rem">
+                    <template #body="{ data }">
+                        {{ data.firstName }}
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by first name" />
+                    </template>
+                </Column>
+                <Column field="lastName" header="Last Name" style="min-width: 12rem">
+                    <template #body="{ data }">
+                        {{ data.lastName }}
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by last name" />
+                    </template>
+                </Column>
+
+                <Column field="department" header="Department" style="min-width: 12rem">
+                    <template #body="{ data }">
+                        {{ data.departmentName }}
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by department" />
+                    </template>
+                </Column>
+                <Column field="email" header="Email" style="min-width: 15rem">
+                    <template #body="{ data }">
+                        {{ data.email }}
+                    </template>
+                    <template #filter="{ filterModel }">
+                        <InputText v-model="filterModel.value" type="text" placeholder="Search by email" />
+                    </template>
+                </Column>
+
                 <Column field="branch" header="Branch" style="min-width: 12rem">
                     <template #body="{ data }">
                         {{ data.branch }}
                     </template>
                     <template #filter="{ filterModel }">
                         <InputText v-model="filterModel.value" type="text" placeholder="Search by branch" />
-                    </template>
-                </Column>
-                <Column field="department" header="Department" style="min-width: 12rem">
-                    <template #body="{ data }">
-                        {{ data.department }}
-                    </template>
-                    <template #filter="{ filterModel }">
-                        <InputText v-model="filterModel.value" type="text" placeholder="Search by department" />
                     </template>
                 </Column>
 
@@ -202,36 +296,61 @@ function saveEmployee() {
             </DataTable>
         </div>
 
-        <Dialog v-model:visible="employeeDialog" :style="{ width: '450px' }" header="Employee Details" :modal="true">
-            <div class="flex flex-col gap-6">
-                <img :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(employee.name || '')}`" alt="employee" class="block m-auto pb-4" width="200" />
-                <div>
-                    <label for="name" class="block font-bold mb-3">Name</label>
-                    <InputText id="name" v-model.trim="employee.name" required="true" autofocus :invalid="submitted && !employee.name" fluid />
-                    <small v-if="submitted && !employee.name" class="text-red-500">Name is required.</small>
+        <Dialog v-model:visible="employeeDialog" :style="{ width: '550px' }" header="Employee Details" :modal="true">
+            <div class="flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="firstName" class="block font-bold mb-2">First Name *</label>
+                        <InputText id="firstName" v-model.trim="employee.firstName" required="true" autofocus :invalid="submitted && !employee.firstName" class="w-full" />
+                        <small v-if="submitted && !employee.firstName" class="text-red-500">First Name is required.</small>
+                    </div>
+                    <div>
+                        <label for="lastName" class="block font-bold mb-2">Last Name *</label>
+                        <InputText id="lastName" v-model.trim="employee.lastName" required="true" :invalid="submitted && !employee.lastName" class="w-full" />
+                        <small v-if="submitted && !employee.lastName" class="text-red-500">Last Name is required.</small>
+                    </div>
                 </div>
+
                 <div>
-                    <label for="email" class="block font-bold mb-3">Email Address</label>
-                    <InputText id="email" v-model.trim="employee.email" required="true" autofocus :invalid="submitted && !employee.email" fluid />
-                    <small v-if="submitted && !employee.email" class="text-red-500">Email is required.</small>
+                    <label for="otherNames" class="block font-bold mb-2">Other Names</label>
+                    <InputText id="otherNames" v-model.trim="employee.otherNames" class="w-full" />
                 </div>
-                <div>
-                    <label for="branch" class="block font-bold mb-3">Branch</label>
-                    <InputText id="branch" v-model.trim="employee.branch" required="true" autofocus :invalid="submitted && !employee.branch" fluid />
-                    <small v-if="submitted && !employee.branch" class="text-red-500">Branch is required.</small>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="email" class="block font-bold mb-2">Email Address *</label>
+                        <InputText id="email" v-model.trim="employee.email" required="true" :invalid="submitted && !employee.email" class="w-full" />
+                        <small v-if="submitted && !employee.email" class="text-red-500">Email is required.</small>
+                    </div>
+                    <div>
+                        <label for="phone" class="block font-bold mb-2">Phone *</label>
+                        <InputText id="phone" v-model.trim="employee.phone" required="true" :invalid="submitted && !employee.phone" class="w-full" />
+                        <small v-if="submitted && !employee.phone" class="text-red-500">Phone is required.</small>
+                    </div>
                 </div>
-                <div>
-                    <label for="department" class="block font-bold mb-3">Department</label>
-                    <InputText id="department" v-model.trim="employee.department" required="true" autofocus :invalid="submitted && !employee.department" fluid />
-                    <small v-if="submitted && !employee.department" class="text-red-500">Department is required.</small>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="branch" class="block font-bold mb-2">Branch *</label>
+                        <InputText id="branch" v-model.trim="employee.branch" required="true" :invalid="submitted && !employee.branch" class="w-full" />
+                        <small v-if="submitted && !employee.branch" class="text-red-500">Branch is required.</small>
+                    </div>
+                    <div>
+                        <label for="department" class="block font-bold mb-2">Department *</label>
+                        <Dropdown id="department" v-model="employee.department" :options="departmentStore.departments" optionLabel="name" optionValue="id" placeholder="Select department" class="w-full" :invalid="submitted && !employee.department" />
+                        <small v-if="submitted && !employee.department" class="text-red-500">Department is required.</small>
+                    </div>
                 </div>
-                <div>
-                    <label for="phone" class="block font-bold mb-3">Phone</label>
-                    <InputText id="phone" v-model.trim="employee.phone" fluid />
-                </div>
-                <div>
-                    <label for="role" class="block font-bold mb-3">Role</label>
-                    <Dropdown id="role" v-model="employee.role" :options="['Employee', 'Team Lead', 'Manager', 'Director']" placeholder="Select a role" class="w-full" />
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="gender" class="block font-bold mb-2">Gender</label>
+                        <Dropdown id="gender" v-model="employee.gender" :options="genderOptions" optionLabel="label" optionValue="value" placeholder="Select gender" class="w-full" />
+                    </div>
+                    <div>
+                        <label for="role" class="block font-bold mb-2">Role</label>
+                        <Dropdown id="role" v-model="employee.role" :options="roles" optionLabel="label" optionValue="value" placeholder="Select a role" class="w-full" />
+                    </div>
                 </div>
             </div>
 

@@ -1,6 +1,6 @@
 <script setup>
 import { useCategoryStore } from '@/stores/CategoryStore';
-import { useDepartmentStore } from '@/stores/DepartmentStore';
+import { useDepartmentStore } from '@/stores/departmentStore';
 import { useEmployeeStore } from '@/stores/EmployeeStore';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
