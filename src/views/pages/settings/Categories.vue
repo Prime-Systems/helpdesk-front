@@ -305,14 +305,67 @@ const editDepartment = (department) => {
     departmentDialog.value = true;
 };
 
+// const saveDepartment = async () => {
+//     departmentSubmitted.value = true;
+
+//     if (departmentForm.value.name.trim()) {
+//         try {
+//             // Prepare team members data
+//             const teamMembersData = departmentForm.value.teamMembers.map((member) => ({
+//                 id: member.id,
+//                 firstName: member.firstName,
+//                 lastName: member.lastName,
+//                 email: member.email || '',
+//                 role: member.role || 'EMPLOYEE'
+//             }));
+
+//             // Prepare the department data
+//             const departmentData = {
+//                 id: departmentForm.value.id || 0,
+//                 name: departmentForm.value.name,
+//                 description: departmentForm.value.description,
+//                 contactEmail: departmentForm.value.contactEmail,
+//                 status: typeof departmentForm.value.status === 'string' ? departmentForm.value.status : 'ACTIVE', // Ensure status is always a string
+//                 teamSize: teamMembersData.length,
+//                 departmentManager: {
+//                     id: departmentForm.value.departmentManager.id,
+//                     firstName: departmentForm.value.departmentManager.firstName,
+//                     lastName: departmentForm.value.departmentManager.lastName
+//                 },
+//                 teamMembers: teamMembersData
+//             };
+
+//             console.log('Final payload:', JSON.stringify(departmentData, null, 2));
+
+//             if (departmentForm.value.id) {
+//                 await departmentStore.updateDepartment(departmentData);
+//                 toast.add({ severity: 'success', summary: 'Success', detail: 'Department Updated', life: 3000 });
+//             } else {
+//                 await departmentStore.addDepartment(departmentData);
+//                 toast.add({ severity: 'success', summary: 'Success', detail: 'Department Created', life: 3000 });
+//             }
+
+//             departmentDialog.value = false;
+//         } catch (error) {
+//             console.error('Error saving department:', error);
+//             toast.add({
+//                 severity: 'error',
+//                 summary: 'Error',
+//                 detail: 'Failed to save department: ' + (error.response?.data?.message || error.message),
+//                 life: 5000
+//             });
+//         }
+//     }
+// };
+
 const saveDepartment = async () => {
     departmentSubmitted.value = true;
 
     if (departmentForm.value.name.trim()) {
         try {
-            // Prepare team members data
+            // Prepare team members data - ensure we're sending the current state
             const teamMembersData = departmentForm.value.teamMembers.map((member) => ({
-                id: member.employeeId || member.id,
+                id: member.id,
                 firstName: member.firstName,
                 lastName: member.lastName,
                 email: member.email || '',
@@ -325,17 +378,20 @@ const saveDepartment = async () => {
                 name: departmentForm.value.name,
                 description: departmentForm.value.description,
                 contactEmail: departmentForm.value.contactEmail,
-                status: typeof departmentForm.value.status === 'string' ? departmentForm.value.status : 'ACTIVE', // Ensure status is always a string
+                status: typeof departmentForm.value.status === 'string' ? departmentForm.value.status : 'ACTIVE',
                 teamSize: teamMembersData.length,
-                departmentManager: {
-                    id: departmentForm.value.departmentManager.employeeId || departmentForm.value.departmentManager.id,
-                    firstName: departmentForm.value.departmentManager.firstName,
-                    lastName: departmentForm.value.departmentManager.lastName
-                },
-                teamMembers: teamMembersData
+                departmentManager: departmentForm.value.departmentManager
+                    ? {
+                          id: departmentForm.value.departmentManager.id,
+                          firstName: departmentForm.value.departmentManager.firstName,
+                          lastName: departmentForm.value.departmentManager.lastName
+                      }
+                    : null,
+                teamMembers: teamMembersData // This should now reflect the removed members
             };
 
             console.log('Final payload:', JSON.stringify(departmentData, null, 2));
+            console.log('Team members being sent:', teamMembersData);
 
             if (departmentForm.value.id) {
                 await departmentStore.updateDepartment(departmentData);
@@ -344,6 +400,9 @@ const saveDepartment = async () => {
                 await departmentStore.addDepartment(departmentData);
                 toast.add({ severity: 'success', summary: 'Success', detail: 'Department Created', life: 3000 });
             }
+
+            // Force refresh the departments list to ensure UI is in sync
+            await departmentStore.fetchDepartments();
 
             departmentDialog.value = false;
         } catch (error) {
@@ -357,7 +416,6 @@ const saveDepartment = async () => {
         }
     }
 };
-
 // Add a helper method to reset the department form
 const resetDepartmentForm = () => {
     departmentForm.value = {
@@ -397,7 +455,14 @@ const addEmployeeToDepartment = () => {
 };
 
 const removeEmployeeFromDepartment = (employee) => {
-    departmentForm.value.teamMembers = departmentForm.value.teamMembers.filter((e) => e.id !== employee.id);
+    departmentForm.value.teamMembers = departmentForm.value.teamMembers.filter((e) => e.id != employee.id);
+
+    toast.add({
+        severity: 'info',
+        summary: 'Employee Removed',
+        detail: `${employee.firstName} ${employee.lastName} will be removed from the department when saved`,
+        life: 3000
+    });
 };
 
 // Utils
