@@ -43,7 +43,7 @@ import FloatingConfigurator from '@/components/FloatingConfigurator.vue';
                         </span>
                         <span class="ml-6 flex flex-col">
                             <span class="text-surface-900 dark:text-surface-0 lg:text-xl font-medium mb-0">Solution Center</span>
-                            <span class="text-surface-600 dark:text-surface-200 lg:text-xl">Phasellus faucibus scelerisque eleifend.</span>
+                            <span class="text-surface-600 dark:text-surface-200 lg:text-xl">Phasellus faucibus eleifend.</span>
                         </span>
                     </router-link>
                     <router-link to="/" class="w-full flex items-center mb-8 py-8 border-surface-300 dark:border-surface-500 border-b">
