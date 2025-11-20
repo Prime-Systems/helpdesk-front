@@ -14,7 +14,7 @@ const products = ref(null);
 const expandedRows = ref([]);
 const statuses = reactive(['unqualified', 'qualified', 'new', 'negotiation', 'renewal', 'proposal']);
 const representatives = reactive([
-    { name: 'Amy Elsner', image: 'amyelsner.png' },
+    { name: 'Amy Esner', image: 'amyelsner.png' },
     { name: 'Anna Fali', image: 'annafali.png' },
     { name: 'Asiya Javayant', image: 'asiyajavayant.png' },
     { name: 'Bernardo Dominic', image: 'bernardodominic.png' },

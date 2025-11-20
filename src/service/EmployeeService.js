@@ -16,7 +16,6 @@ export const EmployeeService = {
         const response = await axios.put(`/users/${employee.id}`, employee);
         return response.data;
     },
-
     async deleteEmployee(id) {
         await axios.delete(`/users/${id}`);
     },
