@@ -736,6 +736,23 @@ function updateTicketAssignee() {
 function onCategoryChange() {
     // You can add logic here to auto-set priority based on category if needed
     console.log('Category changed to:', ticket.value.categoryName);
+    if (ticket.value.categoryName) {
+        const selectedCat = categories.value.find((c) => c.value === ticket.value.categoryName);
+        if (selectedCat && selectedCat.data) {
+            // Set priority automatically
+            if (selectedCat.data.defaultPriority) {
+                ticket.value.priority = selectedCat.data.defaultPriority;
+            }
+            // Set due date automatically from target resolution time
+            if (selectedCat.data.targetResolutionTime) {
+                const now = new Date();
+                now.setHours(now.getHours() + selectedCat.data.targetResolutionTime);
+                ticket.value.dueDate = now;
+            }
+        }
+    } else {
+        ticket.value.priority = 'MEDIUM';
+    }
 }
 </script>
 
@@ -961,11 +978,13 @@ function onCategoryChange() {
 
                 <div>
                     <label for="priority" class="block font-bold mb-3">Priority</label>
-                    <Select id="priority" v-model="ticket.priority" :options="['LOW', 'MEDIUM', 'HIGH', 'URGENT']" placeholder="Select priority" class="w-full">
+                    <!-- <Select id="priority" v-model="ticket.priority" :options="['LOW', 'MEDIUM', 'HIGH', 'URGENT']" placeholder="Select priority" class="w-full">
                         <template #option="slotProps">
                             <Tag :value="transformPriorityAndStatus(slotProps.option)" :severity="getPriorityLabel(slotProps.option)" />
                         </template>
-                    </Select>
+                    </Select> -->
+                    <Tag :value="transformPriorityAndStatus(ticket.priority)" :severity="getPriorityLabel(ticket.priority)" class="w-full text-center" />
+                    <small class="text-gray-500">Priority is set automatically based on the selected category.</small>
                 </div>
 
                 <div>
