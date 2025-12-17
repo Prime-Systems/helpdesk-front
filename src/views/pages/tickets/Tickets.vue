@@ -192,85 +192,140 @@ const onUpload = (event) => {
 };
 
 // Fixed: Save ticket function
+// async function saveTicket() {
+//     submitted.value = true;
+
+//     if (ticket.value?.title?.trim()) {
+//         if (ticket.value.id) {
+//             // Update existing ticket
+//             const index = findIndexById(ticket.value.id);
+//             if (index !== -1) {
+//                 // Ensure categoryName is properly set
+//                 if (ticket.value.categoryName && typeof ticket.value.categoryName === 'object') {
+//                     ticket.value.categoryName = ticket.value.categoryName.value;
+//                 }
+
+//                 //Make api call to update ticket
+//                 const response = await TicketService.updateTicket(ticket.value.id, ticket.value);
+
+//                 if (response) {
+//                     tickets.value.splice(index, 1, { ...ticket.value });
+//                     toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Updated', life: 3000 });
+//                 } else {
+//                     toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update ticket', life: 3000 });
+//                 }
+//             }
+//         } else {
+//             // Create new ticket
+//             ticket.value.id = createId();
+//             ticket.value.createdAt = new Date().toISOString();
+//             ticket.value.commentCount = 0;
+
+//             console.log('Categroy object before assignment:', ticket.value.categoryName);
+
+//             // Ensure categoryName is properly set
+//             // if (ticket.value.categoryName && typeof ticket.value.categoryName === 'object') {
+//             //     ticket.value.categoryName = ticket.value.categoryName.value;
+//             // }
+
+//             //Set categoryId based on selected category
+//             console.log('Category after assignment:', ticket.value.categoryName);
+//             const selectedCategory = categories.value.find((category) => category.value === ticket.value.categoryName);
+//             if (selectedCategory) {
+//                 ticket.value.categoryId = selectedCategory.id;
+//             }
+
+//             console.log('Category ID set to:', ticket.value.categoryId);
+
+//             // Set assignee if selected
+//             if (selectedAssignee.value) {
+//                 ticket.value.assignedUserName = selectedAssignee.value.name;
+//                 ticket.value.assignedUserEmail = selectedAssignee.value.email;
+//             }
+//             ticket.value.createdById = userId.value;
+//             console.log('Creating Ticket', ticket.value);
+
+//             // Make API call to create ticket
+//             const response = await TicketService.createTicket(ticket.value);
+
+//             if (response) {
+//                 tickets.value.unshift({ ...ticket.value });
+//                 toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Created', life: 3000 });
+//             } else {
+//                 toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to create ticket', life: 3000 });
+//             }
+//         }
+
+//         ticketDialog.value = false;
+//         // Reset ticket for next use
+//         ticket.value = {
+//             title: '',
+//             description: '',
+//             categoryName: null,
+//             tags: '',
+//             attachmentUrl: null,
+//             assignedUserName: '',
+//             assignedUserEmail: '',
+//             dueDate: null,
+//             priority: 'MEDIUM',
+//             status: 'OPEN'
+//         };
+//         selectedAssignee.value = null;
+//     }
+// }
+
 async function saveTicket() {
     submitted.value = true;
 
     if (ticket.value?.title?.trim()) {
+        // --- STEP 1: RESOLVE CATEGORY ID (Do this for both Update and Create) ---
+        // If your dropdown stores the category name in 'categoryName', find the matching ID
+        const selectedCategory = categories.value.find((category) => category.value === ticket.value.categoryName || category.name === ticket.value.categoryName);
+
+        if (selectedCategory) {
+            ticket.value.categoryId = selectedCategory.id;
+        } else {
+            console.error('Could not find matching category for:', ticket.value.categoryName);
+            toast.add({ severity: 'error', summary: 'Error', detail: 'Please select a valid category', life: 3000 });
+            return; // Stop execution if category is invalid
+        }
+
+        // --- STEP 2: HANDLE UPDATE OR CREATE ---
         if (ticket.value.id) {
             // Update existing ticket
             const index = findIndexById(ticket.value.id);
             if (index !== -1) {
-                // Ensure categoryName is properly set
-                if (ticket.value.categoryName && typeof ticket.value.categoryName === 'object') {
-                    ticket.value.categoryName = ticket.value.categoryName.value;
-                }
+                try {
+                    // Call the API (passing the resolved categoryId)
+                    const response = await TicketService.updateTicket(ticket.value.id, ticket.value);
 
-                //Make api call to update ticket
-                const response = await TicketService.updateTicket(ticket.value.id, ticketData);
-
-                if (response) {
-                    tickets.value.splice(index, 1, { ...ticket.value });
-                    toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Updated', life: 3000 });
-                } else {
+                    if (response) {
+                        tickets.value.splice(index, 1, { ...response }); // Use response data to ensure UI is in sync
+                        toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Updated', life: 3000 });
+                    }
+                } catch (error) {
+                    console.error('Update failed:', error);
                     toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update ticket', life: 3000 });
                 }
             }
         } else {
             // Create new ticket
-            ticket.value.id = createId();
-            ticket.value.createdAt = new Date().toISOString();
-            ticket.value.commentCount = 0;
-
-            console.log('Categroy object before assignment:', ticket.value.categoryName);
-
-            // Ensure categoryName is properly set
-            // if (ticket.value.categoryName && typeof ticket.value.categoryName === 'object') {
-            //     ticket.value.categoryName = ticket.value.categoryName.value;
-            // }
-
-            //Set categoryId based on selected category
-            console.log('Category after assignment:', ticket.value.categoryName);
-            const selectedCategory = categories.value.find((category) => category.value === ticket.value.categoryName);
-            if (selectedCategory) {
-                ticket.value.categoryId = selectedCategory.id;
-            }
-
-            console.log('Category ID set to:', ticket.value.categoryId);
-
-            // Set assignee if selected
-            if (selectedAssignee.value) {
-                ticket.value.assignedUserName = selectedAssignee.value.name;
-                ticket.value.assignedUserEmail = selectedAssignee.value.email;
-            }
             ticket.value.createdById = userId.value;
-            console.log('Creating Ticket', ticket.value);
 
-            // Make API call to create ticket
-            const response = await TicketService.createTicket(ticket.value);
-
-            if (response) {
-                tickets.value.unshift({ ...ticket.value });
-                toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Created', life: 3000 });
-            } else {
+            try {
+                const response = await TicketService.createTicket(ticket.value);
+                if (response) {
+                    tickets.value.unshift({ ...response });
+                    toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Created', life: 3000 });
+                }
+            } catch (error) {
+                console.error('Creation failed:', error);
                 toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to create ticket', life: 3000 });
             }
         }
 
         ticketDialog.value = false;
-        // Reset ticket for next use
-        ticket.value = {
-            title: '',
-            description: '',
-            categoryName: null,
-            tags: '',
-            attachmentUrl: null,
-            assignedUserName: '',
-            assignedUserEmail: '',
-            dueDate: null,
-            priority: 'MEDIUM',
-            status: 'OPEN'
-        };
-        selectedAssignee.value = null;
+        resetTicketForm();
     }
 }
 
@@ -825,8 +880,14 @@ function onCategoryChange() {
                 </Column>
 
                 <Column field="description" sortable header="Description" style="min-width: 15rem" :showFilterMenu="false">
-                    <template #body="{ data }">
+                    <!-- <template #body="{ data }">
                         <span class="truncate">{{ data.description }}</span>
+                    </template> -->
+
+                    <template #body="{ data }">
+                        <div class="line-height-3 max-h-5rem overflow-hidden text-overflow-ellipsis" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; white-space: normal">
+                            {{ data.description }}
+                        </div>
                     </template>
                     <template #filter="{ filterModel }">
                         <InputText v-model="filters['description'].value" placeholder="Search..." style="min-width: 4rem" />
