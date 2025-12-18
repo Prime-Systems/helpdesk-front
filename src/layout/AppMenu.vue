@@ -105,6 +105,18 @@ const model = ref([
                 to: '/leaderboard'
             }
         ]
+    },
+    {
+        label: 'Customer Portal',
+        icon: 'pi pi-fw pi-user',
+        to: '/reportissue',
+        items: [
+            {
+                label: 'Report Issue',
+                icon: 'pi pi-fw pi-external-link',
+                to: '/reportissue'
+            }
+        ]
     }
     // {
     //     label: 'UI Components',
