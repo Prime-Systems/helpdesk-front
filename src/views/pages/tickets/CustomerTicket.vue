@@ -401,7 +401,7 @@ const clearError = (field) => {
 
             <!-- Footer -->
             <div class="text-center mt-8 text-surface-600 dark:text-surface-400">
-                <p class="text-sm">Need immediate assistance? Call us at <span class="font-semibold text-primary">0244111222</span></p>
+                <p class="text-sm">Need immediate assistance? Reach us at <span class="font-semibold text-primary">0244111222</span></p>
             </div>
         </div>
     </div>
