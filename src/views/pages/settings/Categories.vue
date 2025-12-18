@@ -1,4 +1,5 @@
 <script setup>
+import { useBranchStore } from '@/stores/BranchStore';
 import { useCategoryStore } from '@/stores/CategoryStore';
 import { useDepartmentStore } from '@/stores/departmentStore';
 import { useEmployeeStore } from '@/stores/EmployeeStore';
@@ -11,20 +12,21 @@ const loading = ref(true);
 const categoryStore = useCategoryStore();
 const departmentStore = useDepartmentStore();
 const employeeStore = useEmployeeStore();
+const branchStore = useBranchStore();
 
 // Category Management
 const categories = computed(() => categoryStore.categories || []);
-const localCategories = ref([]);
 const selectedCategory = ref(null);
 const categoryDialog = ref(false);
 const deleteCategoryDialog = ref(false);
+const categoryDetailDialog = ref(false);
 const categorySubmitted = ref(false);
 const categoryForm = ref({
     id: null,
     name: '',
     description: '',
     departmentId: null,
-    maxResolutionTime: 24, // in hours
+    maxResolutionTime: 24,
     priority: 'medium',
     isActive: true,
     requiresApproval: false,
@@ -36,31 +38,44 @@ const departments = computed(() => departmentStore.departments || []);
 const selectedDepartment = ref(null);
 const departmentDialog = ref(false);
 const deleteDepartmentDialog = ref(false);
+const departmentDetailDialog = ref(false);
 const departmentSubmitted = ref(false);
 const departmentForm = ref({
     id: null,
     name: '',
     description: '',
-    departmentManager: null, // Store the full manager object here
+    departmentManager: null,
     status: 'ACTIVE',
     contactEmail: '',
     teamMembers: []
 });
 
-// Employee Management (for department assignment)
+// Branch Management
+const branches = computed(() => branchStore.branches || []);
+const selectedBranch = ref(null);
+const branchDialog = ref(false);
+const deleteBranchDialog = ref(false);
+const branchDetailDialog = ref(false);
+const branchSubmitted = ref(false);
+const branchForm = ref({
+    id: null,
+    name: '',
+    address: '',
+    contactEmail: '',
+    branchManagerId: null,
+    status: 'ACTIVE'
+});
+
+// Employee Management
 const employees = computed(() => employeeStore.employees || []);
 const selectedEmployees = ref([]);
 const availableEmployees = computed(() => {
-    // Filter out employees already in the department
     return employees.value.filter((employee) => {
-        // Check if employee is already in the team members
         const isAlreadyInTeam = departmentForm.value.teamMembers?.some((member) => member.id === employee.id);
-
         return !isAlreadyInTeam;
     });
 });
 
-// Create a helper for employee display in MultiSelect
 const formatEmployeeName = (employee) => {
     if (!employee) return '';
     return `${employee.firstName} ${employee.lastName}`;
@@ -88,36 +103,15 @@ const resolutionTimePresets = [
 // Load data
 onMounted(async () => {
     try {
-        // loading.value = true;
-        await categoryStore.fetchCategories().then(() => {
-            console.log('Categories loaded successfully');
-            console.log('Categories:', categoryStore.categories);
-            //loading.value = false;
-        });
-        await departmentStore.fetchDepartments().then(() => {
-            console.log('Departments loaded successfully');
-            console.log('Departments:', departmentStore.departments);
-            //loading.value = false;
-        });
-        await employeeStore.fetchEmployees().then(() => {
-            console.log('Employees loaded successfully');
-            console.log('Employees:', employeeStore.employees);
-            //loading.value = false;
-        });
+        await Promise.all([categoryStore.fetchCategories(), departmentStore.fetchDepartments(), employeeStore.fetchEmployees(), branchStore.fetchBranches()]);
+
         loading.value = false;
 
         departmentStore.$subscribe((mutation, state) => {
             if (state.departments) {
                 state.departments.forEach((department) => {
-                    // Ensure teamMembers is always an array
-                    if (!department.teamMembers) {
-                        department.teamMembers = [];
-                    }
-
-                    // Ensure departmentManager is always an object
-                    if (!department.departmentManager) {
-                        department.departmentManager = { id: null };
-                    }
+                    if (!department.teamMembers) department.teamMembers = [];
+                    if (!department.departmentManager) department.departmentManager = { id: null };
                 });
             }
         });
@@ -127,14 +121,14 @@ onMounted(async () => {
     }
 });
 
-// Category Methods
+// ============ CATEGORY METHODS ============
 const openNewCategory = () => {
     categoryForm.value = {
         id: null,
         name: '',
         description: '',
         departmentId: null,
-        maxResolutionTime: 24, // in hours
+        maxResolutionTime: 24,
         priority: 'MEDIUM',
         isActive: true,
         requiresApproval: false,
@@ -145,8 +139,6 @@ const openNewCategory = () => {
 };
 
 const editCategory = (category) => {
-    //categoryForm.value = { ...category };
-    //Convert tags from string to array
     const tagsArray = category.tags ? category.tags.split(',').map((tag) => tag.trim()) : [];
     categoryForm.value = {
         id: category.id,
@@ -162,87 +154,42 @@ const editCategory = (category) => {
     categoryDialog.value = true;
 };
 
+const viewCategoryDetails = (category) => {
+    selectedCategory.value = category;
+    categoryDetailDialog.value = true;
+};
+
 const saveCategory = async () => {
     categorySubmitted.value = true;
 
     if (categoryForm.value.name.trim() && categoryForm.value.departmentId) {
-        if (categoryForm.value.id) {
-            // Update existing category - Call your store method
-            try {
-                // Reconstruct the category object to match your API requirements
-                const categoryData = {
-                    id: categoryForm.value.id,
-                    name: categoryForm.value.name,
-                    description: categoryForm.value.description,
-                    targetResolutionTime: categoryForm.value.maxResolutionTime,
-                    departmentName: getDepartmentName(categoryForm.value.departmentId),
-                    departmentId: categoryForm.value.departmentId,
-                    defaultPriority: categoryForm.value.priority,
-                    tags: categoryForm.value.tags.join(','),
-                    status: categoryForm.value.isActive ? 'ACTIVE' : 'INACTIVE',
-                    requiresApproval: categoryForm.value.requiresApproval
-                };
+        try {
+            const categoryData = {
+                id: categoryForm.value.id || generateId(),
+                name: categoryForm.value.name,
+                description: categoryForm.value.description,
+                targetResolutionTime: categoryForm.value.maxResolutionTime,
+                departmentName: getDepartmentName(categoryForm.value.departmentId),
+                departmentId: categoryForm.value.departmentId,
+                defaultPriority: categoryForm.value.priority,
+                tags: categoryForm.value.tags.join(','),
+                status: categoryForm.value.isActive ? 'ACTIVE' : 'INACTIVE',
+                requiresApproval: categoryForm.value.requiresApproval
+            };
+
+            if (categoryForm.value.id) {
                 await categoryStore.updateCategory(categoryData);
                 toast.add({ severity: 'success', summary: 'Success', detail: 'Category Updated', life: 3000 });
-            } catch (error) {
-                toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update category', life: 3000 });
-            }
-        } else {
-            // Create new category
-            try {
-                categoryForm.value.id = generateId(); // If your API doesn't generate IDs
-                console.log('Category Form:', categoryForm.value);
-
-                /*
-                Reconstruct the category object to match your API requirements
-                {
-                    "id": 0,
-                    "name": "string",
-                    "description": "string",
-                    "targetResolutionTime": 0,
-                    "departmentName": "string",
-                    "departmentId": 0,
-                    "defaultPriority": "LOW",
-                    "tags": "string",
-                    "status": "ACTIVE",
-                    "requiresApproval": true
-                    }
-                   */
-                const categoryData = {
-                    id: categoryForm.value.id,
-                    name: categoryForm.value.name,
-                    description: categoryForm.value.description,
-                    targetResolutionTime: categoryForm.value.maxResolutionTime,
-                    departmentName: getDepartmentName(categoryForm.value.departmentId),
-                    departmentId: categoryForm.value.departmentId,
-                    defaultPriority: categoryForm.value.priority,
-                    tags: categoryForm.value.tags.join(','),
-                    status: categoryForm.value.isActive ? 'ACTIVE' : 'INACTIVE',
-                    requiresApproval: categoryForm.value.requiresApproval
-                };
+            } else {
                 await categoryStore.addCategory(categoryData);
                 toast.add({ severity: 'success', summary: 'Success', detail: 'Category Created', life: 3000 });
-
-                // Update categories list from store
-                //categories.value = await categoryStore.fetchCategories();
-            } catch (error) {
-                console.error('Error creating category:', error);
-                toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to create category', life: 3000 });
             }
-        }
 
-        categoryDialog.value = false;
-        categoryForm.value = {
-            id: null,
-            name: '',
-            description: '',
-            departmentId: null,
-            maxResolutionTime: 24,
-            priority: 'MEDIUM',
-            isActive: true,
-            requiresApproval: false,
-            tags: []
-        };
+            categoryDialog.value = false;
+            resetCategoryForm();
+        } catch (error) {
+            toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to save category', life: 3000 });
+        }
     }
 };
 
@@ -254,23 +201,35 @@ const confirmDeleteCategory = (category) => {
 const deleteCategory = async () => {
     try {
         await categoryStore.deleteCategory(selectedCategory.value.id);
-
         deleteCategoryDialog.value = false;
         toast.add({ severity: 'success', summary: 'Success', detail: 'Category Deleted', life: 3000 });
         selectedCategory.value = null;
     } catch (error) {
-        console.error('Error deleting category:', error);
         toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete category', life: 3000 });
     }
 };
 
-// Department Methods
+const resetCategoryForm = () => {
+    categoryForm.value = {
+        id: null,
+        name: '',
+        description: '',
+        departmentId: null,
+        maxResolutionTime: 24,
+        priority: 'MEDIUM',
+        isActive: true,
+        requiresApproval: false,
+        tags: []
+    };
+};
+
+// ============ DEPARTMENT METHODS ============
 const openNewDepartment = () => {
     departmentForm.value = {
         id: null,
         name: '',
         description: '',
-        departmentManagerId: null,
+        departmentManager: null,
         status: 'ACTIVE',
         contactEmail: '',
         teamMembers: []
@@ -305,65 +264,16 @@ const editDepartment = (department) => {
     departmentDialog.value = true;
 };
 
-// const saveDepartment = async () => {
-//     departmentSubmitted.value = true;
-
-//     if (departmentForm.value.name.trim()) {
-//         try {
-//             // Prepare team members data
-//             const teamMembersData = departmentForm.value.teamMembers.map((member) => ({
-//                 id: member.id,
-//                 firstName: member.firstName,
-//                 lastName: member.lastName,
-//                 email: member.email || '',
-//                 role: member.role || 'EMPLOYEE'
-//             }));
-
-//             // Prepare the department data
-//             const departmentData = {
-//                 id: departmentForm.value.id || 0,
-//                 name: departmentForm.value.name,
-//                 description: departmentForm.value.description,
-//                 contactEmail: departmentForm.value.contactEmail,
-//                 status: typeof departmentForm.value.status === 'string' ? departmentForm.value.status : 'ACTIVE', // Ensure status is always a string
-//                 teamSize: teamMembersData.length,
-//                 departmentManager: {
-//                     id: departmentForm.value.departmentManager.id,
-//                     firstName: departmentForm.value.departmentManager.firstName,
-//                     lastName: departmentForm.value.departmentManager.lastName
-//                 },
-//                 teamMembers: teamMembersData
-//             };
-
-//             console.log('Final payload:', JSON.stringify(departmentData, null, 2));
-
-//             if (departmentForm.value.id) {
-//                 await departmentStore.updateDepartment(departmentData);
-//                 toast.add({ severity: 'success', summary: 'Success', detail: 'Department Updated', life: 3000 });
-//             } else {
-//                 await departmentStore.addDepartment(departmentData);
-//                 toast.add({ severity: 'success', summary: 'Success', detail: 'Department Created', life: 3000 });
-//             }
-
-//             departmentDialog.value = false;
-//         } catch (error) {
-//             console.error('Error saving department:', error);
-//             toast.add({
-//                 severity: 'error',
-//                 summary: 'Error',
-//                 detail: 'Failed to save department: ' + (error.response?.data?.message || error.message),
-//                 life: 5000
-//             });
-//         }
-//     }
-// };
+const viewDepartmentDetails = (department) => {
+    selectedDepartment.value = department;
+    departmentDetailDialog.value = true;
+};
 
 const saveDepartment = async () => {
     departmentSubmitted.value = true;
 
     if (departmentForm.value.name.trim()) {
         try {
-            // Prepare team members data - ensure we're sending the current state
             const teamMembersData = departmentForm.value.teamMembers.map((member) => ({
                 id: member.id,
                 firstName: member.firstName,
@@ -372,7 +282,6 @@ const saveDepartment = async () => {
                 role: member.role || 'EMPLOYEE'
             }));
 
-            // Prepare the department data
             const departmentData = {
                 id: departmentForm.value.id || 0,
                 name: departmentForm.value.name,
@@ -387,11 +296,8 @@ const saveDepartment = async () => {
                           lastName: departmentForm.value.departmentManager.lastName
                       }
                     : null,
-                teamMembers: teamMembersData // This should now reflect the removed members
+                teamMembers: teamMembersData
             };
-
-            console.log('Final payload:', JSON.stringify(departmentData, null, 2));
-            console.log('Team members being sent:', teamMembersData);
 
             if (departmentForm.value.id) {
                 await departmentStore.updateDepartment(departmentData);
@@ -401,12 +307,9 @@ const saveDepartment = async () => {
                 toast.add({ severity: 'success', summary: 'Success', detail: 'Department Created', life: 3000 });
             }
 
-            // Force refresh the departments list to ensure UI is in sync
             await departmentStore.fetchDepartments();
-
             departmentDialog.value = false;
         } catch (error) {
-            console.error('Error saving department:', error);
             toast.add({
                 severity: 'error',
                 summary: 'Error',
@@ -415,18 +318,6 @@ const saveDepartment = async () => {
             });
         }
     }
-};
-// Add a helper method to reset the department form
-const resetDepartmentForm = () => {
-    departmentForm.value = {
-        id: null,
-        name: '',
-        description: '',
-        departmentManager: null, // Reset to null
-        status: 'ACTIVE',
-        contactEmail: '',
-        teamMembers: []
-    };
 };
 
 const confirmDeleteDepartment = (department) => {
@@ -441,12 +332,10 @@ const deleteDepartment = async () => {
         toast.add({ severity: 'success', summary: 'Success', detail: 'Department Deleted', life: 3000 });
         selectedDepartment.value = null;
     } catch (error) {
-        console.error('Error deleting department:', error);
         toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete department', life: 3000 });
     }
 };
 
-// Employee Management
 const addEmployeeToDepartment = () => {
     if (selectedEmployees.value.length) {
         departmentForm.value.teamMembers = [...departmentForm.value.teamMembers, ...selectedEmployees.value];
@@ -456,7 +345,6 @@ const addEmployeeToDepartment = () => {
 
 const removeEmployeeFromDepartment = (employee) => {
     departmentForm.value.teamMembers = departmentForm.value.teamMembers.filter((e) => e.id != employee.id);
-
     toast.add({
         severity: 'info',
         summary: 'Employee Removed',
@@ -465,12 +353,99 @@ const removeEmployeeFromDepartment = (employee) => {
     });
 };
 
-// Utils
+// ============ BRANCH METHODS ============
+const openNewBranch = () => {
+    branchForm.value = {
+        id: null,
+        name: '',
+        address: '',
+        contactEmail: '',
+        branchManagerId: null,
+        status: 'ACTIVE'
+    };
+    branchSubmitted.value = false;
+    branchDialog.value = true;
+};
+
+const editBranch = (branch) => {
+    branchForm.value = {
+        id: branch.id,
+        name: branch.name,
+        address: branch.address,
+        contactEmail: branch.contactEmail,
+        branchManagerId: branch.branchManagerId,
+        status: branch.status || 'ACTIVE'
+    };
+    branchDialog.value = true;
+};
+
+const viewBranchDetails = (branch) => {
+    selectedBranch.value = branch;
+    branchDetailDialog.value = true;
+};
+
+const saveBranch = async () => {
+    branchSubmitted.value = true;
+
+    if (branchForm.value.name.trim()) {
+        try {
+            const branchData = {
+                id: branchForm.value.id,
+                name: branchForm.value.name,
+                address: branchForm.value.address,
+                contactEmail: branchForm.value.contactEmail,
+                branchManagerId: branchForm.value.branchManagerId,
+                status: branchForm.value.status
+            };
+
+            if (branchForm.value.id) {
+                await branchStore.updateBranch(branchData);
+                toast.add({ severity: 'success', summary: 'Success', detail: 'Branch Updated', life: 3000 });
+            } else {
+                await branchStore.addBranch(branchData);
+                toast.add({ severity: 'success', summary: 'Success', detail: 'Branch Created', life: 3000 });
+            }
+
+            branchDialog.value = false;
+            resetBranchForm();
+        } catch (error) {
+            toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to save branch', life: 3000 });
+        }
+    }
+};
+
+const confirmDeleteBranch = (branch) => {
+    selectedBranch.value = branch;
+    deleteBranchDialog.value = true;
+};
+
+const deleteBranch = async () => {
+    try {
+        await branchStore.deleteBranch(selectedBranch.value.id);
+        deleteBranchDialog.value = false;
+        toast.add({ severity: 'success', summary: 'Success', detail: 'Branch Deleted', life: 3000 });
+        selectedBranch.value = null;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete branch', life: 3000 });
+    }
+};
+
+const resetBranchForm = () => {
+    branchForm.value = {
+        id: null,
+        name: '',
+        address: '',
+        contactEmail: '',
+        branchManagerId: null,
+        status: 'ACTIVE'
+    };
+};
+
+// ============ UTILS ============
 const generateId = () => {
     return Math.floor(1000 + Math.random() * 9000);
 };
 
-// Display helpers
 const getPriorityClass = (priority) => {
     switch (priority) {
         case 'low':
@@ -516,11 +491,6 @@ const getDepartmentName = (departmentId) => {
     return department ? department.name : 'Unassigned';
 };
 
-const getEmployeeName = (employeeId) => {
-    const employee = employees.value.find((e) => e.id === employeeId);
-    return employee ? employee.name : 'Unassigned';
-};
-
 const getEmployeeFullName = (employee) => {
     if (!employee) return 'Unassigned';
     return `${employee.firstName} ${employee.lastName}`;
@@ -530,23 +500,17 @@ const getEmployeeById = (employeeId) => {
     return employees.value.find((e) => e.id === employeeId);
 };
 
-// Update getManagerOptions computed property
 const getManagerOptions = computed(() => {
     return employees.value.map((e) => ({
         label: `${e.firstName} ${e.lastName}`,
         value: e.id
     }));
 });
-
-// Add a method to get employees by department
-const getEmployeesByDepartment = (departmentId) => {
-    return employees.value.filter((e) => e.departmentId === departmentId);
-};
 </script>
 
 <template>
     <div class="card">
-        <h1 class="text-3xl font-semibold mb-4">Categories & Departments Management</h1>
+        <h1 class="text-3xl font-semibold mb-4">Categories, Departments & Branches Management</h1>
 
         <TabView v-model:activeIndex="activeTab">
             <!-- Categories Tab -->
@@ -597,16 +561,10 @@ const getEmployeesByDepartment = (departmentId) => {
                         </template>
                     </Column>
 
-                    <Column field="requiresApproval" header="Approval">
-                        <template #body="{ data }">
-                            <i v-if="data.requiresApproval" class="pi pi-check-circle text-green-500 text-xl"></i>
-                            <i v-else class="pi pi-times-circle text-gray-400 text-xl"></i>
-                        </template>
-                    </Column>
-
                     <Column header="Actions" :exportable="false">
                         <template #body="{ data }">
                             <div class="flex gap-2">
+                                <Button icon="pi pi-eye" rounded outlined severity="info" @click="viewCategoryDetails(data)" />
                                 <Button icon="pi pi-pencil" rounded outlined @click="editCategory(data)" />
                                 <Button icon="pi pi-trash" rounded outlined severity="danger" @click="confirmDeleteCategory(data)" />
                             </div>
@@ -664,8 +622,63 @@ const getEmployeesByDepartment = (departmentId) => {
                     <Column header="Actions" :exportable="false">
                         <template #body="{ data }">
                             <div class="flex gap-2">
+                                <Button icon="pi pi-eye" rounded outlined severity="info" @click="viewDepartmentDetails(data)" />
                                 <Button icon="pi pi-pencil" rounded outlined @click="editDepartment(data)" />
                                 <Button icon="pi pi-trash" rounded outlined severity="danger" @click="confirmDeleteDepartment(data)" />
+                            </div>
+                        </template>
+                    </Column>
+                </DataTable>
+            </TabPanel>
+
+            <!-- Branches Tab -->
+            <TabPanel header="Branches">
+                <div class="flex justify-between mb-4">
+                    <h2 class="text-xl font-semibold">Branches</h2>
+                    <Button label="Add Branch" icon="pi pi-plus" @click="openNewBranch" />
+                </div>
+
+                <div v-if="loading" class="flex justify-center py-8">
+                    <ProgressSpinner />
+                </div>
+
+                <DataTable v-else :value="branches" dataKey="id" :paginator="true" :rows="10" :rowHover="true" stripedRows responsiveLayout="scroll" class="p-datatable-sm">
+                    <Column field="name" header="Branch Name" sortable>
+                        <template #body="{ data }">
+                            <div class="font-medium">{{ data.name }}</div>
+                            <div class="text-xs text-gray-500 mt-1">{{ data.address }}</div>
+                        </template>
+                    </Column>
+
+                    <Column field="contactEmail" header="Contact Email" sortable>
+                        <template #body="{ data }">
+                            <a :href="`mailto:${data.contactEmail}`" class="text-primary hover:underline">{{ data.contactEmail }}</a>
+                        </template>
+                    </Column>
+
+                    <Column field="branchManagerId" header="Manager" sortable>
+                        <template #body="{ data }">
+                            <div v-if="data.branchManagerId">
+                                {{ getEmployeeFullName(getEmployeeById(data.branchManagerId)) }}
+                            </div>
+                            <div v-else class="text-gray-500">Unassigned</div>
+                        </template>
+                    </Column>
+
+                    <Column field="status" header="Status" sortable>
+                        <template #body="{ data }">
+                            <Tag :severity="data.status === 'ACTIVE' ? 'success' : 'danger'">
+                                {{ data.status }}
+                            </Tag>
+                        </template>
+                    </Column>
+
+                    <Column header="Actions" :exportable="false">
+                        <template #body="{ data }">
+                            <div class="flex gap-2">
+                                <Button icon="pi pi-eye" rounded outlined severity="info" @click="viewBranchDetails(data)" />
+                                <Button icon="pi pi-pencil" rounded outlined @click="editBranch(data)" />
+                                <Button icon="pi pi-trash" rounded outlined severity="danger" @click="confirmDeleteBranch(data)" />
                             </div>
                         </template>
                     </Column>
@@ -754,6 +767,77 @@ const getEmployeesByDepartment = (departmentId) => {
             <template #footer>
                 <Button label="Cancel" icon="pi pi-times" outlined @click="categoryDialog = false" />
                 <Button label="Save" icon="pi pi-check" @click="saveCategory" />
+            </template>
+        </Dialog>
+
+        <!-- Category Detail Dialog -->
+        <Dialog v-model:visible="categoryDetailDialog" header="Category Details" :modal="true" :style="{ width: '600px' }">
+            <div v-if="selectedCategory" class="grid grid-cols-1 gap-4">
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Name:</label>
+                    <div class="mt-1">{{ selectedCategory.name }}</div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Description:</label>
+                    <div class="mt-1">{{ selectedCategory.description || 'N/A' }}</div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Department:</label>
+                    <div class="mt-1">{{ getDepartmentName(selectedCategory.departmentId) }}</div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Target Resolution Time:</label>
+                    <div class="mt-1">{{ formatTime(selectedCategory.targetResolutionTime) }}</div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Default Priority:</label>
+                    <div class="mt-1">
+                        <Tag :class="getPriorityClass(selectedCategory.defaultPriority)">
+                            <i :class="[getPriorityIcon(selectedCategory.defaultPriority), 'mr-1']"></i>
+                            {{ selectedCategory.defaultPriority }}
+                        </Tag>
+                    </div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Status:</label>
+                    <div class="mt-1">
+                        <Tag :severity="selectedCategory.isActive ? 'success' : 'danger'">
+                            {{ selectedCategory.isActive ? 'ACTIVE' : 'INACTIVE' }}
+                        </Tag>
+                    </div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Requires Approval:</label>
+                    <div class="mt-1">
+                        <i v-if="selectedCategory.requiresApproval" class="pi pi-check-circle text-green-500 text-xl"></i>
+                        <i v-else class="pi pi-times-circle text-gray-400 text-xl"></i>
+                    </div>
+                </div>
+
+                <div v-if="selectedCategory.tags" class="detail-item">
+                    <label class="font-semibold text-gray-700">Tags:</label>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        <Tag v-for="tag in selectedCategory.tags.split(',')" :key="tag" :value="tag.trim()" class="bg-blue-100 text-blue-800" />
+                    </div>
+                </div>
+            </div>
+
+            <template #footer>
+                <Button label="Close" icon="pi pi-times" outlined @click="categoryDetailDialog = false" />
+                <Button
+                    label="Edit"
+                    icon="pi pi-pencil"
+                    @click="
+                        categoryDetailDialog = false;
+                        editCategory(selectedCategory);
+                    "
+                />
             </template>
         </Dialog>
 
@@ -872,6 +956,73 @@ const getEmployeesByDepartment = (departmentId) => {
             </template>
         </Dialog>
 
+        <!-- Department Detail Dialog -->
+        <Dialog v-model:visible="departmentDetailDialog" header="Department Details" :modal="true" :style="{ width: '700px' }">
+            <div v-if="selectedDepartment" class="grid grid-cols-1 gap-4">
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Name:</label>
+                    <div class="mt-1 text-lg">{{ selectedDepartment.name }}</div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Description:</label>
+                    <div class="mt-1">{{ selectedDepartment.description || 'N/A' }}</div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Contact Email:</label>
+                    <div class="mt-1">
+                        <a :href="`mailto:${selectedDepartment.contactEmail}`" class="text-primary hover:underline">{{ selectedDepartment.contactEmail }}</a>
+                    </div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Department Manager:</label>
+                    <div class="mt-1">
+                        <div v-if="selectedDepartment.departmentManager" class="flex items-center gap-2">
+                            <i class="pi pi-user text-primary"></i>
+                            <span>{{ getEmployeeFullName(selectedDepartment.departmentManager) }}</span>
+                        </div>
+                        <span v-else class="text-gray-500">Unassigned</span>
+                    </div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Status:</label>
+                    <div class="mt-1">
+                        <Tag :severity="selectedDepartment.status === 'ACTIVE' ? 'success' : 'danger'">
+                            {{ selectedDepartment.status }}
+                        </Tag>
+                    </div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Team Members ({{ selectedDepartment.teamMembers?.length || 0 }}):</label>
+                    <div v-if="selectedDepartment.teamMembers?.length" class="mt-2 border rounded overflow-hidden">
+                        <DataTable :value="selectedDepartment.teamMembers" dataKey="id" class="p-datatable-sm">
+                            <Column field="firstName" header="First Name"></Column>
+                            <Column field="lastName" header="Last Name"></Column>
+                            <Column field="email" header="Email"></Column>
+                            <Column field="role" header="Role"></Column>
+                        </DataTable>
+                    </div>
+                    <div v-else class="mt-2 text-gray-500">No team members assigned</div>
+                </div>
+            </div>
+
+            <template #footer>
+                <Button label="Close" icon="pi pi-times" outlined @click="departmentDetailDialog = false" />
+                <Button
+                    label="Edit"
+                    icon="pi pi-pencil"
+                    @click="
+                        departmentDetailDialog = false;
+                        editDepartment(selectedDepartment);
+                    "
+                />
+            </template>
+        </Dialog>
+
         <!-- Delete Department Dialog -->
         <Dialog v-model:visible="deleteDepartmentDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
             <div class="confirmation-content">
@@ -890,6 +1041,122 @@ const getEmployeesByDepartment = (departmentId) => {
                 <Button label="Yes" icon="pi pi-check" severity="danger" @click="deleteDepartment" />
             </template>
         </Dialog>
+
+        <!-- Branch Dialog -->
+        <Dialog v-model:visible="branchDialog" :header="branchForm.id ? 'Edit Branch' : 'Add Branch'" :modal="true" class="p-fluid" :style="{ width: '550px' }">
+            <div class="grid grid-cols-1 gap-4">
+                <div class="field">
+                    <label for="branch-name" class="font-medium mb-2 block">Name</label>
+                    <InputText id="branch-name" v-model.trim="branchForm.name" required autofocus :class="{ 'p-invalid': branchSubmitted && !branchForm.name }" />
+                    <small v-if="branchSubmitted && !branchForm.name" class="p-error">Branch name is required.</small>
+                </div>
+
+                <div class="field">
+                    <label for="branch-address" class="font-medium mb-2 block">Address</label>
+                    <Textarea id="branch-address" v-model="branchForm.address" rows="3" />
+                </div>
+
+                <div class="field">
+                    <label for="branch-email" class="font-medium mb-2 block">Contact Email</label>
+                    <InputText id="branch-email" v-model.trim="branchForm.contactEmail" type="email" />
+                </div>
+
+                <div class="field">
+                    <label for="branch-manager" class="font-medium mb-2 block">Branch Manager</label>
+                    <Dropdown id="branch-manager" v-model="branchForm.branchManagerId" :options="employees" optionValue="id" placeholder="Select a Manager">
+                        <template #value="slotProps">
+                            <div v-if="slotProps.value">{{ getEmployeeFullName(getEmployeeById(slotProps.value)) }}</div>
+                            <span v-else>{{ slotProps.placeholder }}</span>
+                        </template>
+                        <template #option="slotProps">
+                            <div>
+                                {{ slotProps.option.firstName }} {{ slotProps.option.lastName }}
+                                <div class="text-xs text-gray-500">{{ slotProps.option.email }}</div>
+                            </div>
+                        </template>
+                    </Dropdown>
+                </div>
+
+                <div class="field-checkbox">
+                    <Checkbox id="branch-isActive" v-model="branchForm.status" :binary="false" :true-value="'ACTIVE'" :false-value="'INACTIVE'" />
+                    <label for="branch-isActive" class="ml-2">Active</label>
+                </div>
+            </div>
+
+            <template #footer>
+                <Button label="Cancel" icon="pi pi-times" outlined @click="branchDialog = false" />
+                <Button label="Save" icon="pi pi-check" @click="saveBranch" />
+            </template>
+        </Dialog>
+
+        <!-- Branch Detail Dialog -->
+        <Dialog v-model:visible="branchDetailDialog" header="Branch Details" :modal="true" :style="{ width: '600px' }">
+            <div v-if="selectedBranch" class="grid grid-cols-1 gap-4">
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Name:</label>
+                    <div class="mt-1 text-lg">{{ selectedBranch.name }}</div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Address:</label>
+                    <div class="mt-1">{{ selectedBranch.address || 'N/A' }}</div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Contact Email:</label>
+                    <div class="mt-1">
+                        <a :href="`mailto:${selectedBranch.contactEmail}`" class="text-primary hover:underline">{{ selectedBranch.contactEmail }}</a>
+                    </div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Branch Manager:</label>
+                    <div class="mt-1">
+                        <div v-if="selectedBranch.branchManagerId" class="flex items-center gap-2">
+                            <i class="pi pi-user text-primary"></i>
+                            <span>{{ getEmployeeFullName(getEmployeeById(selectedBranch.branchManagerId)) }}</span>
+                        </div>
+                        <span v-else class="text-gray-500">Unassigned</span>
+                    </div>
+                </div>
+
+                <div class="detail-item">
+                    <label class="font-semibold text-gray-700">Status:</label>
+                    <div class="mt-1">
+                        <Tag :severity="selectedBranch.status === 'ACTIVE' ? 'success' : 'danger'">
+                            {{ selectedBranch.status }}
+                        </Tag>
+                    </div>
+                </div>
+            </div>
+
+            <template #footer>
+                <Button label="Close" icon="pi pi-times" outlined @click="branchDetailDialog = false" />
+                <Button
+                    label="Edit"
+                    icon="pi pi-pencil"
+                    @click="
+                        branchDetailDialog = false;
+                        editBranch(selectedBranch);
+                    "
+                />
+            </template>
+        </Dialog>
+
+        <!-- Delete Branch Dialog -->
+        <Dialog v-model:visible="deleteBranchDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
+            <div class="confirmation-content">
+                <i class="pi pi-exclamation-triangle mr-3 text-xl text-yellow-500" />
+                <span v-if="selectedBranch">
+                    Are you sure you want to delete <b>{{ selectedBranch.name }}</b
+                    >?
+                </span>
+            </div>
+            <template #footer>
+                <Button label="No" icon="pi pi-times" outlined @click="deleteBranchDialog = false" />
+                <Button label="Yes" icon="pi pi-check" severity="danger" @click="deleteBranch" />
+            </template>
+        </Dialog>
     </div>
 </template>
 
@@ -902,7 +1169,10 @@ const getEmployeesByDepartment = (departmentId) => {
     @apply mb-4;
 }
 
-/* Custom styling for PrimeVue components */
+.detail-item {
+    @apply p-3 bg-gray-50 rounded;
+}
+
 :deep(.p-tabview-nav) {
     @apply bg-gray-50 border-b border-gray-200;
 }
@@ -931,7 +1201,6 @@ const getEmployeesByDepartment = (departmentId) => {
     @apply w-full;
 }
 
-/* PrimeVue DataTable Styling */
 :deep(.p-datatable .p-datatable-thead > tr > th) {
     @apply bg-gray-50 py-3 px-3;
 }
