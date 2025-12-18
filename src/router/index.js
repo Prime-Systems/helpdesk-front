@@ -101,6 +101,7 @@ const router = createRouter({
                     name: 'tickets',
                     component: () => import('@/views/pages/tickets/Tickets.vue')
                 },
+
                 {
                     path: '/users/employees',
                     name: 'employees',
@@ -179,6 +180,11 @@ const router = createRouter({
             path: '/auth/error',
             name: 'error',
             component: () => import('@/views/pages/auth/Error.vue')
+        },
+        {
+            path: '/reportissue',
+            name: 'reportissue',
+            component: () => import('@/views/pages/tickets/CustomerTicket.vue')
         }
     ]
 });
