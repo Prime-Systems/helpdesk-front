@@ -29,12 +29,12 @@ const model = ref([
                 label: 'Employees',
                 icon: 'pi pi-fw pi-id-card',
                 to: '/users/employees'
-            },
-            {
-                label: 'Customers',
-                icon: 'pi pi-fw pi-user',
-                to: '/users/customers'
             }
+            // {
+            //     label: 'Customers',
+            //     icon: 'pi pi-fw pi-user',
+            //     to: '/users/customers'
+            // }
         ]
     },
     // {
@@ -82,11 +82,11 @@ const model = ref([
         icon: 'pi pi-fw pi-book',
         to: '/tickets',
         items: [
-            {
-                label: 'Automation',
-                icon: 'pi pi-fw pi-verified',
-                to: '/settings/automation'
-            },
+            // {
+            //     label: 'Automation',
+            //     icon: 'pi pi-fw pi-verified',
+            //     to: '/settings/automation'
+            // },
             {
                 label: 'Categories',
                 icon: 'pi pi-fw pi-box',
