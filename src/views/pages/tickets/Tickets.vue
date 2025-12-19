@@ -857,9 +857,9 @@ function onCategoryChange() {
 
                 <Column selectionMode="multiple" style="width: 3rem" :exportable="false"></Column>
 
-                <Column field="title" header="Title" style="min-width: 12rem" sortable>
+                <Column field="title" header="Tracking Token" style="min-width: 12rem" sortable>
                     <template #body="{ data }">
-                        <span class="font-medium">{{ data.title }}</span>
+                        <span class="font-medium">{{ data.publicTrackingToken }}</span>
                     </template>
                 </Column>
 
@@ -1113,7 +1113,7 @@ function onCategoryChange() {
                 <template #default>
                     <div class="flex flex-col">
                         <h1 class="text-surface-900 dark:text-surface-0 font-bold text-3xl lg:text-5xl mb-2 capitalize">
-                            {{ ticket.title }}
+                            {{ ticket.publicTrackingToken }}
                         </h1>
 
                         <div class="flex items-center gap-6 mb-2">

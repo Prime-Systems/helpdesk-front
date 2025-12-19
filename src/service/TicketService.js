@@ -129,5 +129,43 @@ export const TicketService = {
             params: { page, size }
         });
         return response.data;
+    },
+
+    // Customer Ticket Methods
+    async createCustomerTicket(ticketData, file) {
+        const formData = new FormData();
+
+        // Append individual fields as required by the backend
+        formData.append('title', ticketData.title);
+        formData.append('description', ticketData.description);
+        formData.append('categoryId', ticketData.categoryId);
+        formData.append('tags', ticketData.tags || '');
+        formData.append('customerName', ticketData.customerName);
+        formData.append('customerEmail', ticketData.customerEmail);
+        formData.append('customerPhone', ticketData.customerPhone || '');
+
+        if (file) {
+            formData.append('attachment', file);
+        }
+
+        const response = await axios.post('/tickets/customer', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+    },
+
+    async trackTicket(trackingToken) {
+        const response = await axios.get(`/tickets/track/${trackingToken}`);
+        return response.data;
+    },
+
+    async addCommentViaTracking(trackingToken, comment) {
+        const response = await axios.post(`/tickets/track/${trackingToken}/comments`, comment);
+        return response.data;
+    },
+
+    async getCommentsViaTracking(trackingToken) {
+        const response = await axios.get(`/tickets/track/${trackingToken}/comments`);
+        return response.data;
     }
 };
