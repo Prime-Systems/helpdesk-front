@@ -810,7 +810,7 @@ const copyTrackingToken = async () => {
                         <div class="flex justify-between items-start mb-2">
                             <div>
                                 <span class="font-semibold">{{ comment.authorName || 'User' }}</span>
-                                <span v-if="comment.isCustomer" class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 px-2 py-1 rounded ml-2"> Customer </span>
+                                <span v-if="comment.customer" class="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 px-2 py-1 rounded ml-2"> Customer </span>
                                 <span v-else class="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 px-2 py-1 rounded ml-2"> Support Agent </span>
                             </div>
                             <span class="text-xs text-surface-500">{{ formatDate(comment.timestamp) }}</span>
