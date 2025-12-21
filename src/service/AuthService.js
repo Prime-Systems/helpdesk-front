@@ -46,6 +46,12 @@ export const AuthService = {
         return response.data;
     },
 
+    /**
+     * Change user password (requires authentication)
+     * @param {string} currentPassword - Current password
+     * @param {string} newPassword - New password
+     * @returns {Promise} Response with new tokens
+     */
     async changePassword(currentPassword, newPassword) {
         const response = await axios.post('/auth/change-password', {
             currentPassword,

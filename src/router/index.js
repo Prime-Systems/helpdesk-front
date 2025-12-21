@@ -50,7 +50,6 @@ const router = createRouter({
                     name: 'panel',
                     component: () => import('@/views/uikit/PanelsDoc.vue')
                 },
-
                 {
                     path: '/uikit/overlay',
                     name: 'overlay',
@@ -101,7 +100,6 @@ const router = createRouter({
                     name: 'tickets',
                     component: () => import('@/views/pages/tickets/Tickets.vue')
                 },
-
                 {
                     path: '/users/employees',
                     name: 'employees',
@@ -146,11 +144,6 @@ const router = createRouter({
                     path: '/leaderboard',
                     name: 'leaderboard',
                     component: () => import('@/views/pages/leaderboard/Leaderboard.vue')
-                },
-                {
-                    path: '/leaderboard',
-                    name: 'leaderboard',
-                    component: () => import('@/views/pages/leaderboard/Leaderboard.vue')
                 }
             ]
         },
@@ -164,7 +157,6 @@ const router = createRouter({
             name: 'notfound',
             component: () => import('@/views/pages/NotFound.vue')
         },
-
         {
             path: '/auth/login',
             name: 'login',
@@ -180,6 +172,12 @@ const router = createRouter({
             path: '/auth/error',
             name: 'error',
             component: () => import('@/views/pages/auth/Error.vue')
+        },
+        {
+            path: '/auth/change-password',
+            name: 'changePassword',
+            component: () => import('@/views/pages/auth/ChangePassword.vue'),
+            meta: { requiresAuth: true, allowPasswordChange: true }
         },
         {
             path: '/reportissue',
@@ -202,34 +200,70 @@ router.beforeEach(async (to, from, next) => {
         }
     }
 
+    const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
+    const requiresGuest = to.matched.some((record) => record.meta.requiresGuest);
+    const allowPasswordChange = to.matched.some((record) => record.meta.allowPasswordChange);
+
+    // ========== PASSWORD CHANGE ENFORCEMENT ==========
+    // If user is authenticated and needs to change password
+    if (authStore.isAuthenticated && authStore.needsPasswordChange) {
+        // Allow access only to the change password page
+        if (allowPasswordChange) {
+            console.log('Access granted to password change page');
+            return next();
+        }
+
+        // Prevent access to login if already authenticated but needs password change
+        if (requiresGuest) {
+            console.log('User needs to change password, redirecting from login...');
+            return next({ name: 'changePassword' });
+        }
+
+        // Force redirect to change password for all other routes
+        console.log('User must change password, redirecting...');
+        return next({ name: 'changePassword' });
+    }
+    // =================================================
+
     // Check if route requires authentication
-    if (to.matched.some((record) => record.meta.requiresAuth)) {
+    if (requiresAuth) {
         if (!authStore.isAuthenticated) {
             // Save intended URL for redirect after login
             sessionStorage.setItem('redirectPath', to.fullPath);
-            next('/auth/login');
-        } else {
-            // Check if token needs refresh
-            if (authStore.isTokenExpiring) {
-                const refreshed = await authStore.refreshSession();
-                if (!refreshed) {
-                    sessionStorage.setItem('redirectPath', to.fullPath);
-                    next('/auth/login');
-                    return;
-                }
+            console.log('Not authenticated, redirecting to login...');
+            return next('/auth/login');
+        }
+
+        // Check if token needs refresh
+        if (authStore.isTokenExpiring) {
+            console.log('Token expiring, attempting refresh...');
+            const refreshed = await authStore.refreshSession();
+            if (!refreshed) {
+                sessionStorage.setItem('redirectPath', to.fullPath);
+                return next('/auth/login');
             }
-            next();
         }
-    } else if (to.matched.some((record) => record.meta.requiresGuest)) {
-        // Routes that should only be accessible to guests (like login)
-        if (authStore.isAuthenticated) {
-            next('/'); // or dashboard
-        } else {
-            next();
-        }
-    } else {
-        next();
+
+        return next();
     }
+
+    // Routes that should only be accessible to guests (like login)
+    if (requiresGuest) {
+        if (authStore.isAuthenticated) {
+            console.log('Already authenticated, redirecting to dashboard...');
+            // Check for saved redirect path
+            const redirectPath = sessionStorage.getItem('redirectPath');
+            if (redirectPath) {
+                sessionStorage.removeItem('redirectPath');
+                return next(redirectPath);
+            }
+            return next('/');
+        }
+        return next();
+    }
+
+    // Allow access to public routes
+    next();
 });
 
 export default router;
