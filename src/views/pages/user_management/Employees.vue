@@ -1,4 +1,6 @@
 <script setup>
+import { BranchService } from '@/service/BranchService';
+import { EmployeeService } from '@/service/EmployeeService';
 import { useAuthStore } from '@/stores/AuthStore';
 import { useDepartmentStore } from '@/stores/departmentStore';
 import { useEmployeeStore } from '@/stores/EmployeeStore';
@@ -9,6 +11,7 @@ import EmployeeDetails from './EmployeeDetails.vue'; // Import the new component
 
 const authStore = useAuthStore();
 const departments = ref([]);
+const branches = ref([]);
 const department = ref({});
 const employees = ref([]);
 const departmentStore = useDepartmentStore();
@@ -49,6 +52,9 @@ onMounted(async () => {
 
         await departmentStore.fetchDepartments();
         departments.value = departmentStore.departments;
+
+        // Fetch branches
+        branches.value = await BranchService.getBranches();
     } catch (error) {
         console.error('Error loading data:', error);
         toast.add({
@@ -116,12 +122,16 @@ function confirmDeleteEmployee(selectedEmployee) {
     deleteEmployeeDialog.value = true;
 }
 
-function deleteEmployee() {
-    employees.value = employees.value.filter((val) => val.employeeId !== employee.value.employeeId);
-    deleteEmployeeDialog.value = false;
-    EmployeeService.deleteEmployee(employee.value.employeeId);
-    employee.value = {};
-    toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Deleted', life: 3000 });
+async function deleteEmployee() {
+    try {
+        await EmployeeService.deleteEmployee(employee.value.id);
+        employees.value = employees.value.filter((val) => val.id !== employee.value.id);
+        deleteEmployeeDialog.value = false;
+        employee.value = {};
+        toast.add({ severity: 'success', summary: 'Successful', detail: 'Employee Deleted', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete employee', life: 3000 });
+    }
 }
 
 function createEmployeeCode() {
@@ -332,7 +342,7 @@ async function saveEmployee() {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label for="branch" class="block font-bold mb-2">Branch *</label>
-                        <InputText id="branch" v-model.trim="employee.branch" required="true" :invalid="submitted && !employee.branch" class="w-full" />
+                        <Dropdown id="branch" v-model="employee.branch" :options="branches" optionLabel="name" optionValue="name" placeholder="Select a branch" class="w-full" :invalid="submitted && !employee.branch" />
                         <small v-if="submitted && !employee.branch" class="text-red-500">Branch is required.</small>
                     </div>
                     <div>

@@ -1,5 +1,6 @@
 <script setup>
 import { useLayout } from '@/layout/composables/layout';
+import { BranchService } from '@/service/BranchService';
 import { CategoryService } from '@/service/CategoryService';
 import { DepartmentService } from '@/service/DepartmentService';
 import { EmployeeService } from '@/service/EmployeeService';
@@ -24,6 +25,7 @@ const ticketsData = ref({
 const categoriesData = ref([]);
 const departmentsData = ref([]);
 const employeesData = ref([]);
+const branchesData = ref([]);
 
 // Time range options
 const timeRangeOptions = [
@@ -189,6 +191,8 @@ const departmentChartData = ref(null);
 const departmentChartOptions = ref(null);
 const categoryChartData = ref(null);
 const categoryChartOptions = ref(null);
+const branchChartData = ref(null);
+const branchChartOptions = ref(null);
 
 // Timeline layout
 const timelineLayout = ref('horizontal');
@@ -208,12 +212,19 @@ onMounted(() => {
 async function fetchDashboardData() {
     loading.value = true;
     try {
-        const [ticketsRes, categoriesRes, departmentsRes, employeesRes] = await Promise.all([TicketService.getTickets(), CategoryService.getCategories(), DepartmentService.getDepartments(), EmployeeService.getEmployees()]);
+        const [ticketsRes, categoriesRes, departmentsRes, employeesRes, branchesRes] = await Promise.all([
+            TicketService.getTickets(),
+            CategoryService.getCategories(),
+            DepartmentService.getDepartments(),
+            EmployeeService.getEmployees(),
+            BranchService.getBranches()
+        ]);
 
         ticketsData.value = ticketsRes;
         categoriesData.value = categoriesRes;
         departmentsData.value = departmentsRes;
         employeesData.value = employeesRes;
+        branchesData.value = branchesRes;
 
         initCharts();
     } catch (error) {
@@ -233,6 +244,7 @@ function initCharts() {
     setPriorityChart();
     setDepartmentChart();
     setCategoryChart();
+    setBranchChart();
 }
 
 // Status distribution chart
@@ -422,6 +434,54 @@ function setCategoryChart() {
                     display: false,
                     drawBorder: false
                 }
+            }
+        }
+    };
+}
+
+// Branch performance chart
+function setBranchChart() {
+    const documentStyle = getComputedStyle(document.documentElement);
+    const textColor = documentStyle.getPropertyValue('--text-color');
+    const textColorSecondary = documentStyle.getPropertyValue('--text-color-secondary');
+    const surfaceBorder = documentStyle.getPropertyValue('--surface-border');
+
+    branchChartData.value = {
+        labels: branchesData.value.map((b) => b.name),
+        datasets: [
+            {
+                label: 'Resolved Tickets',
+                backgroundColor: '#22c55e',
+                borderColor: '#22c55e',
+                data: branchesData.value.map((b) => b.resolvedTickets)
+            },
+            {
+                label: 'Active Tickets',
+                backgroundColor: '#f97316',
+                borderColor: '#f97316',
+                data: branchesData.value.map((b) => b.activeTickets)
+            }
+        ]
+    };
+
+    branchChartOptions.value = {
+        maintainAspectRatio: false,
+        aspectRatio: 0.8,
+        plugins: {
+            legend: {
+                labels: {
+                    color: textColor
+                }
+            }
+        },
+        scales: {
+            x: {
+                ticks: { color: textColorSecondary },
+                grid: { color: surfaceBorder, drawBorder: false }
+            },
+            y: {
+                ticks: { color: textColorSecondary },
+                grid: { color: surfaceBorder, drawBorder: false }
             }
         }
     };
@@ -826,31 +886,45 @@ function onImageError(id) {
                 </div>
             </div>
 
-            <!-- Recent Activity -->
-            <div class="card shadow-md hover:shadow-lg transition-shadow">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">Recent Activity</h3>
-                    <Button label="View All" icon="pi pi-arrow-right" iconPos="right" text size="small" />
-                </div>
+            <!-- Branch & Activity Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-1 gap-6">
+                <!-- Branch Performance -->
+                <!-- <div class="card shadow-md hover:shadow-lg transition-shadow">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">Branch Performance</h3>
+                        <i class="pi pi-building text-xl text-primary"></i>
+                    </div>
+                    <div style="height: 320px">
+                        <Chart type="bar" :data="branchChartData" :options="branchChartOptions" />
+                    </div>
+                </div> -->
 
-                <div class="overflow-x-auto">
-                    <Timeline :value="recentActivity" :layout="timelineLayout" align="top">
-                        <template #marker="slotProps">
-                            <span class="flex w-12 h-12 items-center justify-center rounded-full bg-surface-100 dark:bg-surface-800 border-2 border-surface-300 dark:border-surface-600 shadow-md">
-                                <i :class="[getActivityIcon(slotProps.item.type), getActivityIconColor(slotProps.item.type), 'text-xl']"></i>
-                            </span>
-                        </template>
-                        <template #content="slotProps">
-                            <div class="bg-surface-100 dark:bg-surface-800 p-4 rounded-lg shadow-sm max-w-xs">
-                                <div class="font-semibold text-surface-900 dark:text-surface-0 mb-1">{{ slotProps.item.user }}</div>
-                                <div class="text-sm text-surface-600 dark:text-surface-400 mb-2">{{ slotProps.item.description }}</div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-xs text-surface-500 dark:text-surface-500">{{ formatTime(slotProps.item.time) }}</span>
-                                    <Badge :value="slotProps.item.ticket" severity="info" size="small" />
+                <!-- Recent Activity -->
+                <div class="card shadow-md hover:shadow-lg transition-shadow">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">Recent Activity</h3>
+                        <Button label="View All" icon="pi pi-arrow-right" iconPos="right" text size="small" />
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <Timeline :value="recentActivity" :layout="timelineLayout" align="top">
+                            <template #marker="slotProps">
+                                <span class="flex w-12 h-12 items-center justify-center rounded-full bg-surface-100 dark:bg-surface-800 border-2 border-surface-300 dark:border-surface-600 shadow-md">
+                                    <i :class="[getActivityIcon(slotProps.item.type), getActivityIconColor(slotProps.item.type), 'text-xl']"></i>
+                                </span>
+                            </template>
+                            <template #content="slotProps">
+                                <div class="bg-surface-100 dark:bg-surface-800 p-4 rounded-lg shadow-sm max-w-xs">
+                                    <div class="font-semibold text-surface-900 dark:text-surface-0 mb-1">{{ slotProps.item.user }}</div>
+                                    <div class="text-sm text-surface-600 dark:text-surface-400 mb-2">{{ slotProps.item.description }}</div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs text-surface-500 dark:text-surface-500">{{ formatTime(slotProps.item.time) }}</span>
+                                        <Badge :value="slotProps.item.ticket" severity="info" size="small" />
+                                    </div>
                                 </div>
-                            </div>
-                        </template>
-                    </Timeline>
+                            </template>
+                        </Timeline>
+                    </div>
                 </div>
             </div>
 
