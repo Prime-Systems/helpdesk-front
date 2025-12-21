@@ -277,7 +277,7 @@ const onUpload = (event) => {
 async function saveTicket() {
     submitted.value = true;
 
-    if (ticket.value?.title?.trim()) {
+    if (ticket.value?.categoryName?.trim()) {
         // --- STEP 1: RESOLVE CATEGORY ID (Do this for both Update and Create) ---
         // If your dropdown stores the category name in 'categoryName', find the matching ID
         const selectedCategory = categories.value.find((category) => category.value === ticket.value.categoryName || category.name === ticket.value.categoryName);
@@ -962,18 +962,6 @@ function onCategoryChange() {
         <Dialog v-model:visible="ticketDialog" :style="{ width: '650px' }" header="Ticket Details" :modal="true">
             <div class="flex flex-col gap-6">
                 <div>
-                    <label for="title" class="block font-bold mb-3">Title</label>
-                    <InputText id="title" v-model.trim="ticket.title" required="true" autofocus :invalid="submitted && !ticket.title" class="w-full" />
-                    <small v-if="submitted && !ticket.title" class="text-red-500">Title is required.</small>
-                </div>
-
-                <div>
-                    <label for="description" class="block font-bold mb-3">Description</label>
-                    <Textarea id="description" v-model="ticket.description" required="true" rows="3" class="w-full" />
-                </div>
-
-                <!-- Fixed Category Select -->
-                <div>
                     <label for="categoryName" class="block font-bold mb-3">Category</label>
                     <Dropdown id="categoryName" v-model="ticket.categoryName" :options="categories" optionLabel="label" optionValue="value" placeholder="Select a category" class="w-full" @change="onCategoryChange">
                         <template #value="slotProps">
@@ -997,7 +985,18 @@ function onCategoryChange() {
                     </Dropdown>
                 </div>
 
+                <!-- <div>
+                    <label for="title" class="block font-bold mb-3">Title</label>
+                    <InputText id="title" v-model.trim="ticket.title" required="true" autofocus :invalid="submitted && !ticket.title" class="w-full" />
+                    <small v-if="submitted && !ticket.title" class="text-red-500">Title is required.</small>
+                </div> -->
+
                 <div>
+                    <label for="description" class="block font-bold mb-3">Description</label>
+                    <Textarea id="description" v-model="ticket.description" required="true" rows="3" class="w-full" />
+                </div>
+
+                <!-- <div>
                     <label for="assignee" class="block font-bold mb-3">Assignee</label>
                     <Dropdown id="assignee" v-model="selectedAssignee" :options="users" optionLabel="name" placeholder="Select an assignee" class="w-full" filter :showClear="true">
                         <template #value="slotProps">
@@ -1030,7 +1029,7 @@ function onCategoryChange() {
                             </div>
                         </template>
                     </Dropdown>
-                </div>
+                </div> -->
 
                 <div>
                     <label for="dueDate" class="block font-bold mb-3">Due Date</label>
@@ -1054,11 +1053,11 @@ function onCategoryChange() {
                     <small class="text-gray-500">Separate tags with commas</small>
                 </div>
 
-                <div>
+                <!-- <div>
                     <label for="attachmentUrl" class="block font-bold mb-3">Attachment URL</label>
                     <InputText id="attachmentUrl" v-model="ticket.attachmentUrl" class="w-full" placeholder="Enter attachment URL" />
                     <small class="text-gray-500">Paste a URL to the attachment file</small>
-                </div>
+                </div> -->
             </div>
 
             <template #footer>

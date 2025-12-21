@@ -1,6 +1,10 @@
 <script setup>
 import { useLayout } from '@/layout/composables/layout';
-import { computed, onMounted, ref, watch } from 'vue';
+import { CategoryService } from '@/service/CategoryService';
+import { DepartmentService } from '@/service/DepartmentService';
+import { EmployeeService } from '@/service/EmployeeService';
+import { TicketService } from '@/service/TicketService';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -13,145 +17,13 @@ const comparisonPeriod = ref('previous_period');
 // API Data - Replace with actual API calls
 const ticketsData = ref({
     isFirst: true,
-    totalItems: 2,
-    tickets: [
-        {
-            id: 3,
-            title: 'TestTicket',
-            description: 'Some text',
-            categoryName: 'Hardware Issues edit',
-            tags: 'something',
-            attachmentUrl: null,
-            status: 'OPEN',
-            assignedUserName: 'Nadine Yankey',
-            assignedUserEmail: 'gwenscott071@gmail.com',
-            dueDate: '2025-12-03T21:06:48.375635',
-            commentCount: 0,
-            priority: 'MEDIUM',
-            createdAt: '2025-12-01T21:06:48.375635'
-        },
-        {
-            id: 2,
-            title: 'Failed Transfer',
-            description: 'Transactions are failing',
-            categoryName: 'Document Processing',
-            tags: 'something',
-            attachmentUrl: null,
-            status: 'ONGOING',
-            assignedUserName: 'Nadine Yankey',
-            assignedUserEmail: 'gwenscott071@gmail.com',
-            dueDate: '2025-10-23T16:14:19.625185',
-            commentCount: 0,
-            priority: 'LOW',
-            createdAt: '2025-10-20T16:14:19.625185'
-        }
-    ]
+    totalItems: 0,
+    tickets: []
 });
 
-const categoriesData = ref([
-    {
-        id: 3,
-        name: 'Document Processing',
-        description: 'Document processing requests',
-        targetResolutionTime: 72,
-        departmentName: 'Operations',
-        departmentId: 3,
-        defaultPriority: 'LOW',
-        tags: 'document,processing,paperwork',
-        status: 'ACTIVE',
-        requiresApproval: true
-    },
-    {
-        id: 1,
-        name: 'Hardware Issues edit',
-        description: 'Problems with physical equipment',
-        targetResolutionTime: 48,
-        departmentName: 'IT Support',
-        departmentId: 1,
-        defaultPriority: 'MEDIUM',
-        tags: 'hardware,equipment,physical',
-        status: 'ACTIVE',
-        requiresApproval: false
-    },
-    {
-        id: 2,
-        name: 'Transaction Inquiries',
-        description: 'Questions about transactions',
-        targetResolutionTime: 24,
-        departmentName: 'Customer Service',
-        departmentId: 2,
-        defaultPriority: 'MEDIUM',
-        tags: 'transaction,payment',
-        status: 'ACTIVE',
-        requiresApproval: false
-    },
-    {
-        id: 5,
-        name: 'Login',
-        description: 'Login issues',
-        targetResolutionTime: 24,
-        departmentName: 'IT Support',
-        departmentId: 1,
-        defaultPriority: 'MEDIUM',
-        tags: '',
-        status: 'ACTIVE',
-        requiresApproval: false
-    }
-]);
-
-const departmentsData = ref([
-    {
-        id: 2,
-        name: 'Customer Service',
-        description: 'Customer inquiries and account support',
-        contactEmail: 'customer-service@company.com',
-        status: 'ACTIVE',
-        teamSize: 7
-    },
-    {
-        id: 3,
-        name: 'Operations',
-        description: 'Back-office operations and processing',
-        contactEmail: 'operations@company.com',
-        status: 'ACTIVE',
-        teamSize: 2
-    },
-    {
-        id: 1,
-        name: 'IT Support',
-        description: 'Technical support and infrastructure management',
-        contactEmail: 'it-support@company.com',
-        status: 'ACTIVE',
-        teamSize: 8
-    }
-]);
-
-const employeesData = ref([
-    {
-        id: 5,
-        email: 'dodoo.ivan@yahoo.com',
-        firstName: 'Nii',
-        lastName: 'Laho',
-        departmentName: 'IT Support',
-        role: 'ADMIN'
-    },
-    {
-        id: 15,
-        email: 'gwenscott071@gmail.com',
-        firstName: 'Nadine',
-        lastName: 'Yankey',
-        departmentName: 'IT Support',
-        role: 'ADMIN'
-    },
-    {
-        id: 7,
-        email: 'karenocansey67@gmail.com',
-        firstName: 'Keren',
-        lastName: 'Ocansey',
-        departmentName: 'Customer Service',
-        role: 'EMPLOYEE'
-    }
-]);
+const categoriesData = ref([]);
+const departmentsData = ref([]);
+const employeesData = ref([]);
 
 // Time range options
 const timeRangeOptions = [
@@ -291,7 +163,7 @@ const recentActivity = computed(() => {
             description: ticket.status === 'OPEN' ? `Created new ticket: "${ticket.title}"` : `Updated ticket: "${ticket.title}"`
         }))
         .sort((a, b) => b.time - a.time)
-        .slice(0, 5);
+        .slice(0, 3);
 });
 
 const avgResolutionTime = computed(() => {
@@ -318,12 +190,41 @@ const departmentChartOptions = ref(null);
 const categoryChartData = ref(null);
 const categoryChartOptions = ref(null);
 
+// Timeline layout
+const timelineLayout = ref('horizontal');
+const imageErrorMap = ref({});
+
+function updateTimelineLayout() {
+    timelineLayout.value = window.innerWidth < 768 ? 'vertical' : 'horizontal';
+}
+
 // Initialize dashboard data
 onMounted(() => {
-    setTimeout(() => {
+    updateTimelineLayout();
+    window.addEventListener('resize', updateTimelineLayout);
+    fetchDashboardData();
+});
+
+async function fetchDashboardData() {
+    loading.value = true;
+    try {
+        const [ticketsRes, categoriesRes, departmentsRes, employeesRes] = await Promise.all([TicketService.getTickets(), CategoryService.getCategories(), DepartmentService.getDepartments(), EmployeeService.getEmployees()]);
+
+        ticketsData.value = ticketsRes;
+        categoriesData.value = categoriesRes;
+        departmentsData.value = departmentsRes;
+        employeesData.value = employeesRes;
+
         initCharts();
+    } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+    } finally {
         loading.value = false;
-    }, 1000);
+    }
+}
+
+onUnmounted(() => {
+    window.removeEventListener('resize', updateTimelineLayout);
 });
 
 // Initialize chart data
@@ -344,8 +245,8 @@ function setStatusChart() {
         datasets: [
             {
                 data: [ticketStats.value.open.count, ticketStats.value.ongoing.count, ticketStats.value.resolved.count, ticketStats.value.closed.count],
-                backgroundColor: [documentStyle.getPropertyValue('--blue-500'), documentStyle.getPropertyValue('--orange-500'), documentStyle.getPropertyValue('--green-500'), documentStyle.getPropertyValue('--purple-500')],
-                hoverBackgroundColor: [documentStyle.getPropertyValue('--blue-400'), documentStyle.getPropertyValue('--orange-400'), documentStyle.getPropertyValue('--green-400'), documentStyle.getPropertyValue('--purple-400')]
+                backgroundColor: ['#3b82f6', '#f97316', '#22c55e', '#a855f7'],
+                hoverBackgroundColor: ['#60a5fa', '#fb923c', '#4ade80', '#c084fc']
             }
         ]
     };
@@ -378,8 +279,8 @@ function setPriorityChart() {
         datasets: [
             {
                 data: [dist.LOW, dist.MEDIUM, dist.HIGH, dist.URGENT],
-                backgroundColor: [documentStyle.getPropertyValue('--blue-500'), documentStyle.getPropertyValue('--yellow-500'), documentStyle.getPropertyValue('--orange-500'), documentStyle.getPropertyValue('--red-500')],
-                hoverBackgroundColor: [documentStyle.getPropertyValue('--blue-400'), documentStyle.getPropertyValue('--yellow-400'), documentStyle.getPropertyValue('--orange-400'), documentStyle.getPropertyValue('--red-400')]
+                backgroundColor: ['#3b82f6', '#eab308', '#f97316', '#ef4444'],
+                hoverBackgroundColor: ['#60a5fa', '#facc15', '#fb923c', '#f87171']
             }
         ]
     };
@@ -415,14 +316,14 @@ function setDepartmentChart() {
         datasets: [
             {
                 label: 'Active Tickets',
-                backgroundColor: documentStyle.getPropertyValue('--blue-500'),
-                borderColor: documentStyle.getPropertyValue('--blue-500'),
+                backgroundColor: '#3b82f6',
+                borderColor: '#3b82f6',
                 data: workload.map((d) => d.ticketCount)
             },
             {
                 label: 'Team Size',
-                backgroundColor: documentStyle.getPropertyValue('--purple-500'),
-                borderColor: documentStyle.getPropertyValue('--purple-500'),
+                backgroundColor: '#a855f7',
+                borderColor: '#a855f7',
                 data: workload.map((d) => d.teamSize)
             }
         ]
@@ -476,13 +377,15 @@ function setCategoryChart() {
 
     const categories = Object.entries(categoryDistribution.value);
 
+    const primaryColor = documentStyle.getPropertyValue('--primary-color') || '#3b82f6';
+
     categoryChartData.value = {
         labels: categories.map(([name]) => name),
         datasets: [
             {
                 label: 'Tickets by Category',
-                backgroundColor: documentStyle.getPropertyValue('--primary-500'),
-                borderColor: documentStyle.getPropertyValue('--primary-500'),
+                backgroundColor: primaryColor,
+                borderColor: primaryColor,
                 data: categories.map(([, count]) => count),
                 borderRadius: 8
             }
@@ -632,12 +535,12 @@ watch([getPrimary, getSurface, isDarkTheme], () => {
 
 // Update data when time range changes
 watch(timeRangeFilter, () => {
-    loading.value = true;
-    setTimeout(() => {
-        initCharts();
-        loading.value = false;
-    }, 500);
+    fetchDashboardData();
 });
+
+function onImageError(id) {
+    imageErrorMap.value[id] = true;
+}
 </script>
 
 <template>
@@ -818,7 +721,7 @@ watch(timeRangeFilter, () => {
                         <i class="pi pi-sitemap text-2xl text-primary"></i>
                     </div>
 
-                    <div class="space-y-4 py-2">
+                    <div class="space-y-4 py-2 overflow-y-auto max-h-[20rem] pr-2">
                         <div v-for="dept in departmentsData" :key="dept.id" class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors">
                             <div class="flex justify-between items-start mb-3">
                                 <div>
@@ -900,7 +803,10 @@ watch(timeRangeFilter, () => {
 
                         <div v-for="(agent, index) in topPerformers" :key="agent.id" class="flex items-center gap-3 p-3 bg-surface-100 dark:bg-surface-800 rounded-lg hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors">
                             <div class="relative flex-shrink-0">
-                                <img :src="agent.avatar" :alt="agent.name" class="w-12 h-12 rounded-full border-2 border-surface-200 dark:border-surface-700" />
+                                <img v-if="!imageErrorMap[`agent-${agent.id}`]" :src="agent.avatar" :alt="agent.name" class="w-12 h-12 rounded-full border-2 border-surface-200 dark:border-surface-700" @error="onImageError(`agent-${agent.id}`)" />
+                                <div v-else class="w-12 h-12 rounded-full border-2 border-surface-200 dark:border-surface-700 bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                                    <i class="pi pi-user text-surface-500 text-xl"></i>
+                                </div>
                                 <div :class="['absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center text-white rounded-full font-bold text-xs shadow-md', index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : 'bg-amber-600']">
                                     {{ index + 1 }}
                                 </div>
@@ -928,7 +834,7 @@ watch(timeRangeFilter, () => {
                 </div>
 
                 <div class="overflow-x-auto">
-                    <Timeline :value="recentActivity" layout="horizontal" align="top">
+                    <Timeline :value="recentActivity" :layout="timelineLayout" align="top">
                         <template #marker="slotProps">
                             <span class="flex w-12 h-12 items-center justify-center rounded-full bg-surface-100 dark:bg-surface-800 border-2 border-surface-300 dark:border-surface-600 shadow-md">
                                 <i :class="[getActivityIcon(slotProps.item.type), getActivityIconColor(slotProps.item.type), 'text-xl']"></i>
@@ -984,7 +890,16 @@ watch(timeRangeFilter, () => {
                     <Column field="assignedUserName" header="Assigned To" style="min-width: 180px">
                         <template #body="slotProps">
                             <div class="flex items-center gap-2">
-                                <img :src="`https://avatar.iran.liara.run/public/50?name=${slotProps.data.assignedUserName}`" :alt="slotProps.data.assignedUserName" class="w-8 h-8 rounded-full" />
+                                <img
+                                    v-if="!imageErrorMap[`ticket-${slotProps.data.id}`]"
+                                    :src="`https://avatar.iran.liara.run/public/50?name=${slotProps.data.assignedUserName}`"
+                                    :alt="slotProps.data.assignedUserName"
+                                    class="w-8 h-8 rounded-full"
+                                    @error="onImageError(`ticket-${slotProps.data.id}`)"
+                                />
+                                <div v-else class="w-8 h-8 rounded-full bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                                    <i class="pi pi-user text-surface-500 text-xs"></i>
+                                </div>
                                 <span class="text-sm font-medium">{{ slotProps.data.assignedUserName }}</span>
                             </div>
                         </template>
