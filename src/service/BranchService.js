@@ -1,10 +1,58 @@
+import axios from '@/plugins/axios';
+import { useAuthStore } from '@/stores/AuthStore';
+
 export const BranchService = {
-    getBranches() {
-        return Promise.resolve([
-            { id: 1, name: 'Accra Main', manager: 'Kwame Osei', activeTickets: 45, resolvedTickets: 120, satisfaction: 4.8 },
-            { id: 2, name: 'Kumasi', manager: 'Ama Mensah', activeTickets: 32, resolvedTickets: 98, satisfaction: 4.6 },
-            { id: 3, name: 'Takoradi', manager: 'Kofi Boateng', activeTickets: 28, resolvedTickets: 85, satisfaction: 4.7 },
-            { id: 4, name: 'Tamale', manager: 'Abena Antwi', activeTickets: 15, resolvedTickets: 42, satisfaction: 4.5 }
-        ]);
+    async getBranches() {
+        try {
+            const authStore = useAuthStore();
+            console.log('Token:', authStore.token);
+
+            const response = await axios.get('/branch');
+            console.log('Branches:', response.data);
+
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching branches:', error);
+            throw error;
+        }
+    },
+
+    async getBranchById(branchId) {
+        try {
+            const response = await axios.get(`/branch/${branchId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching branch:', error);
+            throw error;
+        }
+    },
+
+    async createBranch(branchData) {
+        try {
+            const response = await axios.post('/branch', branchData);
+            return response.data;
+        } catch (error) {
+            console.error('Error creating branch:', error);
+            throw error;
+        }
+    },
+
+    async updateBranch(branchId, branchData) {
+        try {
+            const response = await axios.put(`/branch/${branchId}`, branchData);
+            return response.data;
+        } catch (error) {
+            console.error('Error updating branch:', error);
+            throw error;
+        }
+    },
+
+    async deleteBranch(branchId) {
+        try {
+            await axios.delete(`/api/v1/branch/${branchId}`);
+        } catch (error) {
+            console.error('Error deleting branch:', error);
+            throw error;
+        }
     }
 };
