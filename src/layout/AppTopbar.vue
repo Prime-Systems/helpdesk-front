@@ -87,7 +87,7 @@ const userName = authStore.userName; // Or userEmail, depending on what you have
                         <i class="pi pi-inbox"></i>
                         <span>Messages</span>
                     </button>
-                    <button type="button" class="layout-topbar-action">
+                    <button type="button" class="layout-topbar-action" @click="router.push('/profile')">
                         <i class="pi pi-user"></i>
                         <span>Profile</span>
                     </button>

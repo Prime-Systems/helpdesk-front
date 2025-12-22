@@ -144,6 +144,11 @@ const router = createRouter({
                     path: '/leaderboard',
                     name: 'leaderboard',
                     component: () => import('@/views/pages/leaderboard/Leaderboard.vue')
+                },
+                {
+                    path: '/profile',
+                    name: 'profile',
+                    component: () => import('@/views/pages/profile/UserProfile.vue')
                 }
             ]
         },

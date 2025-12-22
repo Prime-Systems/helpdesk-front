@@ -33,5 +33,25 @@ export const EmployeeService = {
     async getEmployeeById(id) {
         const response = await axios.get(`/users/${id}`);
         return response.data;
+    },
+
+    async updateEmployeeProfile(id, profileData) {
+        const response = await api.put(`/users/${id}/profile`, profileData);
+        return response.data;
+    },
+
+    async getEmployeePerformance(id) {
+        const response = await api.get(`/users/${id}/performance`);
+        return response.data;
+    },
+
+    async uploadEmployeeProfilePicture(id, file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        return api.post(`/users/${id}/profile/picture`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
     }
 };
