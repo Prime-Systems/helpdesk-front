@@ -857,7 +857,7 @@ function onCategoryChange() {
 
                 <Column selectionMode="multiple" style="width: 3rem" :exportable="false"></Column>
 
-                <Column field="title" header="Tracking Token" style="min-width: 12rem" sortable>
+                <Column field="title" header="Tracking Token" style="min-width: 13rem" sortable>
                     <template #body="{ data }">
                         <span class="font-medium">{{ data.publicTrackingToken }}</span>
                     </template>
