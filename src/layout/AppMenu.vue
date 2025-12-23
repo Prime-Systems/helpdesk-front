@@ -29,12 +29,17 @@ const model = ref([
                 label: 'Employees',
                 icon: 'pi pi-fw pi-id-card',
                 to: '/users/employees'
-            }
+            },
             // {
             //     label: 'Customers',
-            //     icon: 'pi pi-fw pi-user',
+            //     icon: 'pi pi-fw pi-users',
             //     to: '/users/customers'
-            // }
+            // },
+            {
+                label: 'Leave Management',
+                icon: 'pi pi-fw pi-calendar-times',
+                to: '/users/leave'
+            }
         ]
     },
     // {

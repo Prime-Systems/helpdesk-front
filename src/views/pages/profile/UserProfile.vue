@@ -132,7 +132,7 @@ onMounted(async () => {
 
     await loadEssentialData();
 
-    if (authStore.requirePasswordChange) {
+    if (authStore.needsPasswordChange) {
         activeTab.value = 4;
         toast.add({
             severity: 'warn',

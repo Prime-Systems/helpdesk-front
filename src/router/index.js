@@ -111,6 +111,11 @@ const router = createRouter({
                     component: () => import('@/views/pages/user_management/Customers.vue')
                 },
                 {
+                    path: '/users/leave',
+                    name: 'leave',
+                    component: () => import('@/views/pages/user_management/Leave.vue')
+                },
+                {
                     path: '/kb/faqs',
                     name: 'faqs',
                     component: () => import('@/views/pages/knowledge_base/Faq.vue')
