@@ -155,6 +155,11 @@ const router = createRouter({
                     name: 'profile',
                     component: () => import('@/views/pages/profile/UserProfile.vue')
                 }
+                // {
+                //     path: '/chat',
+                //     name: 'chat',
+                //     component: () => import('@/views/pages/chat/Chat.vue')
+                // }
             ]
         },
         {

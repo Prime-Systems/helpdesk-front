@@ -122,6 +122,18 @@ const model = ref([
                 to: '/reportissue'
             }
         ]
+    },
+    {
+        label: 'Chat',
+        icon: 'pi pi-fw pi-comments',
+        to: '/chat',
+        items: [
+            {
+                label: 'Chat',
+                icon: 'pi pi-fw pi-comments',
+                to: '/chat'
+            }
+        ]
     }
     // {
     //     label: 'UI Components',
