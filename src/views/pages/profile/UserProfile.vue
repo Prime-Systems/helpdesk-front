@@ -588,14 +588,13 @@ const makeCall = () => {
         <!-- Main Content -->
         <div v-else class="profile-layout">
             <!-- Mobile Header -->
-            <div v-if="isMobile" class="mobile-header p-3 surface-0 shadow-1">
-                <div class="flex align-items-center gap-3">
+            <div v-if="isMobile" class="mobile-header p-3 surface-0 shadow-1 bg-surface-0 dark:bg-surface-900 border-b border-surface-200 dark:border-surface-700">
+                <div class="flex items-center gap-3">
                     <Avatar :image="profilePicture" size="large" shape="circle" />
                     <div class="flex-1 min-w-0">
                         <h2 class="m-0 text-900 font-bold text-base truncate">{{ fullName }}</h2>
-                        <p class="m-0 text-xs text-color-secondary truncate">{{ userStore.profile?.role || 'Employee' }}</p>
+                        <p class="m-0 text-xs text-surface-600 dark:text-surface-400 truncate">{{ userStore.profile?.role || 'Employee' }}</p>
                     </div>
-                    <Button icon="pi pi-ellipsis-v" text rounded @click="refreshAllData" />
                 </div>
             </div>
 
@@ -605,10 +604,10 @@ const makeCall = () => {
                 <aside v-if="!isMobile" class="profile-sidebar">
                     <Card class="h-full border-round-lg">
                         <template #content>
-                            <div class="flex flex-column align-items-center text-center p-3">
+                            <div class="flex flex-col items-center text-center p-3">
                                 <Avatar :image="profilePicture" size="xlarge" shape="circle" class="border-2 border-primary mb-3 cursor-pointer hover:scale-105 transition-all" @click="showFileUpload = true" />
                                 <h3 class="m-0 text-lg font-bold truncate w-full">{{ fullName }}</h3>
-                                <p class="text-sm text-color-secondary m-0 mt-1">{{ userStore.profile?.role || 'Employee' }}</p>
+                                <p class="text-sm text-surface-600 dark:text-surface-400 m-0 mt-1">{{ userStore.profile?.role || 'Employee' }}</p>
 
                                 <Badge :value="userStore.profile?.isActive ? 'Active' : 'Inactive'" :severity="userStore.profile?.isActive ? 'success' : 'danger'" class="mt-2" />
                             </div>
@@ -616,32 +615,32 @@ const makeCall = () => {
                             <Divider />
 
                             <!-- Quick Stats -->
-                            <div class="quick-stats">
-                                <div class="stat-item">
-                                    <i class="pi pi-id-card text-sm text-color-secondary"></i>
-                                    <div class="stat-content">
-                                        <div class="text-xs text-color-secondary">ID</div>
+                            <div class="grid grid-cols-2 gap-3 mt-3">
+                                <div class="flex items-center gap-2 p-2 bg-surface-50 dark:bg-surface-800 rounded">
+                                    <i class="pi pi-id-card text-sm text-surface-500"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-xs text-surface-500">ID</div>
                                         <div class="font-medium text-sm truncate">{{ userStore.profile?.employeeId || 'N/A' }}</div>
                                     </div>
                                 </div>
-                                <div class="stat-item">
-                                    <i class="pi pi-building text-sm text-color-secondary"></i>
-                                    <div class="stat-content">
-                                        <div class="text-xs text-color-secondary">Dept</div>
+                                <div class="flex items-center gap-2 p-2 bg-surface-50 dark:bg-surface-800 rounded">
+                                    <i class="pi pi-building text-sm text-surface-500"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-xs text-surface-500">Dept</div>
                                         <div class="font-medium text-sm truncate">{{ userStore.profile?.departmentName || 'N/A' }}</div>
                                     </div>
                                 </div>
-                                <div class="stat-item">
-                                    <i class="pi pi-envelope text-sm text-color-secondary"></i>
-                                    <div class="stat-content">
-                                        <div class="text-xs text-color-secondary">Email</div>
+                                <div class="flex items-center gap-2 p-2 bg-surface-50 dark:bg-surface-800 rounded">
+                                    <i class="pi pi-envelope text-sm text-surface-500"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-xs text-surface-500">Email</div>
                                         <div class="font-medium text-sm truncate">{{ userStore.profile?.email || 'N/A' }}</div>
                                     </div>
                                 </div>
-                                <div class="stat-item">
-                                    <i class="pi pi-phone text-sm text-color-secondary"></i>
-                                    <div class="stat-content">
-                                        <div class="text-xs text-color-secondary">Phone</div>
+                                <div class="flex items-center gap-2 p-2 bg-surface-50 dark:bg-surface-800 rounded">
+                                    <i class="pi pi-phone text-sm text-surface-500"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-xs text-surface-500">Phone</div>
                                         <div class="font-medium text-sm truncate">{{ userStore.profile?.phoneNumber || 'N/A' }}</div>
                                     </div>
                                 </div>
@@ -663,9 +662,9 @@ const makeCall = () => {
                     <Card class="h-full border-round-lg">
                         <!-- Header -->
                         <template #title>
-                            <div class="flex flex-column sm:flex-row justify-content-between align-items-start sm:align-items-center gap-2">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <div>
-                                    <h1 class="text-xl sm:text-2xl font-bold m-0">Profile Dashboard</h1>
+                                    <h1 class="text-xl sm:text-2xl font-bold m-0 text-surface-900 dark:text-surface-0">Profile Dashboard</h1>
                                     <Badge v-if="authStore.requirePasswordChange" value="Change Password" severity="danger" class="mt-1" />
                                 </div>
                                 <div class="flex gap-2">
@@ -677,7 +676,28 @@ const makeCall = () => {
 
                         <!-- Tab Navigation -->
                         <template #subtitle>
-                            <TabMenu v-model:activeIndex="activeTab" :model="tabItems" class="border-none w-full" />
+                            <div class="w-full overflow-hidden">
+                                <div v-if="isMobile" class="p-3">
+                                    <Dropdown v-model="activeTab" :options="tabItems" optionLabel="label" :optionValue="(option) => tabItems.indexOf(option)" class="w-full" placeholder="Navigate to...">
+                                        <template #value="slotProps">
+                                            <div v-if="slotProps.value !== null" class="flex items-center gap-2">
+                                                <i :class="tabItems[slotProps.value].icon"></i>
+                                                <div>{{ tabItems[slotProps.value].label }}</div>
+                                            </div>
+                                            <span v-else>
+                                                {{ slotProps.placeholder }}
+                                            </span>
+                                        </template>
+                                        <template #option="slotProps">
+                                            <div class="flex items-center gap-2">
+                                                <i :class="slotProps.option.icon"></i>
+                                                <div>{{ slotProps.option.label }}</div>
+                                            </div>
+                                        </template>
+                                    </Dropdown>
+                                </div>
+                                <TabMenu v-else v-model:activeIndex="activeTab" :model="tabItems" class="border-none w-full" />
+                            </div>
                         </template>
 
                         <!-- Content -->
@@ -685,55 +705,45 @@ const makeCall = () => {
                             <div class="tab-content">
                                 <!-- Profile View -->
                                 <div v-if="activeTab === 0">
-                                    <div class="grid">
-                                        <div class="col-12">
+                                    <div class="flex flex-col gap-4">
+                                        <div class="w-full">
                                             <Card class="mb-3">
                                                 <template #title>
-                                                    <div class="flex align-items-center gap-2">
+                                                    <div class="flex items-center gap-2 mb-2">
                                                         <i class="pi pi-user text-primary"></i>
-                                                        <span>Personal Information</span>
+                                                        <span class="text-lg">Personal Information</span>
                                                     </div>
                                                 </template>
                                                 <template #content>
-                                                    <div class="grid">
-                                                        <div class="col-12 sm:col-6 md:col-4">
-                                                            <div class="field">
-                                                                <label class="font-bold block mb-2 text-color-secondary text-sm">First Name</label>
-                                                                <div class="p-2 border-1 surface-border border-round bg-surface-50">
-                                                                    {{ userStore.profile?.firstName || 'N/A' }}
-                                                                </div>
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                                        <div class="field">
+                                                            <label class="font-bold block mb-2 text-surface-600 dark:text-surface-400 text-sm">First Name</label>
+                                                            <div class="p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-800">
+                                                                {{ userStore.profile?.firstName || 'N/A' }}
                                                             </div>
                                                         </div>
-                                                        <div class="col-12 sm:col-6 md:col-4">
-                                                            <div class="field">
-                                                                <label class="font-bold block mb-2 text-color-secondary text-sm">Last Name</label>
-                                                                <div class="p-2 border-1 surface-border border-round bg-surface-50">
-                                                                    {{ userStore.profile?.lastName || 'N/A' }}
-                                                                </div>
+                                                        <div class="field">
+                                                            <label class="font-bold block mb-2 text-surface-600 dark:text-surface-400 text-sm">Last Name</label>
+                                                            <div class="p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-800">
+                                                                {{ userStore.profile?.lastName || 'N/A' }}
                                                             </div>
                                                         </div>
-                                                        <div class="col-12 sm:col-6 md:col-4">
-                                                            <div class="field">
-                                                                <label class="font-bold block mb-2 text-color-secondary text-sm">Gender</label>
-                                                                <div class="p-2 border-1 surface-border border-round bg-surface-50">
-                                                                    {{ getGenderDisplay(userStore.profile?.gender) }}
-                                                                </div>
+                                                        <div class="field">
+                                                            <label class="font-bold block mb-2 text-surface-600 dark:text-surface-400 text-sm">Gender</label>
+                                                            <div class="p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-800">
+                                                                {{ getGenderDisplay(userStore.profile?.gender) }}
                                                             </div>
                                                         </div>
-                                                        <div class="col-12 sm:col-6 md:col-4">
-                                                            <div class="field">
-                                                                <label class="font-bold block mb-2 text-color-secondary text-sm">Date of Birth</label>
-                                                                <div class="p-2 border-1 surface-border border-round bg-surface-50">
-                                                                    {{ formatDate(userStore.profile?.dateOfBirth) }}
-                                                                </div>
+                                                        <div class="field">
+                                                            <label class="font-bold block mb-2 text-surface-600 dark:text-surface-400 text-sm">Date of Birth</label>
+                                                            <div class="p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-800">
+                                                                {{ formatDate(userStore.profile?.dateOfBirth) }}
                                                             </div>
                                                         </div>
-                                                        <div class="col-12 sm:col-6 md:col-4">
-                                                            <div class="field">
-                                                                <label class="font-bold block mb-2 text-color-secondary text-sm">Nationality</label>
-                                                                <div class="p-2 border-1 surface-border border-round bg-surface-50">
-                                                                    {{ userStore.profile?.nationality || 'N/A' }}
-                                                                </div>
+                                                        <div class="field">
+                                                            <label class="font-bold block mb-2 text-surface-600 dark:text-surface-400 text-sm">Nationality</label>
+                                                            <div class="p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-800">
+                                                                {{ userStore.profile?.nationality || 'N/A' }}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -741,36 +751,32 @@ const makeCall = () => {
                                             </Card>
                                         </div>
 
-                                        <div class="col-12">
+                                        <div class="w-full">
                                             <Card>
                                                 <template #title>
-                                                    <div class="flex align-items-center gap-2">
+                                                    <div class="flex items-center gap-2 mb-2">
                                                         <i class="pi pi-address-book text-primary"></i>
-                                                        <span>Contact Information</span>
+                                                        <span class="text-lg">Contact Information</span>
                                                     </div>
                                                 </template>
                                                 <template #content>
-                                                    <div class="grid">
-                                                        <div class="col-12 md:col-6">
-                                                            <div class="field">
-                                                                <label class="font-bold block mb-2 text-color-secondary text-sm">Email Address</label>
-                                                                <div class="p-2 border-1 surface-border border-round bg-surface-50">
-                                                                    {{ userStore.profile?.email || 'N/A' }}
-                                                                </div>
+                                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div class="field">
+                                                            <label class="font-bold block mb-2 text-surface-600 dark:text-surface-400 text-sm">Email Address</label>
+                                                            <div class="p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-800">
+                                                                {{ userStore.profile?.email || 'N/A' }}
                                                             </div>
                                                         </div>
-                                                        <div class="col-12 md:col-6">
-                                                            <div class="field">
-                                                                <label class="font-bold block mb-2 text-color-secondary text-sm">Phone Number</label>
-                                                                <div class="p-2 border-1 surface-border border-round bg-surface-50">
-                                                                    {{ userStore.profile?.phoneNumber || 'N/A' }}
-                                                                </div>
+                                                        <div class="field">
+                                                            <label class="font-bold block mb-2 text-surface-600 dark:text-surface-400 text-sm">Phone Number</label>
+                                                            <div class="p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-800">
+                                                                {{ userStore.profile?.phoneNumber || 'N/A' }}
                                                             </div>
                                                         </div>
-                                                        <div class="col-12">
+                                                        <div class="col-span-full">
                                                             <div class="field">
-                                                                <label class="font-bold block mb-2 text-color-secondary text-sm">Address</label>
-                                                                <div class="p-2 border-1 surface-border border-round bg-surface-50">
+                                                                <label class="font-bold block mb-2 text-surface-600 dark:text-surface-400 text-sm">Address</label>
+                                                                <div class="p-2 border border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-800">
                                                                     {{ userStore.profile?.address || 'N/A' }}
                                                                 </div>
                                                             </div>
@@ -785,50 +791,42 @@ const makeCall = () => {
                                 <!-- Edit Profile -->
                                 <div v-else-if="activeTab === 1">
                                     <form @submit.prevent="handleProfileUpdate">
-                                        <div class="grid">
-                                            <div class="col-12 mb-4">
-                                                <div class="flex flex-column align-items-center gap-3">
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div class="col-span-1 md:col-span-2 mb-4">
+                                                <div class="flex flex-col items-center gap-3">
                                                     <Avatar :image="uploadPreview || profilePicture" size="xlarge" shape="circle" class="border-3 border-primary cursor-pointer hover:scale-105 transition-all" @click="showFileUpload = true" />
                                                     <Button icon="pi pi-camera" label="Change Photo" severity="secondary" outlined size="small" @click="showFileUpload = true" />
                                                 </div>
                                             </div>
 
-                                            <div class="col-12 md:col-6">
-                                                <div class="field">
-                                                    <label class="font-bold block mb-2 required text-sm">First Name</label>
-                                                    <InputText v-model="editProfile.firstName" class="w-full" :class="{ 'p-invalid': errors.firstName }" placeholder="Enter first name" required />
-                                                    <small v-if="errors.firstName" class="p-error text-xs">{{ errors.firstName }}</small>
-                                                </div>
+                                            <div class="field">
+                                                <label class="font-bold block mb-2 required text-sm">First Name</label>
+                                                <InputText v-model="editProfile.firstName" class="w-full" :class="{ 'p-invalid': errors.firstName }" placeholder="Enter first name" required />
+                                                <small v-if="errors.firstName" class="p-error text-xs">{{ errors.firstName }}</small>
                                             </div>
-                                            <div class="col-12 md:col-6">
-                                                <div class="field">
-                                                    <label class="font-bold block mb-2 required text-sm">Last Name</label>
-                                                    <InputText v-model="editProfile.lastName" class="w-full" :class="{ 'p-invalid': errors.lastName }" placeholder="Enter last name" required />
-                                                    <small v-if="errors.lastName" class="p-error text-xs">{{ errors.lastName }}</small>
-                                                </div>
+                                            <div class="field">
+                                                <label class="font-bold block mb-2 required text-sm">Last Name</label>
+                                                <InputText v-model="editProfile.lastName" class="w-full" :class="{ 'p-invalid': errors.lastName }" placeholder="Enter last name" required />
+                                                <small v-if="errors.lastName" class="p-error text-xs">{{ errors.lastName }}</small>
                                             </div>
-                                            <div class="col-12 md:col-6">
-                                                <div class="field">
-                                                    <label class="font-bold block mb-2 text-sm">Gender</label>
-                                                    <Dropdown v-model="editProfile.gender" :options="genderOptions" optionLabel="label" optionValue="value" placeholder="Select Gender" class="w-full" />
-                                                </div>
+                                            <div class="field">
+                                                <label class="font-bold block mb-2 text-sm">Gender</label>
+                                                <Dropdown v-model="editProfile.gender" :options="genderOptions" optionLabel="label" optionValue="value" placeholder="Select Gender" class="w-full" />
                                             </div>
-                                            <div class="col-12 md:col-6">
-                                                <div class="field">
-                                                    <label class="font-bold block mb-2 required text-sm">Phone Number</label>
-                                                    <InputText v-model="editProfile.phoneNumber" class="w-full" :class="{ 'p-invalid': errors.phoneNumber }" placeholder="Enter phone number" required />
-                                                    <small v-if="errors.phoneNumber" class="p-error text-xs">{{ errors.phoneNumber }}</small>
-                                                </div>
+                                            <div class="field">
+                                                <label class="font-bold block mb-2 required text-sm">Phone Number</label>
+                                                <InputText v-model="editProfile.phoneNumber" class="w-full" :class="{ 'p-invalid': errors.phoneNumber }" placeholder="Enter phone number" required />
+                                                <small v-if="errors.phoneNumber" class="p-error text-xs">{{ errors.phoneNumber }}</small>
                                             </div>
-                                            <div class="col-12">
+                                            <div class="col-span-1 md:col-span-2">
                                                 <div class="field">
                                                     <label class="font-bold block mb-2 text-sm">Address</label>
                                                     <Textarea v-model="editProfile.address" rows="2" class="w-full" placeholder="Enter your address" />
                                                 </div>
                                             </div>
 
-                                            <div class="col-12 mt-4">
-                                                <div class="flex justify-content-end gap-2">
+                                            <div class="col-span-1 md:col-span-2 mt-4">
+                                                <div class="flex justify-end gap-2">
                                                     <Button label="Cancel" icon="pi pi-times" severity="secondary" outlined size="small" @click="activeTab = 0" />
                                                     <Button label="Save Changes" icon="pi pi-check" type="submit" :loading="userStore.loading" size="small" />
                                                 </div>
@@ -840,21 +838,21 @@ const makeCall = () => {
                                 <!-- Performance -->
                                 <div v-else-if="activeTab === 2">
                                     <div v-if="canViewPerformance">
-                                        <div class="grid">
-                                            <div class="col-12 lg:col-8">
+                                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                            <div class="col-span-1 lg:col-span-2">
                                                 <Card class="mb-3">
                                                     <template #title>Performance Overview</template>
                                                     <template #content>
                                                         <div class="h-15rem sm:h-20rem">
                                                             <Chart v-if="performanceChartData" type="line" :data="performanceChartData" :options="chartOptions" class="h-full w-full" />
-                                                            <div v-else class="flex justify-content-center align-items-center h-full">
+                                                            <div v-else class="flex justify-center items-center h-full">
                                                                 <ProgressSpinner />
                                                             </div>
                                                         </div>
                                                     </template>
                                                 </Card>
                                             </div>
-                                            <div class="col-12 lg:col-4">
+                                            <div class="col-span-1 lg:col-span-1">
                                                 <Card class="h-full">
                                                     <template #title>Key Metrics</template>
                                                     <template #content>
@@ -890,12 +888,12 @@ const makeCall = () => {
 
                                 <!-- Leave Management -->
                                 <div v-else-if="activeTab === 3">
-                                    <div class="grid">
-                                        <div class="col-12 lg:col-4">
+                                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                        <div class="col-span-1 lg:col-span-1">
                                             <Card class="mb-3">
                                                 <template #title>Quick Actions</template>
                                                 <template #content>
-                                                    <div class="flex flex-column gap-2">
+                                                    <div class="flex flex-col gap-2">
                                                         <Button label="Apply for Leave" icon="pi pi-plus" @click="showLeaveDialog = true" class="w-full" size="small" />
                                                         <Button label="Refresh History" icon="pi pi-refresh" severity="secondary" outlined @click="refreshLeaveHistory" class="w-full" size="small" />
                                                     </div>
@@ -903,35 +901,35 @@ const makeCall = () => {
                                             </Card>
                                         </div>
 
-                                        <div class="col-12 lg:col-8">
+                                        <div class="col-span-1 lg:col-span-2">
                                             <Card>
                                                 <template #title>
-                                                    <div class="flex flex-column sm:flex-row justify-content-between align-items-start sm:align-items-center gap-2">
+                                                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                                                         <span class="font-bold">Leave History</span>
                                                         <Button label="Apply Leave" icon="pi pi-plus" @click="showLeaveDialog = true" size="small" />
                                                     </div>
                                                 </template>
                                                 <template #content>
                                                     <div v-if="leaveHistory.length > 0" class="space-y-2">
-                                                        <div v-for="leave in leaveHistory.slice(0, 5)" :key="leave.id" class="leave-item p-2 border-round surface-card border-1">
-                                                            <div class="flex flex-column sm:flex-row justify-content-between align-items-start sm:align-items-center gap-1 mb-1">
+                                                        <div v-for="leave in leaveHistory.slice(0, 5)" :key="leave.id" class="leave-item p-2 border-1 border-surface-200 dark:border-surface-700 rounded bg-surface-50 dark:bg-surface-800">
+                                                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 mb-1">
                                                                 <div class="flex-1 min-w-0">
                                                                     <div class="font-bold text-sm truncate">{{ leave.leaveTypeDisplay }}</div>
-                                                                    <div class="text-xs text-color-secondary truncate">{{ formatDate(leave.startDate) }} - {{ formatDate(leave.endDate) }}</div>
+                                                                    <div class="text-xs text-surface-600 dark:text-surface-400 truncate">{{ formatDate(leave.startDate) }} - {{ formatDate(leave.endDate) }}</div>
                                                                 </div>
-                                                                <div class="flex align-items-center gap-1">
+                                                                <div class="flex items-center gap-1">
                                                                     <Tag :value="leave.statusDisplay" :severity="getStatusSeverity(leave.status)" size="small" />
                                                                     <Button v-if="leave.status === 'PENDING'" icon="pi pi-times" severity="danger" text rounded size="small" @click="confirmCancelLeave(leave)" />
                                                                 </div>
                                                             </div>
-                                                            <div v-if="leave.reason" class="text-xs text-color-secondary line-clamp-1">
+                                                            <div v-if="leave.reason" class="text-xs text-surface-600 dark:text-surface-400 line-clamp-1">
                                                                 {{ leave.reason }}
                                                             </div>
                                                         </div>
                                                     </div>
                                                     <div v-else class="text-center p-4">
-                                                        <i class="pi pi-calendar text-3xl text-color-secondary mb-2"></i>
-                                                        <p class="text-color-secondary text-sm">No leave records found</p>
+                                                        <i class="pi pi-calendar text-3xl text-surface-400 mb-2"></i>
+                                                        <p class="text-surface-600 dark:text-surface-400 text-sm">No leave records found</p>
                                                     </div>
                                                 </template>
                                             </Card>
@@ -941,8 +939,8 @@ const makeCall = () => {
 
                                 <!-- Settings -->
                                 <div v-else-if="activeTab === 4">
-                                    <div class="grid">
-                                        <div class="col-12 lg:col-6">
+                                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                        <div class="col-span-1">
                                             <Card class="mb-3">
                                                 <template #title>Change Password</template>
                                                 <template #content>
@@ -1003,7 +1001,7 @@ const makeCall = () => {
                                             </Card>
                                         </div>
 
-                                        <div class="col-12 lg:col-6">
+                                        <div class="col-span-1">
                                             <Card>
                                                 <template #title>Security Settings</template>
                                                 <template #content>
@@ -1011,21 +1009,21 @@ const makeCall = () => {
                                                         <div class="security-item">
                                                             <div>
                                                                 <div class="font-bold text-sm">Two-Factor Auth</div>
-                                                                <div class="text-xs text-color-secondary">Extra security layer</div>
+                                                                <div class="text-xs text-surface-600 dark:text-surface-400">Extra security layer</div>
                                                             </div>
                                                             <InputSwitch v-model="securitySettings.twoFactorEnabled" />
                                                         </div>
                                                         <div class="security-item">
                                                             <div>
                                                                 <div class="font-bold text-sm">Email Notifications</div>
-                                                                <div class="text-xs text-color-secondary">Receive email updates</div>
+                                                                <div class="text-xs text-surface-600 dark:text-surface-400">Receive email updates</div>
                                                             </div>
                                                             <InputSwitch v-model="securitySettings.emailNotifications" />
                                                         </div>
                                                         <div class="security-item">
                                                             <div>
                                                                 <div class="font-bold text-sm">Session Timeout</div>
-                                                                <div class="text-xs text-color-secondary">Auto-logout after inactivity</div>
+                                                                <div class="text-xs text-surface-600 dark:text-surface-400">Auto-logout after inactivity</div>
                                                             </div>
                                                             <Dropdown v-model="securitySettings.sessionTimeout" :options="sessionTimeoutOptions" optionLabel="label" optionValue="value" class="w-full sm:w-10rem" />
                                                         </div>
@@ -1045,17 +1043,17 @@ const makeCall = () => {
         <!-- File Upload Dialog -->
         <Dialog v-model:visible="showFileUpload" header="Profile Picture" :modal="true" :breakpoints="{ '960px': '75vw', '640px': '90vw' }" :style="{ width: '400px' }" :draggable="false">
             <div class="upload-dialog">
-                <div class="flex justify-content-center mb-4">
+                <div class="flex justify-center mb-4">
                     <Avatar :image="uploadPreview || profilePicture" size="xlarge" shape="circle" class="border-3 border-primary" />
                 </div>
 
                 <FileUpload mode="basic" accept="image/*" :maxFileSize="2000000" chooseLabel="Choose Image" @select="onFileSelect" :auto="true" />
 
-                <small class="text-xs text-color-secondary block text-center mt-3"> Max 2MB • JPG, PNG, GIF </small>
+                <small class="text-xs text-surface-600 dark:text-surface-400 block text-center mt-3"> Max 2MB • JPG, PNG, GIF </small>
             </div>
 
             <template #footer>
-                <div class="flex flex-wrap justify-content-end gap-2">
+                <div class="flex flex-wrap justify-end gap-2">
                     <Button label="Cancel" icon="pi pi-times" severity="secondary" outlined @click="showFileUpload = false" class="w-full sm:w-auto" />
                     <Button label="Upload" icon="pi pi-upload" :disabled="!selectedFile" :loading="uploading" @click="uploadProfilePicture" class="w-full sm:w-auto" />
                 </div>
@@ -1066,36 +1064,36 @@ const makeCall = () => {
         <Dialog v-model:visible="showLeaveDialog" header="Apply for Leave" :modal="true" :breakpoints="{ '960px': '75vw', '640px': '95vw' }" :style="{ width: '500px' }" :draggable="false">
             <div class="leave-dialog">
                 <form @submit.prevent="handleLeaveApplication">
-                    <div class="grid">
-                        <div class="col-12">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="col-span-full">
                             <div class="field">
                                 <label class="font-bold block mb-2 required text-sm">Leave Type</label>
                                 <Dropdown v-model="newLeave.leaveType" :options="leaveTypes" optionLabel="label" optionValue="value" placeholder="Select Leave Type" class="w-full" required />
                             </div>
                         </div>
-                        <div class="col-12 sm:col-6">
+                        <div class="col-span-1">
                             <div class="field">
                                 <label class="font-bold block mb-2 required text-sm">Start Date</label>
                                 <Calendar v-model="newLeave.startDate" dateFormat="yy-mm-dd" placeholder="Select start date" class="w-full" :touchUI="isMobile" :minDate="new Date()" />
                             </div>
                         </div>
-                        <div class="col-12 sm:col-6">
+                        <div class="col-span-1">
                             <div class="field">
                                 <label class="font-bold block mb-2 required text-sm">End Date</label>
                                 <Calendar v-model="newLeave.endDate" dateFormat="yy-mm-dd" placeholder="Select end date" class="w-full" :touchUI="isMobile" :minDate="newLeave.startDate" />
                             </div>
                         </div>
-                        <div class="col-12">
+                        <div class="col-span-full">
                             <div class="field">
                                 <label class="font-bold block mb-2 text-sm">Duration</label>
                                 <div class="duration-display">{{ calculateLeaveDays() }} day(s)</div>
                             </div>
                         </div>
-                        <div class="col-12">
+                        <div class="col-span-full">
                             <div class="field">
                                 <label class="font-bold block mb-2 text-sm">Reason</label>
                                 <Textarea v-model="newLeave.reason" rows="3" class="w-full" placeholder="Please provide details for your leave request..." :maxlength="500" />
-                                <small class="text-color-secondary text-xs"> {{ newLeave.reason?.length || 0 }}/500 characters </small>
+                                <small class="text-surface-600 dark:text-surface-400 text-xs"> {{ newLeave.reason?.length || 0 }}/500 characters </small>
                             </div>
                         </div>
                     </div>
@@ -1103,7 +1101,7 @@ const makeCall = () => {
             </div>
 
             <template #footer>
-                <div class="flex flex-wrap justify-content-end gap-2">
+                <div class="flex flex-wrap justify-end gap-2">
                     <Button label="Cancel" icon="pi pi-times" severity="secondary" outlined @click="showLeaveDialog = false" class="w-full sm:w-auto" />
                     <Button label="Submit" icon="pi pi-send" :disabled="!isLeaveFormValid" @click="handleLeaveApplication" class="w-full sm:w-auto" :loading="userStore.loading" />
                 </div>
@@ -1116,6 +1114,9 @@ const makeCall = () => {
 .user-profile {
     min-height: 100vh;
     background: var(--surface-ground);
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
 }
 
 .loading-container {
@@ -1272,6 +1273,7 @@ const makeCall = () => {
 .line-clamp-1 {
     display: -webkit-box;
     -webkit-line-clamp: 1;
+    line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -1279,6 +1281,7 @@ const makeCall = () => {
 .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }

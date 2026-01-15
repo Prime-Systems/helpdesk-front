@@ -58,6 +58,18 @@ export const TicketService = {
         return response.data;
     },
 
+    async escalateTicket(ticketId, userId) {
+        const response = await axios.post(`/tickets/${ticketId}/escalate`, null, {
+            params: { userId }
+        });
+        return response.data;
+    },
+
+    async submitFeedback(trackingToken, feedbackData) {
+        const response = await axios.post(`/tickets/track/${trackingToken}/feedback`, feedbackData);
+        return response.data;
+    },
+
     async reassignTicket(ticketId, newUserId) {
         const response = await axios.post(`/tickets/${ticketId}/reassign`, null, {
             params: { newUserId }

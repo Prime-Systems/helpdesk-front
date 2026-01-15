@@ -6,10 +6,13 @@ import { TicketService } from '@/service/TicketService';
 import { useAuthStore } from '@/stores/AuthStore';
 import { FilterMatchMode } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
-import { computed, onBeforeMount, ref } from 'vue';
+import { computed, onBeforeMount, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 const loading = ref(false);
 
 const authStore = useAuthStore();
+const route = useRoute();
+const router = useRouter();
 
 onBeforeMount(() => {
     TicketService.getTickets().then((data) => {
@@ -65,6 +68,38 @@ onBeforeMount(() => {
         console.log('Comments', comments.value);
     });
     initFilters();
+
+});
+
+const loadTicketFromUrl = async () => {
+    if (route.query.ticketId) {
+        try {
+            const ticketId = route.query.ticketId;
+            // Avoid reloading if we are already viewing this ticket
+            if (ticket.value?.id === ticketId && ticketDetailsDialog.value) return;
+            
+            const ticketDetails = await TicketService.getTicketById(ticketId);
+            if (ticketDetails) {
+                ticket.value = { ...ticketDetails };
+                ticketDetailsDialog.value = true;
+                await fetchComments(ticketDetails.id);
+            }
+        } catch (error) {
+            console.error('Failed to load shared ticket:', error);
+            toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load shared ticket', life: 3000 });
+        }
+    }
+};
+
+// Check on mount
+onMounted(() => {
+    loadTicketFromUrl();
+});
+
+// Watch for route changes (e.g. if user clicks a link while already on the tickets page)
+import { watch } from 'vue';
+watch(() => route.query.ticketId, () => {
+    loadTicketFromUrl();
 });
 
 const toast = useToast();
@@ -75,6 +110,8 @@ const ticketDialog = ref(false);
 const ticketDetailsDialog = ref(false);
 const deleteTicketDialog = ref(false);
 const deleteTicketsDialog = ref(false);
+const escalateTicketDialog = ref(false);
+const isEscalating = ref(false);
 const editingAssignee = ref(false);
 const selectedAssignee = ref(null);
 const editingDueDate = ref(false);
@@ -487,6 +524,8 @@ function getStatusLabel(status) {
             return 'danger';
         case 'closed':
             return 'info';
+        case 'escalated':
+            return 'danger';
         default:
             return null;
     }
@@ -594,7 +633,10 @@ async function addComment(ticketId) {
             userId: authStore.userId,
             comment: newComment.value.text.trim(),
             timestamp: new Date().toISOString(),
-            authorName: authStore.user?.name || `${authStore.user?.firstName} ${authStore.user?.lastName}`.trim(),
+            authorName: authStore.user?.name || 
+                        (authStore.user?.firstName && authStore.user?.lastName ? `${authStore.user.firstName} ${authStore.user.lastName}` : null) || 
+                        authStore.user?.email || 
+                        'Unknown User',
             authorEmail: authStore.user?.email,
             authorRole: authStore.user?.role
         };
@@ -671,12 +713,13 @@ const filteredComments = computed(() => {
 
 // Helper functions for comment display
 function getCommentAuthorName(comment) {
-    if (comment.author) return comment.author;
     if (comment.userId === authStore.userId) return 'You';
 
-    // If we have user data, try to find the user
+    // Prioritize live user data over potential stale 'author' string from DB
     const user = users.value.find((u) => u.id === comment.userId);
-    return user ? user.name : 'Unknown User';
+    if (user) return user.name;
+
+    return comment.author || 'Unknown User';
 }
 
 function getCommentAuthorInitials(comment) {
@@ -808,7 +851,43 @@ function onCategoryChange() {
     } else {
         ticket.value.priority = 'MEDIUM';
     }
+
 }
+
+const shareTicket = () => {
+    const url = `${window.location.origin}${window.location.pathname}?ticketId=${ticket.value.id}`;
+    navigator.clipboard.writeText(url)
+        .then(() => toast.add({ severity: 'info', summary: 'Link Copied', detail: 'Ticket link copied to clipboard', life: 3000 }))
+        .catch(() => toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to copy link', life: 3000 }));
+};
+
+const openEscalateDialog = () => {
+    escalateTicketDialog.value = true;
+};
+
+const confirmEscalateTicket = async () => {
+    isEscalating.value = true;
+    try {
+        const response = await TicketService.escalateTicket(ticket.value.id, authStore.userId);
+        
+        // Update local ticket status
+        ticket.value.status = 'ESCALATED';
+        
+        // Update in list
+        const index = findIndexById(ticket.value.id);
+        if (index !== -1) {
+            tickets.value[index].status = 'ESCALATED';
+        }
+
+        toast.add({ severity: 'warn', summary: 'Escalated', detail: 'Ticket has been escalated to management', life: 3000 });
+        escalateTicketDialog.value = false;
+    } catch (error) {
+        console.error('Escalation failed:', error);
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to escalate ticket', life: 3000 });
+    } finally {
+        isEscalating.value = false;
+    }
+};
 </script>
 
 <template>
@@ -1093,6 +1172,21 @@ function onCategoryChange() {
             </template>
         </Dialog>
 
+        <!-- Escalate Ticket Dialog -->
+        <Dialog v-model:visible="escalateTicketDialog" :style="{ width: '450px' }" header="Confirm Escalation" :modal="true">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle !text-3xl text-orange-500" />
+                <span>
+                    Are you sure you want to escalate this ticket? <br>
+                    <small class="text-gray-500">This will immediately notify the Department Head.</small>
+                </span>
+            </div>
+            <template #footer>
+                <Button label="Cancel" icon="pi pi-times" text @click="escalateTicketDialog = false" />
+                <Button label="Yes, Escalate" icon="pi pi-check" severity="warn" :loading="isEscalating" @click="confirmEscalateTicket" />
+            </template>
+        </Dialog>
+
         <!-- Ticket Details Drawer -->
         <div class="card flex justify-center items-center">
             <Drawer v-model:visible="ticketDetailsDialog" position="right" class="!w-full md:!w-[50rem] lg:!w-[50rem]" :blockScroll="true">
@@ -1104,7 +1198,8 @@ function onCategoryChange() {
                         </div>
                         <div class="flex items-center">
                             <Button icon="pi pi-pencil" text size="small" label="Edit" @click="editTicket(ticket)" />
-                            <Button icon="pi pi-share-alt" text size="small" label="Share" />
+                            <Button v-if="ticket.status !== 'ESCALATED' && ticket.status !== 'RESOLVED' && ticket.status !== 'CLOSED'" icon="pi pi-exclamation-triangle" text severity="warn" size="small" label="Escalate" @click="openEscalateDialog" />
+                            <Button icon="pi pi-share-alt" text size="small" label="Share" @click="shareTicket" />
                         </div>
                     </div>
                 </template>

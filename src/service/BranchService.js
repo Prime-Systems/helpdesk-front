@@ -1,58 +1,55 @@
 import axios from '@/plugins/axios';
-import { useAuthStore } from '@/stores/AuthStore';
 
+/**
+ * Service for managing branches via the Branch Module API
+ * Base Path: /api/v1/branch
+ */
 export const BranchService = {
+    /**
+     * Get all branches
+     * @returns {Promise<Array<BranchResponse>>}
+     */
     async getBranches() {
-        try {
-            const authStore = useAuthStore();
-            console.log('Token:', authStore.token);
-
-            const response = await axios.get('/branch');
-            console.log('Branches:', response.data);
-
-            return response.data;
-        } catch (error) {
-            console.error('Error fetching branches:', error);
-            throw error;
-        }
+        const response = await axios.get('/branch');
+        return response.data;
     },
 
+    /**
+     * Get branch by ID
+     * @param {number} branchId - Branch ID
+     * @returns {Promise<BranchResponse>}
+     */
     async getBranchById(branchId) {
-        try {
-            const response = await axios.get(`/branch/${branchId}`);
-            return response.data;
-        } catch (error) {
-            console.error('Error fetching branch:', error);
-            throw error;
-        }
+        const response = await axios.get(`/branch/${branchId}`);
+        return response.data;
     },
 
+    /**
+     * Create a new branch
+     * @param {Object} branchData - CreateBranchRequest
+     * @returns {Promise<BranchResponse>}
+     */
     async createBranch(branchData) {
-        try {
-            const response = await axios.post('/branch', branchData);
-            return response.data;
-        } catch (error) {
-            console.error('Error creating branch:', error);
-            throw error;
-        }
+        const response = await axios.post('/branch', branchData);
+        return response.data;
     },
 
+    /**
+     * Update an existing branch
+     * @param {number} branchId - Branch ID
+     * @param {Object} branchData - UpdateBranchRequest
+     * @returns {Promise<BranchResponse>}
+     */
     async updateBranch(branchId, branchData) {
-        try {
-            const response = await axios.put(`/branch/${branchId}`, branchData);
-            return response.data;
-        } catch (error) {
-            console.error('Error updating branch:', error);
-            throw error;
-        }
+        const response = await axios.put(`/branch/${branchId}`, branchData);
+        return response.data;
     },
 
+    /**
+     * Delete a branch
+     * @param {number} branchId - Branch ID
+     */
     async deleteBranch(branchId) {
-        try {
-            await axios.delete(`/api/v1/branch/${branchId}`);
-        } catch (error) {
-            console.error('Error deleting branch:', error);
-            throw error;
-        }
+        await axios.delete(`/branch/${branchId}`);
     }
 };

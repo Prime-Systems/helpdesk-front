@@ -1,59 +1,56 @@
 import axios from '@/plugins/axios';
-import { useAuthStore } from '@/stores/AuthStore';
 
+/**
+ * Service for managing categories via the Category Module API
+ * Base Path: /api/v1/categories
+ */
 export const CategoryService = {
+    /**
+     * Get all categories
+     * @returns {Promise<Array<CategoryDto>>}
+     */
     async getCategories() {
-        try {
-            // Log the token for debugging
-            const authStore = useAuthStore();
-            console.log('Token:', authStore.token);
-            const response = await axios.get('/categories');
-            console.log('Categories:', response.data);
-            console.log('Status:', response);
-
-            return response.data;
-        } catch (error) {
-            console.error('Error fetching categories:', error);
-            throw error;
-        }
+        const response = await axios.get('/categories');
+        return response.data;
     },
 
+    /**
+     * Get category by ID
+     * @param {number} categoryId - Category ID
+     * @returns {Promise<CategoryDto>}
+     */
     async getCategoryById(categoryId) {
-        try {
-            const response = await axios.get(`/categories/${categoryId}`);
-            return response.data;
-        } catch (error) {
-            console.error('Error fetching category:', error);
-            throw error;
-        }
+        const response = await axios.get(`/categories/${categoryId}`);
+        return response.data;
     },
 
+    /**
+     * Create a new category
+     * @param {Object} categoryData - CategoryDto
+     * @returns {Promise<CategoryDto>}
+     */
     async createCategory(categoryData) {
-        try {
-            const response = await axios.post('/categories', categoryData);
-            return response.data;
-        } catch (error) {
-            console.error('Error creating category:', error);
-            throw error;
-        }
+        const response = await axios.post('/categories', categoryData);
+        return response.data;
     },
 
+    /**
+     * Update an existing category
+     * @param {number} categoryId - Category ID
+     * @param {Object} categoryData - CategoryDto
+     * @returns {Promise<CategoryDto>}
+     */
     async updateCategory(categoryId, categoryData) {
-        try {
-            const response = await axios.put(`/categories/${categoryId}`, categoryData);
-            return response.data;
-        } catch (error) {
-            console.error('Error updating category:', error);
-            throw error;
-        }
+        const response = await axios.put(`/categories/${categoryId}`, categoryData);
+        return response.data;
     },
+
+    /**
+     * Delete a category
+     * @param {number} categoryId - Category ID
+     */
     async deleteCategory(categoryId) {
-        try {
-            const response = await axios.delete(`/categories/${categoryId}`);
-            return response.data;
-        } catch (error) {
-            console.error('Error deleting category:', error);
-            throw error;
-        }
+        const response = await axios.delete(`/categories/${categoryId}`);
+        return response.data;
     }
 };

@@ -1,6 +1,8 @@
 <script setup>
+import { DepartmentService } from '@/service/DepartmentService';
+import { LeaderboardService } from '@/service/LeaderboardService';
 import { useToast } from 'primevue/usetoast';
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 
 const toast = useToast();
 const loading = ref(true);
@@ -19,16 +21,10 @@ const timeRanges = [
     { label: 'All Time', value: 'all' }
 ];
 
-// Department options
-const departments = ref([
-    { name: 'All Departments', code: null },
-    { name: 'Customer Support', code: 'cs' },
-    { name: 'Technical Support', code: 'tech' },
-    { name: 'Billing Support', code: 'billing' },
-    { name: 'Account Management', code: 'account' }
-]);
+// Department options - loaded from API
+const departments = ref([{ name: 'All Departments', code: null }]);
 
-// Sample agent data
+// Agent data from API
 const agents = ref([]);
 
 // Metrics for different tabs
@@ -38,6 +34,7 @@ const metrics = reactive({
         description: 'Average time to resolve tickets',
         icon: 'pi pi-clock',
         unit: 'hours',
+        apiKey: 'resolution_time',
         formatter: (value) => formatTime(value),
         sortOrder: 1, // 1 = ascending (faster is better), -1 = descending (higher is better)
         color: 'bg-blue-500'
@@ -47,6 +44,7 @@ const metrics = reactive({
         description: 'Average CSAT score (1-5)',
         icon: 'pi pi-star',
         unit: 'stars',
+        apiKey: 'satisfaction',
         formatter: (value) => value.toFixed(1),
         sortOrder: -1,
         color: 'bg-yellow-500'
@@ -56,6 +54,7 @@ const metrics = reactive({
         description: 'Number of tickets resolved',
         icon: 'pi pi-ticket',
         unit: 'tickets',
+        apiKey: 'volume',
         formatter: (value) => value.toString(),
         sortOrder: -1,
         color: 'bg-green-500'
@@ -65,6 +64,7 @@ const metrics = reactive({
         description: 'Average time to first response',
         icon: 'pi pi-reply',
         unit: 'minutes',
+        apiKey: 'first_response',
         formatter: (value) => formatTime(value, true),
         sortOrder: 1,
         color: 'bg-purple-500'
@@ -219,7 +219,7 @@ const getTrendInfo = (change) => {
     }
 };
 
-// Generate random agent data (for demo)
+// Generate random agent data (fallback for when API is not available)
 const generateAgentData = () => {
     const departmentOptions = departments.value.filter((d) => d.code !== null);
     const names = [
@@ -246,7 +246,9 @@ const generateAgentData = () => {
     ];
 
     return names.map((name, index) => {
-        const dept = departmentOptions[Math.floor(Math.random() * departmentOptions.length)];
+        const dept = departmentOptions.length > 0 
+            ? departmentOptions[Math.floor(Math.random() * departmentOptions.length)]
+            : { name: 'General', code: 'general' };
 
         // Calculate metrics with some variability
         const baseResolution = 2 + Math.random() * 6; // 2-8 hours
@@ -300,19 +302,109 @@ const generateAgentData = () => {
     });
 };
 
-// Load data
-onMounted(() => {
-    // Simulate API call
-    setTimeout(() => {
-        agents.value = generateAgentData();
+// Transform API response to component data format
+const transformApiData = (apiData) => {
+    return apiData.rankings.map((agent, index) => ({
+        id: agent.userId,
+        name: agent.name,
+        avatar: agent.profilePictureUrl || `https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(agent.name)}`,
+        department: { name: agent.department, code: agent.department?.toLowerCase().replace(/\s+/g, '_') },
+        metrics: {
+            resolution: agent.metrics.resolutionTime,
+            satisfaction: agent.metrics.customerSatisfaction,
+            volume: agent.metrics.ticketVolume,
+            firstResponse: agent.metrics.firstResponseTime
+        },
+        changes: {
+            resolution: agent.change || 0,
+            satisfaction: agent.change || 0,
+            volume: agent.change || 0,
+            firstResponse: agent.change || 0
+        },
+        details: {
+            ticketsAssigned: agent.metrics.ticketVolume + 10,
+            reopenRate: 5,
+            escalationRate: 8,
+            responsesByHour: Array.from({ length: 24 }, () => Math.floor(Math.random() * 10)),
+            categoriesHandled: []
+        }
+    }));
+};
+
+// Fetch leaderboard data from API
+const fetchLeaderboardData = async () => {
+    loading.value = true;
+    try {
+        const response = await LeaderboardService.getLeaderboard({
+            metric: activeMetric.value.apiKey,
+            period: timeRangeFilter.value,
+            departmentId: departmentFilter.value,
+            limit: 50
+        });
+        
+        // Handle response gracefully
+        if (response && response.rankings) {
+            agents.value = transformApiData(response);
+        } else {
+             agents.value = [];
+        }
+
+    } catch (error) {
+        console.error('Leaderboard API failed:', error.message);
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load leaderboard data', life: 3000 });
+        agents.value = [];
+    } finally {
         loading.value = false;
-    }, 1000);
+    }
+};
+
+// Fetch departments from API
+const fetchDepartments = async () => {
+    try {
+        const deptData = await DepartmentService.getDepartments();
+        departments.value = [
+            { name: 'All Departments', code: null },
+            ...deptData.map(d => ({ name: d.name, code: d.id }))
+        ];
+    } catch (error) {
+        console.warn('Using default departments:', error.message);
+        // Keep default departments
+    }
+};
+
+// Load data
+onMounted(async () => {
+    await fetchDepartments();
+    await fetchLeaderboardData();
+});
+
+// Watch for filter changes
+watch([timeRangeFilter, departmentFilter, activeTab], () => {
+    fetchLeaderboardData();
 });
 
 // Show agent details
-const showAgentDetails = (agent) => {
+const showAgentDetails = async (agent) => {
     selectedAgent.value = agent;
     showAgentDetailsDialog.value = true;
+    
+    // Try to fetch detailed data from API
+    try {
+        const detailedData = await LeaderboardService.getAgentPerformance(agent.id, timeRangeFilter.value);
+        // Merge detailed data with existing agent data
+        selectedAgent.value = {
+            ...agent,
+            details: {
+                ...agent.details,
+                categoriesHandled: detailedData.categoriesHandled || agent.details.categoriesHandled,
+                responsesByHour: detailedData.responseTimeDistribution?.map(h => h.count) || agent.details.responsesByHour
+            }
+        };
+    } catch (error) {
+        // Use existing mock data if API fails
+        console.error('Could not fetch agent details from API:', error.message);
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Could not fetch detailed performance data', life: 3000 });
+    }
 };
 
 // Agent performance chart data

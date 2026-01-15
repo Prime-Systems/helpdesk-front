@@ -1,5 +1,6 @@
 <script setup>
 import { EmployeeService } from '@/service/EmployeeService';
+import { ReportService } from '@/service/ReportService';
 import { FilterMatchMode } from '@primevue/core/api';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -27,44 +28,96 @@ const availableMetrics = ref([
     { name: 'Knowledge Base Contributions', key: 'kbContributions' }
 ]);
 
-const recentReports = ref([
-    {
-        id: 1,
-        employeeName: 'John Doe',
-        employeeId: 'EMP-123456',
-        startDate: new Date(2025, 0, 1),
-        endDate: new Date(2025, 2, 31),
-        generatedDate: new Date(2025, 3, 2),
-        metrics: {
-            ticketsResolved: 127,
-            avgResolutionTime: '3h 45m',
-            customerSatisfaction: 4.5,
-            responseTime: '25m'
-        }
-    },
-    {
-        id: 2,
-        employeeName: 'Jane Smith',
-        employeeId: 'EMP-789012',
-        startDate: new Date(2025, 1, 1),
-        endDate: new Date(2025, 2, 29),
-        generatedDate: new Date(2025, 3, 1),
-        metrics: {
-            ticketsResolved: 143,
-            avgResolutionTime: '2h 55m',
-            customerSatisfaction: 4.8,
-            responseTime: '18m'
-        }
+const recentReports = ref([]);
+
+// Fetch employees and recent reports
+// Fetch employees and recent reports
+const fetchData = async () => {
+    loading.value = true;
+    
+    // Fetch Employees
+    try {
+        const employeesData = await EmployeeService.getEmployees();
+        // Map API response to include 'name' property for Dropdown
+        employees.value = employeesData.map(e => ({
+            ...e,
+            name: e.name || (e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.email)
+        }));
+    } catch (error) {
+        console.warn('Employees API not available, using fallback:', error.message);
+        employees.value = [
+            { id: 1, name: 'John Doe', employeeId: 'EMP-123456', role: 'EMPLOYEE' },
+            { id: 2, name: 'Jane Smith', employeeId: 'EMP-789012', role: 'MANAGER' },
+            { id: 3, name: 'Bob Wilson', employeeId: 'EMP-456789', role: 'EMPLOYEE' }
+        ];
     }
-]);
+
+    // Fetch Reports
+    try {
+        const reportsData = await ReportService.getReports({ size: 20 });
+        
+        // Transform reports data if available
+        if (reportsData && reportsData.reports) {
+            recentReports.value = reportsData.reports.map(report => ({
+                id: report.id,
+                employeeName: report.employeeName,
+                employeeId: report.employeeId,
+                startDate: new Date(report.startDate),
+                endDate: new Date(report.endDate),
+                generatedDate: new Date(report.generatedDate),
+                metrics: report.metrics || {}
+            }));
+        } else if (reportsData && Array.isArray(reportsData.content)) {
+             // Handle paginated response structure if backend uses Spring Data REST style
+            recentReports.value = reportsData.content.map(report => ({
+                id: report.id,
+                employeeName: report.employeeName,
+                employeeId: report.employeeId,
+                startDate: new Date(report.startDate),
+                endDate: new Date(report.endDate),
+                generatedDate: new Date(report.generatedDate),
+                metrics: report.metrics || {}
+            }));
+        }
+    } catch (error) {
+        console.warn('Reports API not available, using fallback:', error.message);
+        recentReports.value = [
+            {
+                id: 1,
+                employeeName: 'John Doe',
+                employeeId: 'EMP-123456',
+                startDate: new Date(2025, 0, 1),
+                endDate: new Date(2025, 2, 31),
+                generatedDate: new Date(2025, 3, 2),
+                metrics: {
+                    ticketsResolved: 127,
+                    avgResolutionTime: '3h 45m',
+                    customerSatisfaction: 4.5,
+                    responseTime: '25m'
+                }
+            },
+            {
+                id: 2,
+                employeeName: 'Jane Smith',
+                employeeId: 'EMP-789012',
+                startDate: new Date(2025, 1, 1),
+                endDate: new Date(2025, 2, 29),
+                generatedDate: new Date(2025, 3, 1),
+                metrics: {
+                    ticketsResolved: 143,
+                    avgResolutionTime: '2h 55m',
+                    customerSatisfaction: 4.8,
+                    responseTime: '18m'
+                }
+            }
+        ];
+    } finally {
+        loading.value = false;
+    }
+};
 
 onMounted(() => {
-    // Fetch employees list
-    loading.value = true;
-    EmployeeService.getEmployeesXLarge().then((data) => {
-        employees.value = data;
-        loading.value = false;
-    });
+    fetchData();
 });
 
 // Date formatting helper
@@ -77,8 +130,13 @@ const formatDate = (date) => {
     });
 };
 
+// Format date for API (YYYY-MM-DD)
+const formatDateForApi = (date) => {
+    return date.toISOString().split('T')[0];
+};
+
 // Generate the report
-const generateReport = () => {
+const generateReport = async () => {
     if (!selectedEmployee.value || !dateRange.value || !dateRange.value[0] || !dateRange.value[1]) {
         toast.add({ severity: 'error', summary: 'Error', detail: 'Please select an employee and date range', life: 3000 });
         return;
@@ -86,9 +144,43 @@ const generateReport = () => {
 
     loading.value = true;
 
-    // Here you would normally call your API to fetch the actual report data
-    // For this example, we'll simulate an API call with setTimeout
-    setTimeout(() => {
+    try {
+        // Try to fetch from API
+        const apiReport = await ReportService.generateEmployeeReport({
+            employeeId: selectedEmployee.value.id,
+            startDate: formatDateForApi(dateRange.value[0]),
+            endDate: formatDateForApi(dateRange.value[1]),
+            metrics: selectedMetrics.value
+        });
+        
+        reportData.value = {
+            employee: selectedEmployee.value,
+            startDate: dateRange.value[0],
+            endDate: dateRange.value[1],
+            generatedDate: new Date(apiReport.generatedDate),
+            metrics: apiReport.metrics,
+            performanceTrend: apiReport.performanceTrend,
+            categoryBreakdown: apiReport.categoryBreakdown
+        };
+
+        // Add to recent reports
+        const newReport = {
+            id: apiReport.id || recentReports.value.length + 1,
+            employeeName: selectedEmployee.value.name || `${selectedEmployee.value.firstName} ${selectedEmployee.value.lastName}`,
+            employeeId: selectedEmployee.value.employeeId || selectedEmployee.value.id,
+            startDate: dateRange.value[0],
+            endDate: dateRange.value[1],
+            generatedDate: new Date(),
+            metrics: reportData.value.metrics
+        };
+
+        recentReports.value = [newReport, ...recentReports.value];
+        
+        toast.add({ severity: 'success', summary: 'Success', detail: 'Performance report generated', life: 3000 });
+    } catch (error) {
+        console.warn('Report API not available, using mock data:', error.message);
+        
+        // Fallback to mock data
         reportData.value = {
             employee: selectedEmployee.value,
             startDate: dateRange.value[0],
@@ -119,11 +211,11 @@ const generateReport = () => {
             ]
         };
 
-        // Add to recent reports
+        // Add to recent reports  
         const newReport = {
             id: recentReports.value.length + 1,
-            employeeName: selectedEmployee.value.name,
-            employeeId: selectedEmployee.value.employeeId,
+            employeeName: selectedEmployee.value.name || `${selectedEmployee.value.firstName} ${selectedEmployee.value.lastName}`,
+            employeeId: selectedEmployee.value.employeeId || selectedEmployee.value.id,
             startDate: dateRange.value[0],
             endDate: dateRange.value[1],
             generatedDate: new Date(),
@@ -131,12 +223,12 @@ const generateReport = () => {
         };
 
         recentReports.value = [newReport, ...recentReports.value];
-
+        
+        toast.add({ severity: 'success', summary: 'Success', detail: 'Performance report generated (demo)', life: 3000 });
+    } finally {
         loading.value = false;
         generateDialogVisible.value = false;
-
-        toast.add({ severity: 'success', summary: 'Success', detail: 'Performance report generated', life: 3000 });
-    }, 2000);
+    }
 };
 
 // Performance trend chart data
@@ -183,81 +275,93 @@ const chartOptions = {
 };
 
 // View a specific report from history
-const viewReport = (report) => {
-    // Here you would typically make an API call to fetch the full report
-    // For this example, we'll simulate it
+const viewReport = async (report) => {
     loading.value = true;
-
-    setTimeout(() => {
+    try {
+        // Fetch full report details from API
+        const fullReport = await ReportService.getReportById(report.id);
+        
         reportData.value = {
             employee: {
-                name: report.employeeName,
-                employeeId: report.employeeId
+                name: fullReport.employeeName || report.employeeName,
+                employeeId: fullReport.employeeId || report.employeeId,
+                // Ensure name is properly formatted if missing
+                ...(!fullReport.employeeName && report.employeeName ? { name: report.employeeName } : {})
             },
-            startDate: report.startDate,
-            endDate: report.endDate,
-            generatedDate: report.generatedDate,
-            metrics: report.metrics,
-            performanceTrend: [
-                { month: 'Jan', resolved: Math.floor(Math.random() * 30) + 20 },
-                { month: 'Feb', resolved: Math.floor(Math.random() * 30) + 20 },
-                { month: 'Mar', resolved: Math.floor(Math.random() * 30) + 20 },
-                { month: 'Apr', resolved: Math.floor(Math.random() * 30) + 20 },
-                { month: 'May', resolved: Math.floor(Math.random() * 30) + 20 },
-                { month: 'Jun', resolved: Math.floor(Math.random() * 30) + 20 }
-            ],
-            categoryBreakdown: [
-                { category: 'Hardware', count: Math.floor(Math.random() * 40) + 10 },
-                { category: 'Software', count: Math.floor(Math.random() * 40) + 10 },
-                { category: 'Network', count: Math.floor(Math.random() * 30) + 5 },
-                { category: 'Security', count: Math.floor(Math.random() * 20) + 5 },
-                { category: 'Other', count: Math.floor(Math.random() * 15) + 5 }
-            ]
+            startDate: new Date(fullReport.startDate),
+            endDate: new Date(fullReport.endDate),
+            generatedDate: new Date(fullReport.generatedDate),
+            metrics: fullReport.metrics,
+            performanceTrend: fullReport.performanceTrend || [],
+            categoryBreakdown: fullReport.categoryBreakdown || []
         };
-
+    } catch (error) {
+        console.error('Failed to load report details:', error);
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load report details', life: 3000 });
+    } finally {
         loading.value = false;
-    }, 1000);
+    }
 };
 
 // Export to PDF
 const exportToPdf = () => {
-    if (!reportData.value) return;
+    try {
+        if (!reportData.value) return;
 
-    const doc = new jsPDF();
+        const doc = new jsPDF();
+        
+        // Add title
+        doc.setFontSize(20);
+        doc.text('Employee Performance Report', 14, 22);
 
-    // Add title
-    doc.setFontSize(20);
-    doc.text('Employee Performance Report', 14, 22);
+        // Safe access to employee details
+        const emp = reportData.value.employee || {};
+        const empName = emp.name || (emp.firstName && emp.lastName ? `${emp.firstName} ${emp.lastName}` : 'Unknown');
+        const empId = emp.employeeId || emp.id || 'N/A';
 
-    // Add employee info
-    doc.setFontSize(12);
-    doc.text(`Employee: ${reportData.value.employee.name} (${reportData.value.employee.employeeId})`, 14, 32);
-    doc.text(`Period: ${formatDate(reportData.value.startDate)} to ${formatDate(reportData.value.endDate)}`, 14, 38);
-    doc.text(`Generated on: ${formatDate(reportData.value.generatedDate)}`, 14, 44);
+        // Add employee info
+        doc.setFontSize(12);
+        doc.text(`Employee: ${empName} (${empId})`, 14, 32);
+        doc.text(`Period: ${formatDate(reportData.value.startDate)} to ${formatDate(reportData.value.endDate)}`, 14, 38);
+        doc.text(`Generated on: ${formatDate(reportData.value.generatedDate)}`, 14, 44);
 
-    // Add metrics table
-    const metricsData = [];
-    Object.entries(reportData.value.metrics).forEach(([key, value]) => {
-        const metricName = availableMetrics.value.find((m) => m.key === key)?.name || key;
-        metricsData.push([metricName, value.toString()]);
-    });
+        // Add metrics table
+        const metricsData = [];
+        if (reportData.value.metrics) {
+            Object.entries(reportData.value.metrics).forEach(([key, value]) => {
+                const metricName = availableMetrics.value.find((m) => m.key === key)?.name || key;
+                metricsData.push([metricName, value ? value.toString() : '0']);
+            });
+        }
 
-    doc.text('Performance Metrics', 14, 54);
-    doc.autoTable({
-        head: [['Metric', 'Value']],
-        body: metricsData,
-        startY: 56,
-        margin: { top: 60 },
-        styles: { cellPadding: 3 },
-        headStyles: { fillColor: [66, 139, 202] }
-    });
+        doc.text('Performance Metrics', 14, 54);
+        
+        // Check for autoTable support
+        if (typeof doc.autoTable === 'function') {
+            doc.autoTable({
+                head: [['Metric', 'Value']],
+                body: metricsData,
+                startY: 56,
+                margin: { top: 60 },
+                styles: { cellPadding: 3 },
+                headStyles: { fillColor: [66, 139, 202] }
+            });
+        } else {
+             // Fallback if autoTable not loaded
+            let yPos = 60;
+            metricsData.forEach(row => {
+                doc.text(`${row[0]}: ${row[1]}`, 14, yPos);
+                yPos += 7;
+            });
+        }
 
-    // Note: In a real implementation, you'd also convert the charts to images and add them to the PDF
-    // This would typically be done using html2canvas or similar library
+        doc.save(`performance_report_${empId}_${formatDate(reportData.value.endDate)}.pdf`);
 
-    doc.save(`performance_report_${reportData.value.employee.employeeId}_${formatDate(reportData.value.endDate)}.pdf`);
-
-    toast.add({ severity: 'success', summary: 'Success', detail: 'Report exported to PDF', life: 3000 });
+        toast.add({ severity: 'success', summary: 'Success', detail: 'Report exported to PDF', life: 3000 });
+    } catch (error) {
+        console.error('PDF Export Failed:', error);
+        toast.add({ severity: 'error', summary: 'Export Error', detail: 'Failed to generate PDF. See console.', life: 3000 });
+    }
 };
 
 // Reset report data

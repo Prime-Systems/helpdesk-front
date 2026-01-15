@@ -1,25 +1,52 @@
 <script setup>
+import { KnowledgeBaseService } from '@/service/KnowledgeBaseService';
+import { useAuthStore } from '@/stores/AuthStore';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
 
 const toast = useToast();
+const authStore = useAuthStore();
+
 const searchQuery = ref('');
-const categories = ref([
+const categories = ref([]);
+const selectedCategory = ref(null);
+const popularFaqs = ref([]);
+const loading = ref(true);
+const accordionActiveIndex = ref(null);
+const faqs = ref([]);
+
+// Admin CRUD state
+const showCreateDialog = ref(false);
+const showEditDialog = ref(false);
+const showDeleteDialog = ref(false);
+const faqToDelete = ref(null);
+const editingFaq = ref(null);
+const saving = ref(false);
+const newFaqForm = ref({
+    question: '',
+    answer: '',
+    categoryId: null,
+    tags: []
+});
+
+// Check if current user has admin/manager privileges
+const isAdmin = computed(() => {
+    const role = authStore.userRole;
+    return role === 'ADMIN' || role === 'MANAGER';
+});
+
+// Default categories (fallback)
+const defaultCategories = [
     { id: 1, name: 'Account Access', icon: 'pi pi-lock', color: 'bg-blue-100 text-blue-700' },
     { id: 2, name: 'Billing & Payments', icon: 'pi pi-credit-card', color: 'bg-green-100 text-green-700' },
     { id: 3, name: 'Product Features', icon: 'pi pi-star', color: 'bg-purple-100 text-purple-700' },
     { id: 4, name: 'Integrations', icon: 'pi pi-link', color: 'bg-yellow-100 text-yellow-700' },
     { id: 5, name: 'Troubleshooting', icon: 'pi pi-question-circle', color: 'bg-red-100 text-red-700' },
     { id: 6, name: 'Getting Started', icon: 'pi pi-flag', color: 'bg-cyan-100 text-cyan-700' }
-]);
+];
 
-const selectedCategory = ref(null);
-const popularFaqs = ref([]);
-const loading = ref(true);
-const accordionActiveIndex = ref(null);
-
-const faqs = ref([
-    // Account Access
+// Default FAQs (fallback when API unavailable)
+const defaultFaqs = [
     {
         id: 1,
         categoryId: 1,
@@ -40,167 +67,82 @@ const faqs = ref([
     },
     {
         id: 3,
-        categoryId: 1,
-        question: 'How can I change my email address?',
-        answer: 'You can change your email address by going to Account Settings > Personal Information. Click "Edit" next to your email address, enter your new email address, and click "Save Changes". You will receive a verification email at your new address to confirm the change.',
-        views: 1845,
-        helpful: 256,
-        tags: ['account', 'email', 'settings']
-    },
-
-    // Billing & Payments
-    {
-        id: 4,
         categoryId: 2,
         question: 'When will I be billed for my subscription?',
-        answer: "Your subscription will be billed on the same date each month/year, based on your initial signup date. For example, if you signed up on the 15th of the month, you'll be billed on the 15th of each subsequent month for monthly plans. For annual plans, you'll be billed on the same date each year.",
+        answer: "Your subscription will be billed on the same date each month/year, based on your initial signup date.",
         views: 3241,
         helpful: 298,
         tags: ['billing', 'subscription', 'payment']
     },
     {
-        id: 5,
-        categoryId: 2,
-        question: 'How do I update my payment method?',
-        answer: 'To update your payment method:<br><ol class="list-decimal pl-5 space-y-2 mb-4"><li>Go to Account Settings > Billing & Payments</li><li>Click "Manage Payment Methods"</li><li>Click "Add Payment Method" to add a new card or "Edit" to update an existing one</li><li>Enter your card details and click "Save"</li></ol>Your new payment method will be used for future charges.',
-        views: 2756,
-        helpful: 312,
-        tags: ['billing', 'payment', 'credit card']
-    },
-    {
-        id: 6,
-        categoryId: 2,
-        question: 'How do I download my invoices?',
-        answer: 'You can download your invoices by navigating to Account Settings > Billing & Payments > Invoice History. Here you\'ll see a list of all your past invoices. Click the "Download" button next to any invoice to download a PDF copy. You can also click "View" to preview the invoice before downloading.',
-        views: 1987,
-        helpful: 254,
-        tags: ['billing', 'invoice', 'payment']
-    },
-
-    // Product Features
-    {
-        id: 7,
-        categoryId: 3,
-        question: 'What are the system requirements for the desktop application?',
-        answer: 'Our desktop application is compatible with:<br><ul class="list-disc pl-5 space-y-2 mb-4"><li>Windows 10 or higher (64-bit)</li><li>macOS 10.14 (Mojave) or higher</li><li>Linux: Ubuntu 18.04+, Fedora 30+, or CentOS 7+</li></ul>We recommend at least 4GB of RAM and 200MB of free disk space. An internet connection is required for initial setup and regular updates.',
-        views: 2365,
-        helpful: 289,
-        tags: ['desktop', 'requirements', 'installation']
-    },
-    {
-        id: 8,
-        categoryId: 3,
-        question: 'How do I export my data?',
-        answer: 'To export your data:<br><ol class="list-decimal pl-5 space-y-2 mb-4"><li>Go to Settings > Data Management</li><li>Click "Export Data"</li><li>Select the data types you want to export (All Data, Reports, User Information, etc.)</li><li>Choose your preferred format (CSV, Excel, or JSON)</li><li>Click "Generate Export" and wait for the export to complete</li><li>Download your data when ready</li></ol>Large exports may take several minutes to generate.',
-        views: 1876,
-        helpful: 234,
-        tags: ['data', 'export', 'reports']
-    },
-    {
-        id: 9,
+        id: 4,
         categoryId: 3,
         question: 'What are the differences between Basic and Pro plans?',
-        answer: 'The main differences between our Basic and Pro plans are:<br><ul class="list-disc pl-5 space-y-2 mb-4"><li><strong>Users:</strong> Basic supports up to 5 users; Pro allows unlimited users</li><li><strong>Storage:</strong> Basic includes 10GB storage; Pro includes 100GB</li><li><strong>Reports:</strong> Basic has essential reporting; Pro has advanced analytics</li><li><strong>API Access:</strong> Limited in Basic; Full access in Pro</li><li><strong>Support:</strong> Email support for Basic; Priority phone/email support for Pro</li><li><strong>Custom Branding:</strong> Not available in Basic; Available in Pro</li></ul>For a detailed comparison, visit our <a href="#" class="text-primary hover:underline">Pricing Page</a>.',
+        answer: 'The main differences include: Users, Storage, Reports, API Access, Support, and Custom Branding options.',
         views: 4123,
         helpful: 387,
         tags: ['plans', 'pricing', 'features']
     },
-
-    // Integrations
     {
-        id: 10,
-        categoryId: 4,
-        question: 'How do I connect to my Google account?',
-        answer: 'To connect your Google account:<br><ol class="list-decimal pl-5 space-y-2 mb-4"><li>Go to Settings > Integrations</li><li>Find "Google" in the list and click "Connect"</li><li>You\'ll be redirected to Google\'s authentication page</li><li>Sign in to your Google account and grant the requested permissions</li><li>After successful authentication, you\'ll be redirected back to our platform</li></ol>Once connected, you can sync your calendar, contacts, and other Google services with our application.',
-        views: 2187,
-        helpful: 267,
-        tags: ['integrations', 'google', 'authentication']
-    },
-    {
-        id: 11,
-        categoryId: 4,
-        question: 'Which third-party integrations do you support?',
-        answer: 'We support integrations with a wide range of third-party services, including:<br><ul class="list-disc pl-5 space-y-2 mb-4"><li><strong>Productivity:</strong> Google Workspace, Microsoft 365, Slack, Zoom</li><li><strong>CRM:</strong> Salesforce, HubSpot, Zoho CRM</li><li><strong>Marketing:</strong> Mailchimp, Marketo, SendGrid</li><li><strong>Payment:</strong> Stripe, PayPal, Square</li><li><strong>Developer Tools:</strong> GitHub, Jira, Trello</li></ul>Visit our <a href="#" class="text-primary hover:underline">Integrations Directory</a> for a complete list and setup instructions.',
-        views: 3042,
-        helpful: 321,
-        tags: ['integrations', 'third-party', 'apps']
-    },
-    {
-        id: 12,
-        categoryId: 4,
-        question: 'How do I use the API?',
-        answer: 'To use our API:<br><ol class="list-decimal pl-5 space-y-2 mb-4"><li>Generate an API key in Settings > Developer > API Keys</li><li>Review our <a href="#" class="text-primary hover:underline">API Documentation</a> for endpoint details</li><li>Make authenticated requests using your API key in the headers</li><li>Monitor your API usage in the Developer Dashboard</li></ol>Our API follows RESTful principles and returns JSON responses. Rate limits apply based on your subscription plan.',
-        views: 1854,
-        helpful: 278,
-        tags: ['api', 'developer', 'integration']
-    },
-
-    // Troubleshooting
-    {
-        id: 13,
-        categoryId: 5,
-        question: 'The application is running slowly. How can I improve performance?',
-        answer: 'If you\'re experiencing slow performance, try these steps:<br><ol class="list-decimal pl-5 space-y-2 mb-4"><li>Clear your browser cache and cookies</li><li>Close unused browser tabs and applications</li><li>Check your internet connection speed</li><li>Disable browser extensions that might interfere</li><li>Try using a different browser</li><li>If using the desktop app, restart the application</li></ol>If the issue persists, please contact our support team with details about your device and when the slowdown occurs.',
-        views: 3876,
-        helpful: 412,
-        tags: ['performance', 'troubleshooting', 'slow']
-    },
-    {
-        id: 14,
-        categoryId: 5,
-        question: "I'm seeing error code E-1023. What does this mean?",
-        answer: 'Error code E-1023 indicates a temporary connection issue between your device and our servers. This is usually caused by:<br><ul class="list-disc pl-5 space-y-2 mb-4"><li>Unstable internet connection</li><li>Network firewall blocking the connection</li><li>Temporary server maintenance</li></ul>To resolve this:<br><ol class="list-decimal pl-5 space-y-2 mb-4"><li>Check your internet connection</li><li>Wait a few minutes and try again</li><li>If using a VPN, try disconnecting it</li><li>Check our <a href="#" class="text-primary hover:underline">Status Page</a> for any ongoing issues</li></ol>If the error persists for more than 30 minutes, please contact support with your account details and when the error started occurring.',
-        views: 2987,
-        helpful: 347,
-        tags: ['error', 'connection', 'troubleshooting']
-    },
-    {
-        id: 15,
-        categoryId: 5,
-        question: "My data isn't syncing between devices. What should I do?",
-        answer: 'If your data isn\'t syncing properly between devices, try these troubleshooting steps:<br><ol class="list-decimal pl-5 space-y-2 mb-4"><li>Ensure all devices are connected to the internet</li><li>Check that you\'re signed in with the same account on all devices</li><li>Force a manual sync by pulling down on the screen (mobile) or clicking the sync button (desktop)</li><li>Restart the application on each device</li><li>Check if automatic sync is enabled in Settings > Data > Sync Options</li></ol>Syncing typically takes a few seconds to complete, but large amounts of data may take longer. If the issue persists after trying these steps, please contact our support team.',
-        views: 2543,
-        helpful: 298,
-        tags: ['sync', 'data', 'troubleshooting']
-    },
-
-    // Getting Started
-    {
-        id: 16,
+        id: 5,
         categoryId: 6,
         question: 'How do I create my first project?',
-        answer: 'To create your first project:<br><ol class="list-decimal pl-5 space-y-2 mb-4"><li>From the dashboard, click the "+ New Project" button</li><li>Enter a name and description for your project</li><li>Select a project template or start from scratch</li><li>Choose team members to add to the project (optional)</li><li>Set a due date if applicable</li><li>Click "Create Project" to finish</li></ol>Once created, you\'ll be taken to your new project where you can add tasks, upload files, and invite more team members.',
+        answer: 'From the dashboard, click the "+ New Project" button, enter project details, and click "Create Project".',
         views: 4231,
         helpful: 456,
         tags: ['projects', 'getting started', 'tutorial']
-    },
-    {
-        id: 17,
-        categoryId: 6,
-        question: 'How do I invite team members?',
-        answer: 'To invite team members to your account:<br><ol class="list-decimal pl-5 space-y-2 mb-4"><li>Go to Settings > Team Members</li><li>Click "Invite Members"</li><li>Enter email addresses of people you want to invite (separate multiple emails with commas)</li><li>Select the role/permission level for the invitees</li><li>Add a personal message (optional)</li><li>Click "Send Invitations"</li></ol>Invitees will receive an email with instructions to join your team. You can manage pending invitations and resend them if needed from the Team Members page.',
-        views: 3654,
-        helpful: 387,
-        tags: ['team', 'invitations', 'collaboration']
-    },
-    {
-        id: 18,
-        categoryId: 6,
-        question: 'What training resources are available for new users?',
-        answer: 'We offer several resources to help new users get started:<br><ul class="list-disc pl-5 space-y-2 mb-4"><li><strong>Interactive Tutorials:</strong> Available within the app by clicking the "?" icon</li><li><strong>Video Library:</strong> Step-by-step guides on our <a href="#" class="text-primary hover:underline">YouTube channel</a></li><li><strong>Knowledge Base:</strong> Comprehensive articles in our <a href="#" class="text-primary hover:underline">Help Center</a></li><li><strong>Webinars:</strong> Live training sessions held twice monthly (check our <a href="#" class="text-primary hover:underline">Events Page</a>)</li><li><strong>Onboarding Calls:</strong> Personalized 1:1 training sessions (Pro and Enterprise plans only)</li></ul>We also offer a <a href="#" class="text-primary hover:underline">Getting Started Guide</a> that walks you through the basic features and setup process.',
-        views: 2876,
-        helpful: 325,
-        tags: ['training', 'resources', 'onboarding']
     }
-]);
+];
+
+// Fetch FAQs and categories from API
+const fetchData = async () => {
+    loading.value = true;
+    try {
+        // Fetch categories
+        const [categoriesData, faqsData, popularData] = await Promise.all([
+            KnowledgeBaseService.getFaqCategories(),
+            KnowledgeBaseService.getFaqs({ size: 100 }),
+            KnowledgeBaseService.getPopularFaqs(5)
+        ]);
+        
+        if (categoriesData && categoriesData.length > 0) {
+            categories.value = categoriesData.map(cat => ({
+                id: cat.id,
+                name: cat.name,
+                icon: cat.icon || 'pi pi-folder',
+                color: cat.color || 'bg-gray-100 text-gray-700'
+            }));
+        } else if (isAdmin.value) {
+            // Auto-seed categories if empty and user is admin
+            toast.add({ severity: 'info', summary: 'Setup', detail: 'Initializing default categories...', life: 3000 });
+            await seedDefaultCategories();
+            // Re-fetch categories after seeding
+            const newCategories = await KnowledgeBaseService.getFaqCategories();
+             categories.value = newCategories.map(cat => ({
+                id: cat.id,
+                name: cat.name,
+                icon: cat.icon || 'pi pi-folder',
+                color: cat.color || 'bg-gray-100 text-gray-700'
+            }));
+        } else {
+             categories.value = [];
+        }
+        
+        faqs.value = faqsData.faqs || faqsData;
+        popularFaqs.value = popularData;
+    } catch (error) {
+        console.warn('Knowledge Base API not available, using default data:', error.message);
+        // Fallback to default data
+        categories.value = defaultCategories;
+        faqs.value = defaultFaqs;
+        popularFaqs.value = [...defaultFaqs].sort((a, b) => b.views - a.views).slice(0, 5);
+    } finally {
+        loading.value = false;
+    }
+};
 
 onMounted(() => {
-    // Simulate loading
-    setTimeout(() => {
-        loading.value = false;
-        // Get popular FAQs based on views
-        popularFaqs.value = [...faqs.value].sort((a, b) => b.views - a.views).slice(0, 5);
-    }, 800);
+    fetchData();
 });
 
 const filteredFaqs = computed(() => {
@@ -214,20 +156,50 @@ const filteredFaqs = computed(() => {
     // Filter by search query if present
     if (searchQuery.value.trim()) {
         const query = searchQuery.value.toLowerCase().trim();
-        result = result.filter((faq) => faq.question.toLowerCase().includes(query) || faq.answer.toLowerCase().includes(query) || faq.tags.some((tag) => tag.includes(query)));
+        result = result.filter((faq) => faq.question.toLowerCase().includes(query) || faq.answer.toLowerCase().includes(query) || (faq.tags && faq.tags.some((tag) => tag.includes(query))));
     }
 
     return result;
 });
 
+// Seed default categories if none exist
+const seedDefaultCategories = async () => {
+    for (const cat of defaultCategories) {
+        try {
+            await KnowledgeBaseService.createFaqCategory({
+                name: cat.name,
+                icon: cat.icon,
+                color: cat.color
+            });
+        } catch (error) {
+            console.error(`Failed to create category ${cat.name}:`, error.message);
+        }
+    }
+};
+
 const selectCategory = (categoryId) => {
     selectedCategory.value = selectedCategory.value === categoryId ? null : categoryId;
 };
 
-const markHelpful = (faqId) => {
-    const faq = faqs.value.find((f) => f.id === faqId);
-    if (faq) {
-        faq.helpful += 1;
+const markHelpful = async (faqId) => {
+    try {
+        await KnowledgeBaseService.markFaqHelpful(faqId);
+        const faq = faqs.value.find((f) => f.id === faqId);
+        if (faq) {
+            faq.helpful += 1;
+        }
+        toast.add({
+            severity: 'success',
+            summary: 'Thank you',
+            detail: 'Your feedback has been recorded',
+            life: 3000
+        });
+    } catch (error) {
+        // Still update locally even if API fails
+        const faq = faqs.value.find((f) => f.id === faqId);
+        if (faq) {
+            faq.helpful += 1;
+        }
         toast.add({
             severity: 'success',
             summary: 'Thank you',
@@ -260,6 +232,105 @@ const getCategoryColor = (categoryId) => {
     const category = categories.value.find((c) => c.id === categoryId);
     return category ? category.color : 'bg-gray-100 text-gray-700';
 };
+
+// Admin CRUD methods
+const resetForm = () => {
+    newFaqForm.value = {
+        question: '',
+        answer: '',
+        categoryId: null,
+        tags: []
+    };
+};
+
+const openCreateDialog = () => {
+    resetForm();
+    showCreateDialog.value = true;
+};
+
+const openEditDialog = (faq) => {
+    editingFaq.value = { ...faq };
+    showEditDialog.value = true;
+};
+
+const confirmDelete = (faq) => {
+    faqToDelete.value = faq;
+    showDeleteDialog.value = true;
+};
+
+const createFaq = async () => {
+    if (!newFaqForm.value.question || !newFaqForm.value.answer) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Question and answer are required', life: 3000 });
+        return;
+    }
+    
+    saving.value = true;
+    try {
+        const response = await KnowledgeBaseService.createFaq(newFaqForm.value);
+        
+        faqs.value.unshift({
+            id: response.id,
+            question: newFaqForm.value.question,
+            answer: newFaqForm.value.answer,
+            categoryId: newFaqForm.value.categoryId,
+            tags: newFaqForm.value.tags,
+            views: 0,
+            helpful: 0
+        });
+        
+        showCreateDialog.value = false;
+        resetForm();
+        toast.add({ severity: 'success', summary: 'Success', detail: 'FAQ created successfully', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to create FAQ', life: 3000 });
+    } finally {
+        saving.value = false;
+    }
+};
+
+const updateFaq = async () => {
+    if (!editingFaq.value.question || !editingFaq.value.answer) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Question and answer are required', life: 3000 });
+        return;
+    }
+    
+    saving.value = true;
+    try {
+        await KnowledgeBaseService.updateFaq(editingFaq.value.id, editingFaq.value);
+        
+        const index = faqs.value.findIndex(f => f.id === editingFaq.value.id);
+        if (index !== -1) {
+            faqs.value[index] = { ...faqs.value[index], ...editingFaq.value };
+        }
+        
+        showEditDialog.value = false;
+        editingFaq.value = null;
+        toast.add({ severity: 'success', summary: 'Success', detail: 'FAQ updated successfully', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update FAQ', life: 3000 });
+    } finally {
+        saving.value = false;
+    }
+};
+
+const deleteFaq = async () => {
+    if (!faqToDelete.value) return;
+    
+    saving.value = true;
+    try {
+        await KnowledgeBaseService.deleteFaq(faqToDelete.value.id);
+        
+        faqs.value = faqs.value.filter(f => f.id !== faqToDelete.value.id);
+        
+        showDeleteDialog.value = false;
+        faqToDelete.value = null;
+        toast.add({ severity: 'success', summary: 'Success', detail: 'FAQ deleted successfully', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete FAQ', life: 3000 });
+    } finally {
+        saving.value = false;
+    }
+};
 </script>
 
 <template>
@@ -268,6 +339,9 @@ const getCategoryColor = (categoryId) => {
         <div class="bg-primary p-8 md:p-12 rounded-t-lg">
             <div class="max-w-4xl mx-auto text-center">
                 <h1 class="text-3xl md:text-4xl font-bold text-white mb-4">How can we help you?</h1>
+                <div v-if="isAdmin" class="mb-4">
+                    <Button label="New FAQ" icon="pi pi-plus" class="p-button-raised p-button-secondary font-bold" @click="openCreateDialog" />
+                </div>
                 <p class="text-white/80 mb-6 text-lg">Find answers to common questions and solutions to issues you might be facing</p>
 
                 <div class="relative">
@@ -364,7 +438,13 @@ const getCategoryColor = (categoryId) => {
                                         <i :class="[getCategoryIcon(faq.categoryId), getCategoryColor(faq.categoryId), 'p-2 rounded-full']"></i>
                                         <h3 class="font-medium">{{ faq.question }}</h3>
                                     </div>
-                                    <i :class="[accordionActiveIndex === faq.id ? 'pi pi-chevron-up' : 'pi pi-chevron-down', 'transition-transform']"></i>
+                                    <div class="flex items-center gap-2">
+                                        <div v-if="isAdmin" class="flex gap-1 mr-2" @click.stop>
+                                            <Button icon="pi pi-pencil" severity="secondary" text rounded size="small" @click="openEditDialog(faq)" v-tooltip.top="'Edit'" />
+                                            <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click="confirmDelete(faq)" v-tooltip.top="'Delete'" />
+                                        </div>
+                                        <i :class="[accordionActiveIndex === faq.id ? 'pi pi-chevron-up' : 'pi pi-chevron-down', 'transition-transform']"></i>
+                                    </div>
                                 </div>
 
                                 <div v-if="accordionActiveIndex === faq.id" class="mt-4 pt-4 border-t">
@@ -399,6 +479,65 @@ const getCategoryColor = (categoryId) => {
                 </div>
             </div>
         </div>
+        <!-- Create FAQ Dialog (Admin only) -->
+        <Dialog v-model:visible="showCreateDialog" header="Create New FAQ" :modal="true" :closable="true" :style="{ width: '90vw', maxWidth: '600px' }">
+            <div class="flex flex-col gap-4">
+                <div class="field">
+                    <label for="newQuestion" class="font-semibold block mb-2">Question *</label>
+                    <InputText id="newQuestion" v-model="newFaqForm.question" class="w-full" placeholder="Enter question" />
+                </div>
+                <div class="field">
+                    <label for="newCategory" class="font-semibold block mb-2">Category</label>
+                    <Select id="newCategory" v-model="newFaqForm.categoryId" :options="categories" optionLabel="name" optionValue="id" placeholder="Select a category" class="w-full" />
+                </div>
+                <div class="field">
+                    <label for="newAnswer" class="font-semibold block mb-2">Answer *</label>
+                    <Textarea id="newAnswer" v-model="newFaqForm.answer" rows="5" class="w-full" placeholder="Enter answer (HTML supported)" />
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Cancel" icon="pi pi-times" text @click="showCreateDialog = false" />
+                <Button label="Create" icon="pi pi-check" :loading="saving" @click="createFaq" />
+            </template>
+        </Dialog>
+
+        <!-- Edit FAQ Dialog (Admin only) -->
+        <Dialog v-model:visible="showEditDialog" header="Edit FAQ" :modal="true" :closable="true" :style="{ width: '90vw', maxWidth: '600px' }">
+            <div v-if="editingFaq" class="flex flex-col gap-4">
+                <div class="field">
+                    <label for="editQuestion" class="font-semibold block mb-2">Question *</label>
+                    <InputText id="editQuestion" v-model="editingFaq.question" class="w-full" />
+                </div>
+                <div class="field">
+                    <label for="editCategory" class="font-semibold block mb-2">Category</label>
+                    <Select id="editCategory" v-model="editingFaq.categoryId" :options="categories" optionLabel="name" optionValue="id" class="w-full" />
+                </div>
+                <div class="field">
+                    <label for="editAnswer" class="font-semibold block mb-2">Answer *</label>
+                    <Textarea id="editAnswer" v-model="editingFaq.answer" rows="5" class="w-full" />
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Cancel" icon="pi pi-times" text @click="showEditDialog = false" />
+                <Button label="Save Changes" icon="pi pi-check" :loading="saving" @click="updateFaq" />
+            </template>
+        </Dialog>
+
+        <!-- Delete Confirmation Dialog (Admin only) -->
+        <Dialog v-model:visible="showDeleteDialog" header="Confirm Delete" :modal="true" :closable="true" :style="{ width: '450px' }">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle text-4xl text-orange-500"></i>
+                <div>
+                    <p class="font-semibold">Are you sure you want to delete this FAQ?</p>
+                    <p class="text-gray-600 mt-2" v-if="faqToDelete">"{{ faqToDelete.question }}"</p>
+                    <p class="text-sm text-gray-500 mt-2">This action cannot be undone.</p>
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Cancel" icon="pi pi-times" text @click="showDeleteDialog = false" />
+                <Button label="Delete" icon="pi pi-trash" severity="danger" :loading="saving" @click="deleteFaq" />
+            </template>
+        </Dialog>
     </div>
 </template>
 

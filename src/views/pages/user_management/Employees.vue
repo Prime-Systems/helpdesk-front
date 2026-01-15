@@ -6,10 +6,16 @@ import { useDepartmentStore } from '@/stores/departmentStore';
 import { useEmployeeStore } from '@/stores/EmployeeStore';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import EmployeeDetails from './EmployeeDetails.vue'; // Import the new component
 
+import { useRouter } from 'vue-router';
+
 const authStore = useAuthStore();
+const router = useRouter();
+const isAdmin = computed(() => {
+    return authStore.user?.role === 'ADMIN' || authStore.user?.role === 'MANAGER';
+});
 const departments = ref([]);
 const branches = ref([]);
 const department = ref({});
@@ -227,17 +233,18 @@ async function saveEmployee() {
                 class="[&_tr]:cursor-pointer"
             >
                 <template #header>
-                    <div class="flex justify-between">
-                        <div>
+                    <div class="flex flex-col md:flex-row justify-between gap-4">
+                        <div class="flex flex-wrap gap-2">
                             <Button type="button" icon="pi pi-filter-slash" label="Clear" outlined @click="clearFilter()" />
-                            <Button label="New" icon="pi pi-plus" class="ml-2" severity="secondary" @click="openNew" />
+                            <Button v-if="isAdmin" label="Bulk Import" icon="pi pi-upload" severity="help" @click="router.push('/users/bulk-import')" />
+                            <Button label="New" icon="pi pi-plus" severity="secondary" @click="openNew" />
                         </div>
 
-                        <IconField>
+                        <IconField class="w-full md:w-auto">
                             <InputIcon>
                                 <i class="pi pi-search" />
                             </InputIcon>
-                            <InputText v-model="filters1['global'].value" placeholder="Employee Search" />
+                            <InputText v-model="filters1['global'].value" placeholder="Employee Search" class="w-full md:w-auto" />
                         </IconField>
                     </div>
                 </template>

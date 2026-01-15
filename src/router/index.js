@@ -116,6 +116,11 @@ const router = createRouter({
                     component: () => import('@/views/pages/user_management/Leave.vue')
                 },
                 {
+                    path: '/users/bulk-import',
+                    name: 'bulk-import',
+                    component: () => import('@/views/pages/user_management/BulkImport.vue')
+                },
+                {
                     path: '/kb/faqs',
                     name: 'faqs',
                     component: () => import('@/views/pages/knowledge_base/Faq.vue')
@@ -198,6 +203,11 @@ const router = createRouter({
             path: '/reportissue',
             name: 'reportissue',
             component: () => import('@/views/pages/tickets/CustomerTicket.vue')
+        },
+        {
+            path: '/feedback',
+            name: 'feedback',
+            component: () => import('@/views/pages/feedback/Feedback.vue')
         }
     ]
 });

@@ -2,6 +2,7 @@
 import { useLayout } from '@/layout/composables/layout';
 import { BranchService } from '@/service/BranchService';
 import { CategoryService } from '@/service/CategoryService';
+import { DashboardService } from '@/service/DashboardService';
 import { DepartmentService } from '@/service/DepartmentService';
 import { EmployeeService } from '@/service/EmployeeService';
 import { TicketService } from '@/service/TicketService';
@@ -15,7 +16,7 @@ const loading = ref(true);
 const timeRangeFilter = ref('week');
 const comparisonPeriod = ref('previous_period');
 
-// API Data - Replace with actual API calls
+// API Data
 const ticketsData = ref({
     isFirst: true,
     totalItems: 0,
@@ -27,12 +28,18 @@ const departmentsData = ref([]);
 const employeesData = ref([]);
 const branchesData = ref([]);
 
+// Dashboard stats from API
+const dashboardStats = ref(null);
+const topPerformersData = ref([]);
+const recentActivityData = ref([]);
+
 // Time range options
 const timeRangeOptions = [
     { label: 'Today', value: 'today' },
     { label: 'This Week', value: 'week' },
     { label: 'This Month', value: 'month' },
-    { label: 'This Quarter', value: 'quarter' }
+    { label: 'This Quarter', value: 'quarter' },
+    { label: 'All Time', value: 'all_time' }
 ];
 
 // Comparison period options
@@ -41,35 +48,43 @@ const comparisonOptions = [
     { label: 'Same Period Last Year', value: 'last_year' }
 ];
 
-// Computed statistics from actual data
+// Computed statistics - use API data if available, fallback to computed
 const ticketStats = computed(() => {
+    // If we have dashboard stats from API, use them
+    if (dashboardStats.value && dashboardStats.value.tickets) {
+        return dashboardStats.value.tickets;
+    }
+    
+    // Fallback to computing from raw ticket data
     const tickets = ticketsData.value.tickets;
-
     return {
         open: {
             count: tickets.filter((t) => t.status === 'OPEN').length,
             change: 15,
-            trend: 'up'
+            trend: 'UP'
         },
         ongoing: {
             count: tickets.filter((t) => t.status === 'ONGOING').length,
             change: 8,
-            trend: 'up'
+            trend: 'UP'
         },
         resolved: {
             count: tickets.filter((t) => t.status === 'RESOLVED').length,
             change: 12,
-            trend: 'up'
+            trend: 'UP'
         },
         closed: {
             count: tickets.filter((t) => t.status === 'CLOSED').length,
             change: 5,
-            trend: 'up'
+            trend: 'UP'
         }
     };
 });
 
 const totalTickets = computed(() => {
+    if (dashboardStats.value && dashboardStats.value.tickets) {
+        return dashboardStats.value.tickets.total || ticketsData.value.totalItems;
+    }
     return ticketsData.value.totalItems;
 });
 
@@ -125,7 +140,21 @@ const departmentWorkload = computed(() => {
     return Object.values(workload);
 });
 
+// Use API data for top performers if available
 const topPerformers = computed(() => {
+    if (topPerformersData.value && topPerformersData.value.length > 0) {
+        return topPerformersData.value.map(p => ({
+            id: p.userId,
+            name: p.name,
+            email: p.email,
+            department: p.department,
+            resolvedCount: p.resolvedCount,
+            avgRating: p.avgRating,
+            avatar: p.avatar || `https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(p.name)}`
+        }));
+    }
+    
+    // Fallback to computing from ticket data
     const performanceMap = {};
 
     ticketsData.value.tickets.forEach((ticket) => {
@@ -154,7 +183,20 @@ const topPerformers = computed(() => {
         .slice(0, 5);
 });
 
+// Use API data for recent activity if available
 const recentActivity = computed(() => {
+    if (recentActivityData.value && recentActivityData.value.length > 0) {
+        return recentActivityData.value.map(a => ({
+            id: a.id,
+            type: a.type.toLowerCase(),
+            user: a.userName,
+            ticket: a.ticketId ? `TICK-${a.ticketId}` : null,
+            time: new Date(a.timestamp),
+            description: a.description
+        })).slice(0, 3);
+    }
+    
+    // Fallback to computing from ticket data
     return ticketsData.value.tickets
         .map((ticket) => ({
             id: `ACT-${ticket.id}`,
@@ -169,14 +211,24 @@ const recentActivity = computed(() => {
 });
 
 const avgResolutionTime = computed(() => {
+    if (dashboardStats.value && dashboardStats.value.avgResolutionTime) {
+        const hours = Math.floor(dashboardStats.value.avgResolutionTime);
+        const minutes = Math.round((dashboardStats.value.avgResolutionTime - hours) * 60);
+        return `${hours}h ${minutes}m`;
+    }
+    
     const totalTime = categoriesData.value.reduce((sum, cat) => sum + cat.targetResolutionTime, 0);
-    const avgHours = totalTime / categoriesData.value.length;
+    const avgHours = totalTime / categoriesData.value.length || 0;
     const hours = Math.floor(avgHours);
     const minutes = Math.round((avgHours - hours) * 60);
     return `${hours}h ${minutes}m`;
 });
 
 const resolutionRate = computed(() => {
+    if (dashboardStats.value && dashboardStats.value.resolutionRate !== undefined) {
+        return dashboardStats.value.resolutionRate.toFixed(1);
+    }
+    
     const tickets = ticketsData.value.tickets;
     const resolved = tickets.filter((t) => t.status === 'RESOLVED' || t.status === 'CLOSED').length;
     return tickets.length > 0 ? ((resolved / tickets.length) * 100).toFixed(1) : 0;
@@ -212,7 +264,11 @@ onMounted(() => {
 async function fetchDashboardData() {
     loading.value = true;
     try {
-        const [ticketsRes, categoriesRes, departmentsRes, employeesRes, branchesRes] = await Promise.all([
+        // Fetch dashboard stats from API alongside raw data
+        const [statsRes, topPerformersRes, activityRes, ticketsRes, categoriesRes, departmentsRes, employeesRes, branchesRes] = await Promise.allSettled([
+            DashboardService.getStats({ period: timeRangeFilter.value, comparison: comparisonPeriod.value }),
+            DashboardService.getTopPerformers({ limit: 5, period: timeRangeFilter.value }),
+            DashboardService.getActivity({ limit: 10 }),
             TicketService.getTickets(),
             CategoryService.getCategories(),
             DepartmentService.getDepartments(),
@@ -220,11 +276,35 @@ async function fetchDashboardData() {
             BranchService.getBranches()
         ]);
 
-        ticketsData.value = ticketsRes;
-        categoriesData.value = categoriesRes;
-        departmentsData.value = departmentsRes;
-        employeesData.value = employeesRes;
-        branchesData.value = branchesRes;
+        // Use dashboard stats if available
+        if (statsRes.status === 'fulfilled') {
+            dashboardStats.value = statsRes.value;
+        }
+        
+        if (topPerformersRes.status === 'fulfilled') {
+            topPerformersData.value = topPerformersRes.value;
+        }
+        
+        if (activityRes.status === 'fulfilled') {
+            recentActivityData.value = activityRes.value;
+        }
+
+        // Always fetch raw data as fallback/supplement
+        if (ticketsRes.status === 'fulfilled') {
+            ticketsData.value = ticketsRes.value;
+        }
+        if (categoriesRes.status === 'fulfilled') {
+            categoriesData.value = categoriesRes.value;
+        }
+        if (departmentsRes.status === 'fulfilled') {
+            departmentsData.value = departmentsRes.value;
+        }
+        if (employeesRes.status === 'fulfilled') {
+            employeesData.value = employeesRes.value;
+        }
+        if (branchesRes.status === 'fulfilled') {
+            branchesData.value = branchesRes.value;
+        }
 
         initCharts();
     } catch (error) {
@@ -343,7 +423,6 @@ function setDepartmentChart() {
 
     departmentChartOptions.value = {
         maintainAspectRatio: false,
-        aspectRatio: 0.8,
         plugins: {
             legend: {
                 labels: {
@@ -407,7 +486,6 @@ function setCategoryChart() {
     categoryChartOptions.value = {
         indexAxis: 'y',
         maintainAspectRatio: false,
-        aspectRatio: 0.8,
         plugins: {
             legend: {
                 display: false
@@ -601,6 +679,14 @@ watch(timeRangeFilter, () => {
 function onImageError(id) {
     imageErrorMap.value[id] = true;
 }
+
+function navigateToTickets(status) {
+    router.push({ path: '/tickets', query: { status: status } });
+}
+
+function navigateTo(path) {
+    router.push(path);
+}
 </script>
 
 <template>
@@ -628,82 +714,86 @@ function onImageError(id) {
             <!-- Key Metrics Row -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- Open Tickets -->
-                <div class="card min-h-full flex flex-col justify-between bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-0 shadow-md hover:shadow-lg transition-shadow">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="flex-1">
-                            <span class="block text-blue-700 dark:text-blue-300 font-semibold mb-2 text-sm uppercase tracking-wide">Open Tickets</span>
-                            <div class="text-4xl font-bold text-blue-900 dark:text-blue-100">{{ ticketStats.open.count }}</div>
+                <div @click="navigateToTickets('OPEN')" class="card h-full bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden group">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-l-xl"></div>
+                    <div class="flex justify-between items-start mb-3 pl-2">
+                        <div>
+                            <span class="block text-surface-500 dark:text-surface-400 font-medium text-sm">Open Tickets</span>
+                            <div class="text-3xl font-bold text-surface-900 dark:text-surface-0 mt-1">{{ ticketStats.open.count }}</div>
                         </div>
-                        <div class="flex items-center justify-center bg-blue-500 dark:bg-blue-600 rounded-xl shadow-lg" style="width: 3.5rem; height: 3.5rem">
-                            <i class="pi pi-folder-open text-white text-2xl"></i>
+                        <div class="flex items-center justify-center bg-blue-50 dark:bg-blue-900/30 rounded-lg w-10 h-10 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors">
+                            <i class="pi pi-folder-open text-blue-500 text-xl"></i>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <Badge :class="getTrendBadgeClass(ticketStats.open.trend, true)" class="font-semibold">
-                            <i :class="[getTrendIcon(ticketStats.open.trend, true), 'mr-1 text-xs']"></i>
+                    <div class="flex items-center gap-2 pl-2">
+                        <span :class="['text-xs font-medium px-2 py-0.5 rounded', ticketStats.open.trend === 'UP' ? 'bg-red-50 text-red-600 dark:bg-red-400/10 dark:text-red-400' : 'bg-green-50 text-green-600 dark:bg-green-400/10 dark:text-green-400']">
+                            <i :class="[ticketStats.open.trend === 'UP' ? 'pi pi-arrow-up' : 'pi pi-arrow-down', 'text-[10px] mr-1']"></i>
                             {{ ticketStats.open.change }}%
-                        </Badge>
-                        <span class="text-sm text-blue-600 dark:text-blue-400">vs previous period</span>
+                        </span>
+                        <span class="text-xs text-surface-400 dark:text-surface-500">vs last period</span>
                     </div>
                 </div>
 
                 <!-- In Progress -->
-                <div class="card min-h-full flex flex-col justify-between bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-0 shadow-md hover:shadow-lg transition-shadow">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="flex-1">
-                            <span class="block text-orange-700 dark:text-orange-300 font-semibold mb-2 text-sm uppercase tracking-wide">Ongoing</span>
-                            <div class="text-4xl font-bold text-orange-900 dark:text-orange-100">{{ ticketStats.ongoing.count }}</div>
+                <div @click="navigateToTickets('ONGOING')" class="card h-full bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden group">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-orange-500 rounded-l-xl"></div>
+                    <div class="flex justify-between items-start mb-3 pl-2">
+                        <div>
+                            <span class="block text-surface-500 dark:text-surface-400 font-medium text-sm">Ongoing</span>
+                            <div class="text-3xl font-bold text-surface-900 dark:text-surface-0 mt-1">{{ ticketStats.ongoing.count }}</div>
                         </div>
-                        <div class="flex items-center justify-center bg-orange-500 dark:bg-orange-600 rounded-xl shadow-lg" style="width: 3.5rem; height: 3.5rem">
-                            <i class="pi pi-spin pi-spinner text-white text-2xl"></i>
+                        <div class="flex items-center justify-center bg-orange-50 dark:bg-orange-900/30 rounded-lg w-10 h-10 group-hover:bg-orange-100 dark:group-hover:bg-orange-900/50 transition-colors">
+                            <i class="pi pi-spinner text-orange-500 text-xl"></i>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <Badge :class="getTrendBadgeClass(ticketStats.ongoing.trend)" class="font-semibold">
-                            <i :class="[getTrendIcon(ticketStats.ongoing.trend), 'mr-1 text-xs']"></i>
+                    <div class="flex items-center gap-2 pl-2">
+                        <span :class="['text-xs font-medium px-2 py-0.5 rounded', ticketStats.ongoing.trend === 'UP' ? 'bg-red-50 text-red-600 dark:bg-red-400/10 dark:text-red-400' : 'bg-green-50 text-green-600 dark:bg-green-400/10 dark:text-green-400']">
+                            <i :class="[ticketStats.ongoing.trend === 'UP' ? 'pi pi-arrow-up' : 'pi pi-arrow-down', 'text-[10px] mr-1']"></i>
                             {{ ticketStats.ongoing.change }}%
-                        </Badge>
-                        <span class="text-sm text-orange-600 dark:text-orange-400">vs previous period</span>
+                        </span>
+                        <span class="text-xs text-surface-400 dark:text-surface-500">vs last period</span>
                     </div>
                 </div>
 
                 <!-- Resolved -->
-                <div class="card min-h-full flex flex-col justify-between bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-0 shadow-md hover:shadow-lg transition-shadow">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="flex-1">
-                            <span class="block text-green-700 dark:text-green-300 font-semibold mb-2 text-sm uppercase tracking-wide">Resolved</span>
-                            <div class="text-4xl font-bold text-green-900 dark:text-green-100">{{ ticketStats.resolved.count }}</div>
+                <div @click="navigateToTickets('RESOLVED')" class="card h-full bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden group">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-green-500 rounded-l-xl"></div>
+                    <div class="flex justify-between items-start mb-3 pl-2">
+                        <div>
+                            <span class="block text-surface-500 dark:text-surface-400 font-medium text-sm">Resolved</span>
+                            <div class="text-3xl font-bold text-surface-900 dark:text-surface-0 mt-1">{{ ticketStats.resolved.count }}</div>
                         </div>
-                        <div class="flex items-center justify-center bg-green-500 dark:bg-green-600 rounded-xl shadow-lg" style="width: 3.5rem; height: 3.5rem">
-                            <i class="pi pi-check-circle text-white text-2xl"></i>
+                        <div class="flex items-center justify-center bg-green-50 dark:bg-green-900/30 rounded-lg w-10 h-10 group-hover:bg-green-100 dark:group-hover:bg-green-900/50 transition-colors">
+                            <i class="pi pi-check-circle text-green-500 text-xl"></i>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <Badge :class="getTrendBadgeClass(ticketStats.resolved.trend)" class="font-semibold">
-                            <i :class="[getTrendIcon(ticketStats.resolved.trend), 'mr-1 text-xs']"></i>
+                    <div class="flex items-center gap-2 pl-2">
+                        <span :class="['text-xs font-medium px-2 py-0.5 rounded', ticketStats.resolved.trend === 'UP' ? 'bg-green-50 text-green-600 dark:bg-green-400/10 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-400/10 dark:text-red-400']">
+                            <i :class="[ticketStats.resolved.trend === 'UP' ? 'pi pi-arrow-up' : 'pi pi-arrow-down', 'text-[10px] mr-1']"></i>
                             {{ ticketStats.resolved.change }}%
-                        </Badge>
-                        <span class="text-sm text-green-600 dark:text-green-400">vs previous period</span>
+                        </span>
+                        <span class="text-xs text-surface-400 dark:text-surface-500">vs last period</span>
                     </div>
                 </div>
 
                 <!-- Closed -->
-                <div class="card min-h-full flex flex-col justify-between bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-0 shadow-md hover:shadow-lg transition-shadow">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="flex-1">
-                            <span class="block text-purple-700 dark:text-purple-300 font-semibold mb-2 text-sm uppercase tracking-wide">Closed</span>
-                            <div class="text-4xl font-bold text-purple-900 dark:text-purple-100">{{ ticketStats.closed.count }}</div>
+                <div @click="navigateToTickets('CLOSED')" class="card h-full bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden group">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-purple-500 rounded-l-xl"></div>
+                    <div class="flex justify-between items-start mb-3 pl-2">
+                        <div>
+                            <span class="block text-surface-500 dark:text-surface-400 font-medium text-sm">Closed</span>
+                            <div class="text-3xl font-bold text-surface-900 dark:text-surface-0 mt-1">{{ ticketStats.closed.count }}</div>
                         </div>
-                        <div class="flex items-center justify-center bg-purple-500 dark:bg-purple-600 rounded-xl shadow-lg" style="width: 3.5rem; height: 3.5rem">
-                            <i class="pi pi-lock text-white text-2xl"></i>
+                        <div class="flex items-center justify-center bg-purple-50 dark:bg-purple-900/30 rounded-lg w-10 h-10 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/50 transition-colors">
+                            <i class="pi pi-lock text-purple-500 text-xl"></i>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <Badge :class="getTrendBadgeClass(ticketStats.closed.trend)" class="font-semibold">
-                            <i :class="[getTrendIcon(ticketStats.closed.trend), 'mr-1 text-xs']"></i>
+                    <div class="flex items-center gap-2 pl-2">
+                        <span :class="['text-xs font-medium px-2 py-0.5 rounded', ticketStats.closed.trend === 'UP' ? 'bg-green-50 text-green-600 dark:bg-green-400/10 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-400/10 dark:text-red-400']">
+                            <i :class="[ticketStats.closed.trend === 'UP' ? 'pi pi-arrow-up' : 'pi pi-arrow-down', 'text-[10px] mr-1']"></i>
                             {{ ticketStats.closed.change }}%
-                        </Badge>
-                        <span class="text-sm text-purple-600 dark:text-purple-400">vs previous period</span>
+                        </span>
+                        <span class="text-xs text-surface-400 dark:text-surface-500">vs last period</span>
                     </div>
                 </div>
             </div>
@@ -711,89 +801,73 @@ function onImageError(id) {
             <!-- KPI Cards Row -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Resolution Efficiency -->
-                <div class="card shadow-md hover:shadow-lg transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">Resolution Rate</h3>
-                        <i class="pi pi-chart-line text-2xl text-primary"></i>
+                <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Resolution Efficiency</h3>
+                        <Button icon="pi pi-ellipsis-h" text rounded severity="secondary" size="small" />
                     </div>
 
-                    <div class="flex flex-col items-center justify-center py-6">
-                        <div class="relative w-48 h-48 mb-4">
+                    <div class="flex flex-col items-center justify-center py-4">
+                        <div class="relative w-40 h-40 mb-6">
                             <svg viewBox="0 0 100 100" class="w-full h-full transform -rotate-90">
-                                <circle
-                                    cx="50"
-                                    cy="50"
-                                    r="40"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    class="text-surface-200 dark:text-surface-700"
-                                    stroke-width="8"
-                                    stroke-dasharray="251.2"
-                                    :stroke-dashoffset="251.2 - (251.2 * parseInt(resolutionRate)) / 100"
-                                    stroke-linecap="round"
-                                />
+                                <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" class="text-surface-100 dark:text-surface-800" stroke-width="8" />
+                                <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" :class="resolutionRate >= 70 ? 'text-green-500' : resolutionRate >= 50 ? 'text-orange-500' : 'text-red-500'" stroke-width="8" stroke-dasharray="251.2" :stroke-dashoffset="251.2 - (251.2 * parseInt(resolutionRate)) / 100" stroke-linecap="round" />
                             </svg>
                             <div class="absolute inset-0 flex flex-col items-center justify-center">
-                                <span class="text-5xl font-bold text-surface-900 dark:text-surface-0">{{ resolutionRate }}%</span>
-                                <span class="text-sm text-surface-600 dark:text-surface-400 mt-1">Resolved</span>
+                                <span class="text-4xl font-bold text-surface-900 dark:text-surface-0">{{ resolutionRate }}%</span>
+                                <span class="text-xs text-surface-500 dark:text-surface-400 mt-1 uppercase tracking-wider">Resolved</span>
                             </div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4 w-full">
-                            <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 text-center">
-                                <div class="text-sm text-surface-600 dark:text-surface-400 mb-1">Total</div>
-                                <div class="text-2xl font-bold text-surface-900 dark:text-surface-0">{{ totalTickets }}</div>
+                            <div class="text-center p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50">
+                                <div class="text-xs text-surface-500 dark:text-surface-400 mb-1 uppercase tracking-wider">Total Tickets</div>
+                                <div class="text-xl font-bold text-surface-900 dark:text-surface-0">{{ totalTickets }}</div>
                             </div>
-                            <div class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 text-center">
-                                <div class="text-sm text-surface-600 dark:text-surface-400 mb-1">Closed</div>
-                                <div class="text-2xl font-bold text-surface-900 dark:text-surface-0">{{ ticketStats.closed.count }}</div>
+                            <div class="text-center p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50">
+                                <div class="text-xs text-surface-500 dark:text-surface-400 mb-1 uppercase tracking-wider">Closed</div>
+                                <div class="text-xl font-bold text-surface-900 dark:text-surface-0">{{ ticketStats.closed.count }}</div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Average Resolution Time -->
-                <div class="card shadow-md hover:shadow-lg transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">Avg Resolution Time</h3>
-                        <i class="pi pi-clock text-2xl text-primary"></i>
+                <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Avg Resolution Time</h3>
+                        <Button icon="pi pi-clock" text rounded severity="secondary" size="small" class="cursor-default" />
                     </div>
 
-                    <div class="flex flex-col items-center justify-center py-6">
-                        <div class="text-6xl font-bold text-primary mb-4">{{ avgResolutionTime }}</div>
+                    <div class="flex flex-col items-center justify-center py-4">
+                        <div class="text-5xl font-bold text-surface-900 dark:text-surface-0 mb-8">{{ avgResolutionTime }}</div>
 
-                        <div class="w-full space-y-3">
-                            <div v-for="category in categoriesData.slice(0, 3)" :key="category.id" class="bg-surface-100 dark:bg-surface-800 rounded-lg p-3">
+                        <div class="w-full space-y-4">
+                            <div v-for="category in categoriesData.slice(0, 3)" :key="category.id">
                                 <div class="flex justify-between items-center mb-2">
                                     <span class="text-sm font-medium text-surface-700 dark:text-surface-300">{{ category.name }}</span>
-                                    <span class="text-sm font-bold text-primary">{{ category.targetResolutionTime }}h</span>
+                                    <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ category.targetResolutionTime }}h target</span>
                                 </div>
-                                <ProgressBar :value="(category.targetResolutionTime / 72) * 100" :showValue="false" style="height: 6px" />
+                                <ProgressBar :value="(category.targetResolutionTime / 72) * 100" :showValue="false" style="height: 6px" class="bg-surface-100 dark:bg-surface-800" :pt="{ value: { class: 'bg-primary-500' } }" />
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Department Overview -->
-                <div class="card shadow-md hover:shadow-lg transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">Departments</h3>
-                        <i class="pi pi-sitemap text-2xl text-primary"></i>
+                <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Departments</h3>
+                        <Button label="View All" text size="small" @click="navigateTo('/users/employees')" />
                     </div>
 
-                    <div class="space-y-4 py-2 overflow-y-auto max-h-[20rem] pr-2">
-                        <div v-for="dept in departmentsData" :key="dept.id" class="bg-surface-100 dark:bg-surface-800 rounded-lg p-4 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors">
-                            <div class="flex justify-between items-start mb-3">
-                                <div>
-                                    <h4 class="font-bold text-surface-900 dark:text-surface-0 mb-1">{{ dept.name }}</h4>
-                                    <p class="text-xs text-surface-600 dark:text-surface-400">{{ dept.description }}</p>
-                                </div>
-                                <Badge :value="dept.teamSize" severity="info" />
+                    <div class="space-y-0 overflow-y-auto max-h-[22rem]">
+                        <div v-for="(dept, index) in departmentsData" :key="dept.id" class="flex items-center justify-between p-3 hover:bg-surface-50 dark:hover:bg-surface-800/50 rounded-lg transition-colors cursor-pointer border-b border-surface-100 dark:border-surface-800 last:border-0" @click="navigateTo('/users/employees')">
+                            <div>
+                                <h4 class="font-medium text-surface-900 dark:text-surface-0 text-sm mb-0.5">{{ dept.name }}</h4>
+                                <p class="text-xs text-surface-500 dark:text-surface-400">{{ dept.teamSize }} members</p>
                             </div>
-                            <div class="flex items-center gap-2 text-xs text-surface-600 dark:text-surface-400">
-                                <i class="pi pi-users"></i>
-                                <span>{{ dept.teamSize }} team members</span>
-                            </div>
+                            <Button icon="pi pi-chevron-right" text rounded size="small" severity="secondary" class="h-8 w-8" />
                         </div>
                     </div>
                 </div>
@@ -802,84 +876,84 @@ function onImageError(id) {
             <!-- Charts Row -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Department Workload -->
-                <div class="card shadow-md hover:shadow-lg transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">Department Workload</h3>
-                        <i class="pi pi-chart-bar text-xl text-primary"></i>
+                <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm flex flex-col">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Department Workload</h3>
+                        <Button icon="pi pi-ellipsis-v" text rounded severity="secondary" size="small" />
                     </div>
-                    <div style="height: 300px">
-                        <Chart type="bar" :data="departmentChartData" :options="departmentChartOptions" />
+                    <div class="flex-grow min-h-[300px] relative">
+                        <Chart type="bar" :data="departmentChartData" :options="departmentChartOptions" class="h-full w-full" />
                     </div>
                 </div>
 
                 <!-- Ticket Status Distribution -->
-                <div class="card shadow-md hover:shadow-lg transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">Ticket Status</h3>
-                        <i class="pi pi-chart-pie text-xl text-primary"></i>
+                <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm flex flex-col">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Ticket Status</h3>
+                        <Button icon="pi pi-ellipsis-v" text rounded severity="secondary" size="small" />
                     </div>
-                    <div class="flex items-center justify-center" style="height: 300px">
-                        <Chart type="doughnut" :data="statusData" :options="statusOptions" class="w-full max-w-sm" />
+                    <div class="flex-grow flex items-center justify-center min-h-[300px] relative">
+                        <Chart type="doughnut" :data="statusData" :options="statusOptions" class="w-full h-full" />
                     </div>
                 </div>
             </div>
 
             <!-- Bottom Row -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <!-- Priority Distribution -->
-                <div class="card shadow-md hover:shadow-lg transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">Priority Breakdown</h3>
-                        <i class="pi pi-exclamation-triangle text-xl text-primary"></i>
+                <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm flex flex-col">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Priority Breakdown</h3>
+                        <Button icon="pi pi-ellipsis-v" text rounded severity="secondary" size="small" />
                     </div>
-                    <div class="flex items-center justify-center" style="min-height: 280px">
-                        <Chart type="pie" :data="priorityData" :options="priorityOptions" class="w-full max-w-xs" />
+                    <div class="flex-grow flex items-center justify-center min-h-[300px] relative">
+                        <Chart type="pie" :data="priorityData" :options="priorityOptions" class="w-full h-full" />
                     </div>
                 </div>
 
                 <!-- Category Distribution -->
-                <div class="card shadow-md hover:shadow-lg transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">Tickets by Category</h3>
-                        <i class="pi pi-tags text-xl text-primary"></i>
+                <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm flex flex-col">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Tickets by Category</h3>
+                        <Button icon="pi pi-ellipsis-v" text rounded severity="secondary" size="small" />
                     </div>
-                    <div style="height: 280px">
-                        <Chart type="bar" :data="categoryChartData" :options="categoryChartOptions" />
+                    <div class="flex-grow min-h-[300px] relative">
+                        <Chart type="bar" :data="categoryChartData" :options="categoryChartOptions" class="h-full w-full" />
                     </div>
                 </div>
 
                 <!-- Top Performers -->
-                <div class="card shadow-md hover:shadow-lg transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">Top Performers</h3>
-                        <Button icon="pi pi-external-link" text rounded size="small" />
+                <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Top Performers</h3>
+                        <Button icon="pi pi-external-link" text rounded size="small" @click="navigateTo('/users/employees')" />
                     </div>
 
-                    <div class="space-y-3">
+                    <div class="space-y-0">
                         <div v-if="topPerformers.length === 0" class="text-center py-8 text-surface-600 dark:text-surface-400">
                             <i class="pi pi-inbox text-4xl mb-3"></i>
                             <p>No performance data available</p>
                         </div>
 
-                        <div v-for="(agent, index) in topPerformers" :key="agent.id" class="flex items-center gap-3 p-3 bg-surface-100 dark:bg-surface-800 rounded-lg hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors">
+                        <div v-for="(agent, index) in topPerformers" :key="agent.id" class="flex items-center gap-3 p-3 hover:bg-surface-50 dark:hover:bg-surface-800/50 rounded-lg transition-colors border-b border-surface-100 dark:border-surface-800 last:border-0 cursor-pointer" @click="navigateTo('/users/employees')">
                             <div class="relative flex-shrink-0">
-                                <img v-if="!imageErrorMap[`agent-${agent.id}`]" :src="agent.avatar" :alt="agent.name" class="w-12 h-12 rounded-full border-2 border-surface-200 dark:border-surface-700" @error="onImageError(`agent-${agent.id}`)" />
-                                <div v-else class="w-12 h-12 rounded-full border-2 border-surface-200 dark:border-surface-700 bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
-                                    <i class="pi pi-user text-surface-500 text-xl"></i>
+                                <img v-if="!imageErrorMap[`agent-${agent.id}`]" :src="agent.avatar" :alt="agent.name" class="w-10 h-10 rounded-full border border-surface-200 dark:border-surface-700" @error="onImageError(`agent-${agent.id}`)" />
+                                <div v-else class="w-10 h-10 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center border border-surface-200 dark:border-surface-700">
+                                    <i class="pi pi-user text-surface-500 text-lg"></i>
                                 </div>
-                                <div :class="['absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center text-white rounded-full font-bold text-xs shadow-md', index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : 'bg-amber-600']">
+                                <div :class="['absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-white rounded-full font-bold text-[10px] shadow-sm', index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : 'bg-amber-600']" v-if="index < 3">
                                     {{ index + 1 }}
                                 </div>
                             </div>
 
                             <div class="flex-1 min-w-0">
-                                <h4 class="font-semibold text-surface-900 dark:text-surface-0 truncate">{{ agent.name }}</h4>
-                                <p class="text-sm text-surface-600 dark:text-surface-400 truncate">{{ agent.department }}</p>
+                                <h4 class="font-medium text-surface-900 dark:text-surface-0 truncate text-sm">{{ agent.name }}</h4>
+                                <p class="text-xs text-surface-500 dark:text-surface-400 truncate">{{ agent.department }}</p>
                             </div>
 
                             <div class="text-right flex-shrink-0">
-                                <div class="text-xl font-bold text-primary">{{ agent.resolvedCount }}</div>
-                                <div class="text-xs text-surface-600 dark:text-surface-400">resolved</div>
+                                <div class="text-lg font-bold text-primary">{{ agent.resolvedCount }}</div>
+                                <div class="text-[10px] text-surface-500 dark:text-surface-400 uppercase tracking-wide">resolved</div>
                             </div>
                         </div>
                     </div>
@@ -887,39 +961,28 @@ function onImageError(id) {
             </div>
 
             <!-- Branch & Activity Row -->
-            <div class="grid grid-cols-1 lg:grid-cols-1 gap-6">
-                <!-- Branch Performance -->
-                <!-- <div class="card shadow-md hover:shadow-lg transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">Branch Performance</h3>
-                        <i class="pi pi-building text-xl text-primary"></i>
-                    </div>
-                    <div style="height: 320px">
-                        <Chart type="bar" :data="branchChartData" :options="branchChartOptions" />
-                    </div>
-                </div> -->
-
+            <div class="grid grid-cols-1 gap-6">
                 <!-- Recent Activity -->
-                <div class="card shadow-md hover:shadow-lg transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">Recent Activity</h3>
-                        <Button label="View All" icon="pi pi-arrow-right" iconPos="right" text size="small" />
+                <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Recent Activity</h3>
+                        <Button label="View All" icon="pi pi-arrow-right" iconPos="right" text size="small" @click="navigateTo('/tickets')" />
                     </div>
 
                     <div class="overflow-x-auto">
-                        <Timeline :value="recentActivity" :layout="timelineLayout" align="top">
+                        <Timeline :value="recentActivity" :layout="timelineLayout" align="top" :pt="{ marker: { class: 'border-0' }, connector: { class: 'bg-surface-200 dark:bg-surface-700' } }">
                             <template #marker="slotProps">
-                                <span class="flex w-12 h-12 items-center justify-center rounded-full bg-surface-100 dark:bg-surface-800 border-2 border-surface-300 dark:border-surface-600 shadow-md">
-                                    <i :class="[getActivityIcon(slotProps.item.type), getActivityIconColor(slotProps.item.type), 'text-xl']"></i>
+                                <span class="flex w-10 h-10 items-center justify-center rounded-full bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 z-10">
+                                    <i :class="[getActivityIcon(slotProps.item.type), getActivityIconColor(slotProps.item.type), 'text-lg']"></i>
                                 </span>
                             </template>
                             <template #content="slotProps">
-                                <div class="bg-surface-100 dark:bg-surface-800 p-4 rounded-lg shadow-sm max-w-xs">
-                                    <div class="font-semibold text-surface-900 dark:text-surface-0 mb-1">{{ slotProps.item.user }}</div>
+                                <div class="bg-surface-50 dark:bg-surface-800/50 p-4 rounded-lg border border-surface-100 dark:border-surface-800 max-w-sm hover:shadow-sm transition-shadow">
+                                    <div class="font-medium text-surface-900 dark:text-surface-0 text-sm mb-1">{{ slotProps.item.user }}</div>
                                     <div class="text-sm text-surface-600 dark:text-surface-400 mb-2">{{ slotProps.item.description }}</div>
                                     <div class="flex justify-between items-center">
                                         <span class="text-xs text-surface-500 dark:text-surface-500">{{ formatTime(slotProps.item.time) }}</span>
-                                        <Badge :value="slotProps.item.ticket" severity="info" size="small" />
+                                        <Badge v-if="slotProps.item.ticket" :value="slotProps.item.ticket" severity="secondary" size="small" class="font-mono text-[10px]" />
                                     </div>
                                 </div>
                             </template>
@@ -929,35 +992,35 @@ function onImageError(id) {
             </div>
 
             <!-- Current Tickets Table -->
-            <div class="card shadow-md hover:shadow-lg transition-shadow">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0">Active Tickets</h3>
-                    <Button label="View All Tickets" icon="pi pi-arrow-right" iconPos="right" size="small" />
+            <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Active Tickets</h3>
+                    <Button label="View All Tickets" icon="pi pi-arrow-right" iconPos="right" size="small" @click="navigateTo('/tickets')" />
                 </div>
 
-                <DataTable :value="ticketsData.tickets" stripedRows responsiveLayout="scroll">
+                <DataTable :value="ticketsData.tickets" stripedRows responsiveLayout="scroll" :pt="{ thead: { class: 'bg-surface-50 dark:bg-surface-800' } }">
                     <Column field="id" header="ID" style="min-width: 80px">
                         <template #body="slotProps">
-                            <span class="font-mono text-sm font-semibold">#{{ slotProps.data.id }}</span>
+                            <span class="font-mono text-sm font-medium text-surface-600 dark:text-surface-400">#{{ slotProps.data.id }}</span>
                         </template>
                     </Column>
 
-                    <Column field="title" header="Title" style="min-width: 200px">
+                    <Column field="title" header="Title" style="min-width: 250px">
                         <template #body="slotProps">
-                            <div class="font-semibold text-surface-900 dark:text-surface-0">{{ slotProps.data.title }}</div>
-                            <div class="text-xs text-surface-600 dark:text-surface-400 mt-1">{{ slotProps.data.categoryName }}</div>
+                            <div class="font-medium text-surface-900 dark:text-surface-0 text-sm hover:text-primary cursor-pointer transition-colors">{{ slotProps.data.title }}</div>
+                            <div class="text-xs text-surface-500 dark:text-surface-400 mt-0.5">{{ slotProps.data.categoryName }}</div>
                         </template>
                     </Column>
 
                     <Column field="status" header="Status" style="min-width: 120px">
                         <template #body="slotProps">
-                            <Badge :value="slotProps.data.status" :severity="getStatusBadgeSeverity(slotProps.data.status)" />
+                            <Badge :value="slotProps.data.status" :severity="getStatusBadgeSeverity(slotProps.data.status)" size="small" />
                         </template>
                     </Column>
 
                     <Column field="priority" header="Priority" style="min-width: 120px">
                         <template #body="slotProps">
-                            <Badge :value="slotProps.data.priority" :severity="getPriorityBadgeSeverity(slotProps.data.priority)" />
+                            <Badge :value="slotProps.data.priority" :severity="getPriorityBadgeSeverity(slotProps.data.priority)" size="small" />
                         </template>
                     </Column>
 
@@ -968,26 +1031,26 @@ function onImageError(id) {
                                     v-if="!imageErrorMap[`ticket-${slotProps.data.id}`]"
                                     :src="`https://avatar.iran.liara.run/public/50?name=${slotProps.data.assignedUserName}`"
                                     :alt="slotProps.data.assignedUserName"
-                                    class="w-8 h-8 rounded-full"
+                                    class="w-6 h-6 rounded-full border border-surface-200 dark:border-surface-700"
                                     @error="onImageError(`ticket-${slotProps.data.id}`)"
                                 />
-                                <div v-else class="w-8 h-8 rounded-full bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
-                                    <i class="pi pi-user text-surface-500 text-xs"></i>
+                                <div v-else class="w-6 h-6 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center border border-surface-200 dark:border-surface-700">
+                                    <i class="pi pi-user text-surface-500 text-[10px]"></i>
                                 </div>
-                                <span class="text-sm font-medium">{{ slotProps.data.assignedUserName }}</span>
+                                <span class="text-sm text-surface-700 dark:text-surface-300">{{ slotProps.data.assignedUserName }}</span>
                             </div>
                         </template>
                     </Column>
 
                     <Column field="createdAt" header="Created" style="min-width: 150px">
                         <template #body="slotProps">
-                            <span class="text-sm">{{ formatTime(new Date(slotProps.data.createdAt)) }}</span>
+                            <span class="text-sm text-surface-600 dark:text-surface-400">{{ formatTime(new Date(slotProps.data.createdAt)) }}</span>
                         </template>
                     </Column>
 
-                    <Column header="Actions" style="min-width: 100px">
+                    <Column header="Actions" style="min-width: 80px" bodyClass="text-right">
                         <template #body>
-                            <Button icon="pi pi-eye" text rounded size="small" severity="info" />
+                            <Button icon="pi pi-angle-right" text rounded size="small" severity="secondary" @click="navigateTo('/tickets')" />
                         </template>
                     </Column>
                 </DataTable>
@@ -997,178 +1060,13 @@ function onImageError(id) {
 </template>
 
 <style scoped>
-/* Custom styling for consistent design */
-.card {
-    @apply bg-surface-0 dark:bg-surface-900 rounded-xl p-6 border border-surface-200 dark:border-surface-700;
-}
+/* Scoped styles are minimized; using Utility classes in template primarily to avoid @apply lints. */
 
-/* Timeline customization */
-:deep(.p-timeline-event-marker) {
-    @apply border-0;
-}
-
-:deep(.p-timeline-event-connector) {
-    @apply bg-surface-300 dark:bg-surface-600;
-}
-
-/* Progress bar styling */
-:deep(.p-progressbar) {
-    @apply bg-surface-200 dark:bg-surface-700 rounded-full;
-}
-
-:deep(.p-progressbar-value) {
-    @apply rounded-full;
-}
-
-/* DataTable styling */
-:deep(.p-datatable .p-datatable-thead > tr > th) {
-    @apply bg-surface-100 dark:bg-surface-800 font-semibold;
-}
-
-:deep(.p-datatable .p-datatable-tbody > tr) {
-    @apply hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors;
-}
-
-/* Badge styling */
-:deep(.p-badge) {
-    @apply font-semibold px-3 py-1;
-}
-
-/* Chart responsiveness */
-:deep(.p-chart) {
-    @apply w-full h-full;
-}
-
-/* Button styling */
-:deep(.p-button) {
-    @apply font-semibold transition-all;
-}
-
-:deep(.p-button:hover) {
-    @apply shadow-md;
-}
-
-/* Dropdown styling */
-:deep(.p-dropdown) {
-    @apply border-surface-300 dark:border-surface-600;
-}
-
-:deep(.p-dropdown:hover) {
-    @apply border-primary;
-}
-
-/* Timeline horizontal layout adjustments */
-:deep(.p-timeline-horizontal .p-timeline-event) {
-    @apply flex-shrink-0;
-}
-
-:deep(.p-timeline-horizontal .p-timeline-event-content) {
-    @apply mt-4;
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar {
-    @apply w-2 h-2;
-}
-
-::-webkit-scrollbar-track {
-    @apply bg-surface-100 dark:bg-surface-800 rounded;
-}
-
-::-webkit-scrollbar-thumb {
-    @apply bg-surface-400 dark:bg-surface-600 rounded hover:bg-surface-500 dark:hover:bg-surface-500;
-}
-
-/* Gradient text effect */
-.gradient-text {
-    @apply bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent;
-}
-
-/* Card hover animations */
-.card {
-    @apply transition-all duration-300;
-}
-
-.card:hover {
-    @apply transform scale-[1.01];
-}
-
-/* Smooth transitions for theme switching */
-* {
-    @apply transition-colors duration-200;
-}
-
-/* Badge size variants */
-:deep(.p-badge-sm) {
-    @apply text-xs px-2 py-0.5;
-}
-
-/* Custom progress bar colors */
-:deep(.p-progressbar-value) {
-    @apply bg-gradient-to-r from-primary-400 to-primary-600;
-}
-
-/* Enhanced shadow utilities */
-.shadow-soft {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.dark .shadow-soft {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-/* Status badge custom colors */
-:deep(.p-badge.p-badge-info) {
-    @apply bg-blue-500 text-white;
-}
-
-:deep(.p-badge.p-badge-warning) {
-    @apply bg-orange-500 text-white;
-}
-
-:deep(.p-badge.p-badge-success) {
-    @apply bg-green-500 text-white;
-}
-
-:deep(.p-badge.p-badge-danger) {
-    @apply bg-red-500 text-white;
-}
-
-/* Chart container padding adjustments */
-:deep(.p-chart canvas) {
-    @apply max-h-full;
-}
-
-/* DataTable header alignment */
-:deep(.p-datatable-thead > tr > th) {
-    @apply text-left;
-}
-
-/* Loading spinner customization */
-:deep(.p-progress-spinner-circle) {
-    @apply stroke-primary;
-}
-
-/* Responsive text sizing */
-@media (max-width: 640px) {
-    .card {
-        @apply p-4;
-    }
-
-    h1 {
-        @apply text-2xl;
-    }
-
-    h3 {
-        @apply text-lg;
-    }
-}
-
-/* Animation for metric cards */
+/* Simple fade animation for cards */
 @keyframes fadeInUp {
     from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(10px);
     }
     to {
         opacity: 1;
@@ -1176,65 +1074,13 @@ function onImageError(id) {
     }
 }
 
-.card {
-    animation: fadeInUp 0.5s ease-out;
+.grid > div {
+    animation: fadeInUp 0.4s ease-out backwards;
 }
 
-/* Staggered animation for grid items */
-.grid > .card:nth-child(1) {
-    animation-delay: 0.1s;
-}
-.grid > .card:nth-child(2) {
-    animation-delay: 0.2s;
-}
-.grid > .card:nth-child(3) {
-    animation-delay: 0.3s;
-}
-.grid > .card:nth-child(4) {
-    animation-delay: 0.4s;
-}
-
-/* Custom focus styles */
-:deep(.p-dropdown:focus),
-:deep(.p-button:focus) {
-    @apply ring-2 ring-primary-400 ring-offset-2 dark:ring-offset-surface-900;
-}
-
-/* Tooltip styling if using PrimeVue tooltips */
-:deep(.p-tooltip .p-tooltip-text) {
-    @apply bg-surface-900 dark:bg-surface-100 text-surface-0 dark:text-surface-900 text-sm px-3 py-2 rounded-lg shadow-lg;
-}
-
-/* Timeline marker pulse effect */
-@keyframes pulse {
-    0%,
-    100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
-}
-
-:deep(.p-timeline-event-marker) {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Avatar border glow effect */
-.card img[alt] {
-    @apply transition-all duration-300;
-}
-
-.card:hover img[alt] {
-    @apply shadow-lg ring-2 ring-primary-400;
-}
-
-/* Empty state styling */
-.empty-state {
-    @apply flex flex-col items-center justify-center py-12 text-surface-500 dark:text-surface-400;
-}
-
-.empty-state i {
-    @apply text-6xl mb-4 opacity-50;
-}
+/* Staggered delays */
+.grid > div:nth-child(1) { animation-delay: 0.05s; }
+.grid > div:nth-child(2) { animation-delay: 0.1s; }
+.grid > div:nth-child(3) { animation-delay: 0.15s; }
+.grid > div:nth-child(4) { animation-delay: 0.2s; }
 </style>

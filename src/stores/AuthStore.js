@@ -131,6 +131,9 @@ export const useAuthStore = defineStore('auth', {
                     id: decodedToken.userId,
                     email: decodedToken.email || decodedToken.sub,
                     role: decodedToken.role,
+                    firstName: decodedToken.firstName || decodedToken.given_name,
+                    lastName: decodedToken.lastName || decodedToken.family_name,
+                    name: decodedToken.name,
                     changePassword: decodedToken['change password'] // Handle space in claim name
                     // Add other claims as needed
                 };

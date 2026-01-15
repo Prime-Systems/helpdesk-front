@@ -1,95 +1,61 @@
 import axios from '@/plugins/axios';
 
+/**
+ * Service for managing departments via the Department Module API
+ * Base Path: /api/v1/departments
+ */
 export const DepartmentService = {
+    /**
+     * Get all departments
+     * @returns {Promise<Array<DepartmentDto>>}
+     */
     async getDepartments() {
-        try {
-            console.log('Making request to get departments');
-            const response = await axios.get('/departments');
-
-            // Ensure consistent format
-            const departments = response.data.map((dept) => {
-                return {
-                    ...dept,
-                    teamMembers: dept.teamMembers || [],
-                    departmentManager: dept.departmentManager || { id: null }
-                };
-            });
-
-            return departments;
-        } catch (error) {
-            console.error('Error fetching departments:', error);
-            throw error;
-        }
+        const response = await axios.get('/departments');
+        // Ensure consistent format with defaults
+        return response.data.map((dept) => ({
+            ...dept,
+            teamMembers: dept.teamMembers || [],
+            departmentManager: dept.departmentManager || { id: null }
+        }));
     },
 
+    /**
+     * Get department by ID
+     * @param {number} id - Department ID
+     * @returns {Promise<DepartmentDto>}
+     */
     async getDepartmentById(id) {
-        try {
-            const response = await axios.get(`/departments/${id}`);
-            return response.data;
-        } catch (error) {
-            console.error(`Error fetching department ${id}:`, error);
-            throw error;
-        }
+        const response = await axios.get(`/departments/${id}`);
+        return response.data;
     },
 
+    /**
+     * Create a new department
+     * @param {Object} department - DepartmentDto
+     * @returns {Promise<DepartmentDto>}
+     */
     async createDepartment(department) {
-        try {
-            const response = await axios.post('/departments', department);
-            return response.data;
-        } catch (error) {
-            console.error('Error creating department:', error);
-            throw error;
-        }
+        const response = await axios.post('/departments', department);
+        return response.data;
     },
 
+    /**
+     * Update an existing department
+     * @param {number} id - Department ID
+     * @param {Object} department - DepartmentDto
+     * @returns {Promise<DepartmentDto>}
+     */
     async updateDepartment(id, department) {
-        try {
-            const response = await axios.put(`/departments/${id}`, department);
-            return response.data;
-        } catch (error) {
-            console.error(`Error updating department ${id}:`, error);
-            throw error;
-        }
+        const response = await axios.put(`/departments/${id}`, department);
+        return response.data;
     },
 
+    /**
+     * Delete a department
+     * @param {number} id - Department ID
+     */
     async deleteDepartment(id) {
-        try {
-            const response = await axios.delete(`/departments/${id}`);
-            return response.data;
-        } catch (error) {
-            console.error(`Error deleting department ${id}:`, error);
-            throw error;
-        }
-    },
-
-    // Additional helper methods if needed
-    async getDepartmentEmployees(departmentId) {
-        try {
-            const response = await axios.get(`/departments/${departmentId}/employees`);
-            return response.data;
-        } catch (error) {
-            console.error(`Error fetching employees for department ${departmentId}:`, error);
-            throw error;
-        }
-    },
-
-    async addEmployeeToDepartment(departmentId, employeeId) {
-        try {
-            const response = await axios.post(`/departments/${departmentId}/employees/${employeeId}`);
-            return response.data;
-        } catch (error) {
-            console.error(`Error adding employee ${employeeId} to department ${departmentId}:`, error);
-            throw error;
-        }
-    },
-
-    async removeEmployeeFromDepartment(departmentId, employeeId) {
-        try {
-            const response = await axios.delete(`/departments/${departmentId}/employees/${employeeId}`);
-            return response.data;
-        } catch (error) {
-            console.error(`Error removing employee ${employeeId} from department ${departmentId}:`, error);
-            throw error;
-        }
+        const response = await axios.delete(`/departments/${id}`);
+        return response.data;
     }
 };
