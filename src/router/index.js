@@ -113,12 +113,14 @@ const router = createRouter({
                 {
                     path: '/users/leave',
                     name: 'leave',
-                    component: () => import('@/views/pages/user_management/Leave.vue')
+                    component: () => import('@/views/pages/user_management/Leave.vue'),
+                    meta: { roles: ['ADMIN'] }
                 },
                 {
                     path: '/users/bulk-import',
                     name: 'bulk-import',
-                    component: () => import('@/views/pages/user_management/BulkImport.vue')
+                    component: () => import('@/views/pages/user_management/BulkImport.vue'),
+                    meta: { roles: ['ADMIN'] }
                 },
                 {
                     path: '/kb/faqs',
@@ -133,22 +135,26 @@ const router = createRouter({
                 {
                     path: '/performance/employees',
                     name: 'employeePerformance',
-                    component: () => import('@/views/pages/performance_reports/EmployeesPerformance.vue')
+                    component: () => import('@/views/pages/performance_reports/EmployeesPerformance.vue'),
+                    meta: { roles: ['ADMIN'] }
                 },
                 {
                     path: '/performance/documents',
                     name: 'documents',
-                    component: () => import('@/views/pages/performance_reports/Documents.vue')
+                    component: () => import('@/views/pages/performance_reports/Documents.vue'),
+                    meta: { roles: ['ADMIN'] }
                 },
                 {
                     path: '/settings/automation',
                     name: 'automation',
-                    component: () => import('@/views/pages/settings/Automation.vue')
+                    component: () => import('@/views/pages/settings/Automation.vue'),
+                    meta: { roles: ['ADMIN'] }
                 },
                 {
                     path: '/settings/categories',
                     name: 'categories',
-                    component: () => import('@/views/pages/settings/Categories.vue')
+                    component: () => import('@/views/pages/settings/Categories.vue'),
+                    meta: { roles: ['ADMIN'] }
                 },
                 {
                     path: '/leaderboard',
@@ -247,8 +253,17 @@ router.beforeEach(async (to, from, next) => {
         // Force redirect to change password for all other routes
         console.log('User must change password, redirecting...');
         return next({ name: 'changePassword' });
+        return next({ name: 'changePassword' });
     }
     // =================================================
+
+    // Check for Role-Based Access
+    if (to.meta.roles && authStore.user) {
+        if (!to.meta.roles.includes(authStore.user.role)) {
+            console.warn('Access denied. User role:', authStore.user.role, 'Required:', to.meta.roles);
+             return next({ name: 'accessDenied' });
+        }
+    }
 
     // Check if route requires authentication
     if (requiresAuth) {

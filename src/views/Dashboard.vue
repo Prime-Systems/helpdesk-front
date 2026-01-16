@@ -6,11 +6,15 @@ import { DashboardService } from '@/service/DashboardService';
 import { DepartmentService } from '@/service/DepartmentService';
 import { EmployeeService } from '@/service/EmployeeService';
 import { TicketService } from '@/service/TicketService';
+import { useAuthStore } from '@/stores/AuthStore';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const { getPrimary, getSurface, isDarkTheme } = useLayout();
+
+const authStore = useAuthStore();
+const dashboardScope = ref('mine'); // Default to 'mine' for safety, will update on mount
 
 const loading = ref(true);
 const timeRangeFilter = ref('week');
@@ -27,6 +31,56 @@ const categoriesData = ref([]);
 const departmentsData = ref([]);
 const employeesData = ref([]);
 const branchesData = ref([]);
+
+// Scope Options
+const scopeOptions = computed(() => {
+    const role = authStore.user?.role;
+    const options = [{ label: 'My Data', value: 'mine' }];
+    
+    if (role === 'DEPARTMENT_HEAD' || role === 'ADMIN') {
+        options.push({ label: 'My Department', value: 'department' });
+    }
+    
+    if (role === 'ADMIN') {
+        options.push({ label: 'All Data', value: 'all' });
+    }
+    
+    return options;
+});
+
+// Watch for auth initialization to set initial scope
+watch(() => authStore.initialized, (init) => {
+    if (init && authStore.user) {
+        if (authStore.user.role === 'ADMIN') {
+            dashboardScope.value = 'all';
+        } else if (authStore.user.role === 'DEPARTMENT_HEAD') {
+            dashboardScope.value = 'department';
+        } else {
+            dashboardScope.value = 'mine';
+        }
+        fetchDashboardData();
+    }
+}, { immediate: true });
+
+// Upcoming Deadlines
+const upcomingDeadlines = computed(() => {
+    const tickets = ticketsData.value.tickets || [];
+    const now = new Date();
+    const threeDaysFromNow = new Date();
+    threeDaysFromNow.setDate(now.getDate() + 3);
+    
+    return tickets
+        .filter(t => {
+            if (t.status === 'RESOLVED' || t.status === 'CLOSED') return false;
+            if (!t.dueDate) return false;
+            const dueDate = new Date(t.dueDate);
+            // Show tickets due in the next 3 days or already overdue
+            return dueDate <= threeDaysFromNow; 
+        })
+        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+        .slice(0, 5); // Show top 5
+});
+
 
 // Dashboard stats from API
 const dashboardStats = ref(null);
@@ -264,12 +318,18 @@ onMounted(() => {
 async function fetchDashboardData() {
     loading.value = true;
     try {
+        const params = {
+            period: timeRangeFilter.value, 
+            comparison: comparisonPeriod.value,
+            scope: dashboardScope.value
+        };
+
         // Fetch dashboard stats from API alongside raw data
         const [statsRes, topPerformersRes, activityRes, ticketsRes, categoriesRes, departmentsRes, employeesRes, branchesRes] = await Promise.allSettled([
-            DashboardService.getStats({ period: timeRangeFilter.value, comparison: comparisonPeriod.value }),
-            DashboardService.getTopPerformers({ limit: 5, period: timeRangeFilter.value }),
-            DashboardService.getActivity({ limit: 10 }),
-            TicketService.getTickets(),
+            DashboardService.getStats(params),
+            DashboardService.getTopPerformers({ limit: 5, period: timeRangeFilter.value, scope: dashboardScope.value }),
+            DashboardService.getActivity({ limit: 10, scope: dashboardScope.value }),
+            TicketService.getTickets(1, 100), // Fetch more tickets for client-side filtering if needed, or update TicketService to accept scope
             CategoryService.getCategories(),
             DepartmentService.getDepartments(),
             EmployeeService.getEmployees(),
@@ -672,7 +732,8 @@ watch([getPrimary, getSurface, isDarkTheme], () => {
 });
 
 // Update data when time range changes
-watch(timeRangeFilter, () => {
+// Update data when time range changes
+watch([timeRangeFilter, dashboardScope], () => {
     fetchDashboardData();
 });
 
@@ -699,10 +760,43 @@ function navigateTo(path) {
             </div>
 
             <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                <Dropdown v-if="scopeOptions.length > 1" v-model="dashboardScope" :options="scopeOptions" optionLabel="label" optionValue="value" placeholder="View Scope" class="w-full sm:w-48" />
+
                 <Dropdown v-model="timeRangeFilter" :options="timeRangeOptions" optionLabel="label" optionValue="value" placeholder="Select Time Range" class="w-full sm:w-48" />
 
                 <Dropdown v-model="comparisonPeriod" :options="comparisonOptions" optionLabel="label" optionValue="value" placeholder="Comparison" class="w-full sm:w-48" />
             </div>
+        </div>
+
+        <!-- Upcoming Deadlines (Conditional) -->
+        <div v-if="upcomingDeadlines.length > 0" class="mb-6">
+             <div class="card border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10 p-5 rounded-xl">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="p-2 bg-red-100 dark:bg-red-800/30 rounded-lg">
+                        <i class="pi pi-clock text-red-600 dark:text-red-400 text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-surface-900 dark:text-surface-0">Upcoming Deadlines</h3>
+                        <p class="text-sm text-surface-600 dark:text-surface-400">Tickets due soon or overdue</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                    <div v-for="ticket in upcomingDeadlines" :key="ticket.id" @click="navigateTo(`/tickets?id=${ticket.id}`)" class="bg-surface-0 dark:bg-surface-900 p-4 rounded-lg shadow-sm border border-surface-200 dark:border-surface-700 cursor-pointer hover:shadow-md transition-shadow relative overflow-hidden">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xs font-bold text-surface-500">#{{ ticket.id }}</span>
+                            <span :class="['text-[10px] px-2 py-0.5 rounded-full font-bold uppercase', getPriorityBadgeSeverity(ticket.priority) === 'danger' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600']">
+                                {{ ticket.priority }}
+                            </span>
+                        </div>
+                        <h4 class="font-medium text-surface-900 dark:text-surface-0 mb-1 truncate">{{ ticket.title }}</h4>
+                        <div class="flex items-center gap-2 mt-3">
+                            <i class="pi pi-calendar-times text-red-500 text-xs"></i>
+                            <span class="text-xs text-red-600 dark:text-red-400 font-medium">Due: {{ new Date(ticket.dueDate).toLocaleDateString() }}</span>
+                        </div>
+                    </div>
+                </div>
+             </div>
         </div>
 
         <!-- Loading Indicator -->

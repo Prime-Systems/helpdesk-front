@@ -14,6 +14,8 @@ const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 
+const isAdmin = computed(() => authStore.user?.role === 'ADMIN');
+
 onBeforeMount(() => {
     TicketService.getTickets().then((data) => {
         // Handle the new API response structure
@@ -220,10 +222,14 @@ function initFilters() {
 }
 
 // Fixed: Handle single file upload
+const selectedFile = ref(null);
 const onUpload = (event) => {
-    if (event.files && event.files.length > 0) {
-        // For now, just store the file name or URL
-        ticket.value.attachmentUrl = event.files[0].name;
+    // PrimeVue FileUpload custom upload handler
+    // If mode="basic", event.files is available
+    const file = event.files[0];
+    if (file) {
+        selectedFile.value = file;
+        ticket.value.attachmentUrl = file.name; // Display name for now
         toast.add({ severity: 'info', summary: 'Success', detail: 'File selected', life: 3000 });
     }
 };
@@ -333,8 +339,8 @@ async function saveTicket() {
             const index = findIndexById(ticket.value.id);
             if (index !== -1) {
                 try {
-                    // Call the API (passing the resolved categoryId)
-                    const response = await TicketService.updateTicket(ticket.value.id, ticket.value);
+                    // Call the API (passing the resolved categoryId and file)
+                    const response = await TicketService.updateTicket(ticket.value.id, ticket.value, selectedFile.value);
 
                     if (response) {
                         tickets.value.splice(index, 1, { ...response }); // Use response data to ensure UI is in sync
@@ -350,7 +356,7 @@ async function saveTicket() {
             ticket.value.createdById = userId.value;
 
             try {
-                const response = await TicketService.createTicket(ticket.value);
+                const response = await TicketService.createTicket(ticket.value, selectedFile.value);
                 if (response) {
                     tickets.value.unshift({ ...response });
                     toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Created', life: 3000 });
@@ -380,6 +386,7 @@ function resetTicketForm() {
         status: 'OPEN'
     };
     selectedAssignee.value = null;
+    selectedFile.value = null;
     submitted.value = false;
 }
 
@@ -809,7 +816,14 @@ function saveDueDate() {
     if (selectedDueDate.value) {
         ticket.value.dueDate = selectedDueDate.value.toISOString();
         // Call API to update ticket due date
-        // TicketService.updateTicketDueDate(ticket.value.id, ticket.value.dueDate);
+        TicketService.updateDueDate(ticket.value.id, ticket.value.dueDate)
+            .then(() => {
+                 toast.add({ severity: 'success', summary: 'Successful', detail: 'Due Date Updated', life: 3000 });
+            })
+            .catch(err => {
+                 console.error('Failed to update due date', err);
+                 toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update due date', life: 3000 });
+            });
     }
     editingDueDate.value = false;
 }
@@ -1132,11 +1146,11 @@ const confirmEscalateTicket = async () => {
                     <small class="text-gray-500">Separate tags with commas</small>
                 </div>
 
-                <!-- <div>
-                    <label for="attachmentUrl" class="block font-bold mb-3">Attachment URL</label>
-                    <InputText id="attachmentUrl" v-model="ticket.attachmentUrl" class="w-full" placeholder="Enter attachment URL" />
-                    <small class="text-gray-500">Paste a URL to the attachment file</small>
-                </div> -->
+                <div>
+                    <label class="block font-bold mb-3">Attachment</label>
+                    <FileUpload mode="basic" name="attachment" accept="image/*" :maxFileSize="1000000" @select="onUpload" :auto="false" chooseLabel="Browse" />
+                    <small class="text-gray-500 block mt-1" v-if="ticket.attachmentUrl">Selected: {{ ticket.attachmentUrl }}</small>
+                </div>
             </div>
 
             <template #footer>
@@ -1302,7 +1316,7 @@ const confirmEscalateTicket = async () => {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <button class="text-gray-400 hover:text-gray-600 focus:outline-none ml-2" @click="editAssignee" title="Reassign">
+                                                        <button v-if="isAdmin" class="text-gray-400 hover:text-gray-600 focus:outline-none ml-2" @click="editAssignee" title="Reassign">
                                                             <i class="pi pi-user-edit text-sm"></i>
                                                         </button>
                                                     </template>
@@ -1322,7 +1336,7 @@ const confirmEscalateTicket = async () => {
                                                         <span :class="{ 'text-red-500': isPastDue(ticket.dueDate) }">
                                                             {{ formatDate(ticket.dueDate) }}
                                                         </span>
-                                                        <button class="text-gray-400 hover:text-gray-600 focus:outline-none ml-2" @click="editDueDate" title="Change due date">
+                                                        <button v-if="isAdmin" class="text-gray-400 hover:text-gray-600 focus:outline-none ml-2" @click="editDueDate" title="Change due date">
                                                             <i class="pi pi-pencil text-sm"></i>
                                                         </button>
                                                     </template>

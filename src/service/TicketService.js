@@ -143,6 +143,13 @@ export const TicketService = {
         return response.data;
     },
 
+    async updateDueDate(ticketId, dueDate) {
+        const response = await axios.patch(`/tickets/${ticketId}/due-date`, null, {
+            params: { dueDate }
+        });
+        return response.data;
+    },
+
     // Customer Ticket Methods
     async createCustomerTicket(ticketData, file) {
         const formData = new FormData();

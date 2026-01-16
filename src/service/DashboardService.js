@@ -16,7 +16,8 @@ export const DashboardService = {
         const response = await axios.get('/dashboard/stats', {
             params: {
                 period: params.period || 'week',
-                comparison: params.comparison || 'previous_period'
+                comparison: params.comparison || 'previous_period',
+                ...params
             }
         });
         return response.data;
@@ -48,7 +49,8 @@ export const DashboardService = {
         const response = await axios.get('/dashboard/top-performers', {
             params: {
                 limit: params.limit || 5,
-                period: params.period || 'month'
+                period: params.period || 'month',
+                ...params
             }
         });
         return response.data;
@@ -63,7 +65,8 @@ export const DashboardService = {
     async getActivity(params = {}) {
         const response = await axios.get('/dashboard/activity', {
             params: {
-                limit: params.limit || 10
+                limit: params.limit || 10,
+                ...params
             }
         });
         return response.data;

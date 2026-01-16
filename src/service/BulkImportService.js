@@ -59,7 +59,7 @@ export const BulkImportService = {
     async getImportHistory(params = {}) {
         const response = await axios.get('/users/bulk/imports', {
             params: {
-                page: params.page || 0,
+                page: (params.page || 0) + 1,
                 size: params.size || 10
             }
         });
