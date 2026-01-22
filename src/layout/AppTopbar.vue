@@ -46,14 +46,14 @@ const loadTickets = async () => {
 
 const hasDeadline = (day) => {
     const d = new Date(day.year, day.month, day.day);
-    return tickets.value.some(t => t.dueDate && isSameDay(new Date(t.dueDate), d));
+    return tickets.value.some((t) => t.dueDate && isSameDay(new Date(t.dueDate), d));
 };
 
 const onDateSelect = (selectedDate) => {
     // Find tickets for this date
-    const dayTickets = tickets.value.filter(t => t.dueDate && isSameDay(new Date(t.dueDate), selectedDate));
+    const dayTickets = tickets.value.filter((t) => t.dueDate && isSameDay(new Date(t.dueDate), selectedDate));
     if (dayTickets.length > 0) {
-        // If there are tickets, go to tickets page. 
+        // If there are tickets, go to tickets page.
         // Ideally pass a filter, but for now just go there.
         // Or if single ticket, go to it? User said "takes me to that ticket".
         // If multiple, maybe just go to tickets page. A query param would be nice but Tickets page might not support it yet.
@@ -61,7 +61,6 @@ const onDateSelect = (selectedDate) => {
         op.value.hide();
     }
 };
-
 </script>
 
 <template>
@@ -113,7 +112,7 @@ const onDateSelect = (selectedDate) => {
 
             <div class="layout-topbar-menu hidden lg:block">
                 <div class="layout-topbar-menu-content">
-                    <button type="button" class="layout-topbar-action" @click="toggleCalendar">
+                    <button type="button" class="layout-topbar-action" @click="toggleCalendar($event)">
                         <i class="pi pi-calendar"></i>
                         <span>Calendar</span>
                     </button>
@@ -133,21 +132,22 @@ const onDateSelect = (selectedDate) => {
                 <span class="hidden lg:inline">Logout</span>
             </button>
         </div>
-        
-        <Popover ref="op">
-            <div class="w-80">
+
+        <Popover ref="op" appendTo="body">
+            <div class="w-80 p-2">
+                <div class="mb-2 text-sm font-semibold text-surface-700 dark:text-surface-200">Ticket Deadlines</div>
                 <DatePicker v-model="date" inline class="w-full border-none" @update:modelValue="onDateSelect">
                     <template #date="slotProps">
-                        <strong 
-                            v-if="hasDeadline(slotProps.date)" 
-                            class="text-red-500 text-lg font-bold"
-                            style="text-decoration: underline decoration-red-500"
-                        >
+                        <strong v-if="hasDeadline(slotProps.date)" class="text-red-500 text-lg font-bold" style="text-decoration: underline decoration-red-500">
                             {{ slotProps.date.day }}
                         </strong>
                         <template v-else>{{ slotProps.date.day }}</template>
                     </template>
                 </DatePicker>
+                <div class="mt-2 text-xs text-surface-500 dark:text-surface-400 text-center">
+                    <i class="pi pi-info-circle mr-1"></i>
+                    Red dates have ticket deadlines
+                </div>
             </div>
         </Popover>
     </div>
