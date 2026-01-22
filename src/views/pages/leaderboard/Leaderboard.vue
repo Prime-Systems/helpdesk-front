@@ -2,773 +2,431 @@
 import { DepartmentService } from '@/service/DepartmentService';
 import { LeaderboardService } from '@/service/LeaderboardService';
 import { useToast } from 'primevue/usetoast';
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 const toast = useToast();
 const loading = ref(true);
-const activeTab = ref(0);
 const timeRangeFilter = ref('month');
 const departmentFilter = ref(null);
 const selectedAgent = ref(null);
 const showAgentDetailsDialog = ref(false);
+const selectedMetric = ref('volume'); // Default to ticket volume
+const imageErrors = ref({}); // Track failed images
+
+// Handle image load errors
+const onImageError = (agentId) => {
+    imageErrors.value[agentId] = true;
+};
 
 // Time range options
 const timeRanges = [
     { label: 'This Week', value: 'week' },
     { label: 'This Month', value: 'month' },
     { label: 'This Quarter', value: 'quarter' },
-    { label: 'This Year', value: 'year' },
     { label: 'All Time', value: 'all' }
 ];
 
-// Department options - loaded from API
+// Department options
 const departments = ref([{ name: 'All Departments', code: null }]);
 
 // Agent data from API
 const agents = ref([]);
 
-// Metrics for different tabs
-const metrics = reactive({
-    resolution: {
-        title: 'Resolution Time',
-        description: 'Average time to resolve tickets',
-        icon: 'pi pi-clock',
-        unit: 'hours',
-        apiKey: 'resolution_time',
-        formatter: (value) => formatTime(value),
-        sortOrder: 1, // 1 = ascending (faster is better), -1 = descending (higher is better)
-        color: 'bg-blue-500'
-    },
-    satisfaction: {
-        title: 'Customer Satisfaction',
-        description: 'Average CSAT score (1-5)',
-        icon: 'pi pi-star',
-        unit: 'stars',
-        apiKey: 'satisfaction',
-        formatter: (value) => value.toFixed(1),
-        sortOrder: -1,
-        color: 'bg-yellow-500'
-    },
-    volume: {
-        title: 'Ticket Volume',
-        description: 'Number of tickets resolved',
-        icon: 'pi pi-ticket',
-        unit: 'tickets',
-        apiKey: 'volume',
-        formatter: (value) => value.toString(),
-        sortOrder: -1,
-        color: 'bg-green-500'
-    },
-    firstResponse: {
-        title: 'First Response Time',
-        description: 'Average time to first response',
-        icon: 'pi pi-reply',
-        unit: 'minutes',
-        apiKey: 'first_response',
-        formatter: (value) => formatTime(value, true),
-        sortOrder: 1,
-        color: 'bg-purple-500'
-    }
-});
+// Metric options for quick selection
+const metricOptions = [
+    { key: 'volume', label: 'Tickets Resolved', icon: 'pi-ticket', color: 'bg-green-500' },
+    { key: 'satisfaction', label: 'Satisfaction', icon: 'pi-star-fill', color: 'bg-yellow-500' },
+    { key: 'resolution', label: 'Resolution Time', icon: 'pi-clock', color: 'bg-blue-500' },
+    { key: 'firstResponse', label: 'Response Time', icon: 'pi-reply', color: 'bg-purple-500' }
+];
 
-// Active metric based on current tab
-const activeMetric = computed(() => {
-    switch (activeTab.value) {
-        case 0:
-            return metrics.resolution;
-        case 1:
-            return metrics.satisfaction;
-        case 2:
-            return metrics.volume;
-        case 3:
-            return metrics.firstResponse;
-        default:
-            return metrics.resolution;
-    }
-});
-
-// Filtered agents based on department filter
-const filteredAgents = computed(() => {
-    if (!departmentFilter.value) {
-        return agents.value;
-    }
-    return agents.value.filter((agent) => agent.department.code === departmentFilter.value);
-});
-
-// Sorted agents based on active metric
+// Sorted agents based on selected metric
 const sortedAgents = computed(() => {
-    const sortFactor = activeMetric.value.sortOrder;
-    return [...filteredAgents.value].sort((a, b) => {
-        const metricKey = Object.keys(metrics).find((key) => metrics[key] === activeMetric.value);
-        return sortFactor * (a.metrics[metricKey] - b.metrics[metricKey]);
+    const metric = selectedMetric.value;
+    // For time-based metrics, lower is better; for volume/satisfaction, higher is better
+    const ascending = metric === 'resolution' || metric === 'firstResponse';
+
+    return [...agents.value].sort((a, b) => {
+        const aVal = a.metrics[metric] || 0;
+        const bVal = b.metrics[metric] || 0;
+        return ascending ? aVal - bVal : bVal - aVal;
     });
 });
 
-// Top agents (top 3)
-const topAgents = computed(() => {
-    return sortedAgents.value.slice(0, 3);
-});
+// Top 3 agents for podium
+const topAgents = computed(() => sortedAgents.value.slice(0, 3));
 
-// Generate color class based on ranking
-const getRankingColor = (index) => {
-    switch (index) {
-        case 0:
-            return 'bg-yellow-500'; // Gold
-        case 1:
-            return 'bg-gray-400'; // Silver
-        case 2:
-            return 'bg-amber-600'; // Bronze
-        default:
-            return 'bg-gray-200';
-    }
-};
+// Remaining agents for table (after top 3)
+const remainingAgents = computed(() => sortedAgents.value.slice(3));
 
-// Generate ranking data for charts
-const rankingData = computed(() => {
-    const metricKey = Object.keys(metrics).find((key) => metrics[key] === activeMetric.value);
-    const labels = sortedAgents.value.slice(0, 10).map((agent) => agent.name);
-    const data = sortedAgents.value.slice(0, 10).map((agent) => agent.metrics[metricKey]);
-
-    const backgroundColors = sortedAgents.value.slice(0, 10).map((_, index) => {
-        switch (index) {
-            case 0:
-                return '#F59E0B'; // Gold
-            case 1:
-                return '#9CA3AF'; // Silver
-            case 2:
-                return '#B45309'; // Bronze
-            default:
-                return '#60A5FA'; // Blue for others
-        }
-    });
-
-    return {
-        labels,
-        datasets: [
-            {
-                label: activeMetric.value.title,
-                data,
-                backgroundColor: backgroundColors
-            }
-        ]
-    };
-});
-
-// Bar chart options
-const barChartOptions = computed(() => {
-    return {
-        indexAxis: 'y',
-        plugins: {
-            legend: {
-                display: false
-            },
-            tooltip: {
-                callbacks: {
-                    label: function (context) {
-                        return `${context.raw} ${activeMetric.value.unit}`;
-                    }
-                }
-            }
-        },
-        scales: {
-            x: {
-                title: {
-                    display: true,
-                    text: activeMetric.value.unit
-                }
-            }
-        },
-        maintainAspectRatio: false
-    };
-});
-
-// Format time value (hours or minutes)
+// Format time value
 const formatTime = (value, isMinutes = false) => {
+    if (!value || isNaN(value)) return '-';
     if (isMinutes) {
-        if (value < 60) {
-            return `${value.toFixed(0)} min`;
-        } else {
-            const hours = Math.floor(value / 60);
-            const minutes = Math.round(value % 60);
-            return `${hours}h ${minutes}m`;
-        }
+        if (value < 60) return `${Math.round(value)}m`;
+        return `${Math.floor(value / 60)}h ${Math.round(value % 60)}m`;
     } else {
-        if (value < 1) {
-            const minutes = Math.round(value * 60);
-            return `${minutes} min`;
-        } else if (value < 24) {
-            const hours = Math.floor(value);
-            const minutes = Math.round((value - hours) * 60);
-            return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-        } else {
-            const days = Math.floor(value / 24);
-            const hours = Math.round(value % 24);
-            return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
-        }
+        if (value < 1) return `${Math.round(value * 60)}m`;
+        if (value < 24) return `${Math.floor(value)}h ${Math.round((value % 1) * 60)}m`;
+        return `${Math.floor(value / 24)}d`;
     }
 };
 
-// Get the trend icon and color based on change value
-const getTrendInfo = (change) => {
-    if (change > 0) {
-        return { icon: 'pi pi-arrow-up', color: 'text-green-500' };
-    } else if (change < 0) {
-        return { icon: 'pi pi-arrow-down', color: 'text-red-500' };
-    } else {
-        return { icon: 'pi pi-minus', color: 'text-gray-500' };
+// Format metric value based on type
+const formatMetric = (agent, metricKey) => {
+    const value = agent.metrics[metricKey];
+    if (value === undefined || value === null) return '-';
+
+    switch (metricKey) {
+        case 'volume':
+            return value.toString();
+        case 'satisfaction':
+            return value.toFixed(1);
+        case 'resolution':
+            return formatTime(value);
+        case 'firstResponse':
+            return formatTime(value, true);
+        default:
+            return value;
     }
 };
 
-// Generate random agent data (fallback for when API is not available)
-const generateAgentData = () => {
-    const departmentOptions = departments.value.filter((d) => d.code !== null);
-    const names = [
-        'Sarah Johnson',
-        'Michael Brown',
-        'Emily Davis',
-        'David Wilson',
-        'Jessica Taylor',
-        'Daniel Martinez',
-        'Lauren Anderson',
-        'James Thompson',
-        'Sophia Clark',
-        'Matthew Rodriguez',
-        'Olivia White',
-        'Ethan Lewis',
-        'Emma Hall',
-        'Andrew Young',
-        'Abigail King',
-        'Benjamin Wright',
-        'Ava Scott',
-        'Christopher Green',
-        'Mia Baker',
-        'Joshua Hill'
-    ];
+// Get primary metric value for display
+const getPrimaryMetric = (agent) => formatMetric(agent, selectedMetric.value);
 
-    return names.map((name, index) => {
-        const dept = departmentOptions.length > 0 
-            ? departmentOptions[Math.floor(Math.random() * departmentOptions.length)]
-            : { name: 'General', code: 'general' };
-
-        // Calculate metrics with some variability
-        const baseResolution = 2 + Math.random() * 6; // 2-8 hours
-        const baseSatisfaction = 3.5 + Math.random() * 1.5; // 3.5-5.0 stars
-        const baseVolume = 20 + Math.floor(Math.random() * 80); // 20-100 tickets
-        const baseFirstResponse = 10 + Math.floor(Math.random() * 50); // 10-60 minutes
-
-        // Previous period metrics (with slight variation)
-        const prevResolution = baseResolution * (0.8 + Math.random() * 0.4); // 80-120% of current
-        const prevSatisfaction = baseSatisfaction * (0.8 + Math.random() * 0.4);
-        const prevVolume = baseVolume * (0.8 + Math.random() * 0.4);
-        const prevFirstResponse = baseFirstResponse * (0.8 + Math.random() * 0.4);
-
-        // Calculate percentage changes
-        const resolutionChange = ((prevResolution - baseResolution) / prevResolution) * 100;
-        const satisfactionChange = ((baseSatisfaction - prevSatisfaction) / prevSatisfaction) * 100;
-        const volumeChange = ((baseVolume - prevVolume) / prevVolume) * 100;
-        const firstResponseChange = ((prevFirstResponse - baseFirstResponse) / prevFirstResponse) * 100;
-
-        return {
-            id: index + 1,
-            name,
-            avatar: `https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(name)}`,
-            department: dept,
-            metrics: {
-                resolution: baseResolution,
-                satisfaction: baseSatisfaction,
-                volume: baseVolume,
-                firstResponse: baseFirstResponse
-            },
-            changes: {
-                resolution: resolutionChange,
-                satisfaction: satisfactionChange,
-                volume: volumeChange,
-                firstResponse: firstResponseChange
-            },
-            details: {
-                ticketsAssigned: baseVolume + Math.floor(Math.random() * 20),
-                reopenRate: Math.random() * 10,
-                escalationRate: Math.random() * 15,
-                responsesByHour: Array.from({ length: 24 }, () => Math.floor(Math.random() * 10)),
-                categoriesHandled: [
-                    { name: 'Account Access', count: Math.floor(Math.random() * 30) },
-                    { name: 'Billing Issues', count: Math.floor(Math.random() * 30) },
-                    { name: 'Technical Support', count: Math.floor(Math.random() * 30) },
-                    { name: 'Product Questions', count: Math.floor(Math.random() * 30) },
-                    { name: 'Feature Requests', count: Math.floor(Math.random() * 30) }
-                ].sort((a, b) => b.count - a.count)
-            }
-        };
-    });
+// Get medal color for podium
+const getMedalColor = (position) => {
+    switch (position) {
+        case 1:
+            return 'from-yellow-400 to-yellow-600'; // Gold
+        case 2:
+            return 'from-gray-300 to-gray-500'; // Silver
+        case 3:
+            return 'from-amber-600 to-amber-800'; // Bronze
+        default:
+            return 'from-gray-200 to-gray-400';
+    }
 };
 
-// Transform API response to component data format
+const getMedalBg = (position) => {
+    switch (position) {
+        case 1:
+            return 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800';
+        case 2:
+            return 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700';
+        case 3:
+            return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800';
+        default:
+            return 'bg-surface-50 dark:bg-surface-800';
+    }
+};
+
+// Transform API response
 const transformApiData = (apiData) => {
-    return apiData.rankings.map((agent, index) => ({
+    return apiData.rankings.map((agent) => ({
         id: agent.userId,
         name: agent.name,
         avatar: agent.profilePictureUrl || `https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(agent.name)}`,
-        department: { name: agent.department, code: agent.department?.toLowerCase().replace(/\s+/g, '_') },
+        department: agent.department || 'General',
         metrics: {
-            resolution: agent.metrics.resolutionTime,
-            satisfaction: agent.metrics.customerSatisfaction,
-            volume: agent.metrics.ticketVolume,
-            firstResponse: agent.metrics.firstResponseTime
-        },
-        changes: {
-            resolution: agent.change || 0,
-            satisfaction: agent.change || 0,
-            volume: agent.change || 0,
-            firstResponse: agent.change || 0
-        },
-        details: {
-            ticketsAssigned: agent.metrics.ticketVolume + 10,
-            reopenRate: 5,
-            escalationRate: 8,
-            responsesByHour: Array.from({ length: 24 }, () => Math.floor(Math.random() * 10)),
-            categoriesHandled: []
+            resolution: agent.metrics?.resolutionTime || 0,
+            satisfaction: agent.metrics?.customerSatisfaction || 0,
+            volume: agent.metrics?.ticketVolume || 0,
+            firstResponse: agent.metrics?.firstResponseTime || 0
         }
     }));
 };
 
-// Fetch leaderboard data from API
+// Fetch leaderboard data
 const fetchLeaderboardData = async () => {
     loading.value = true;
     try {
         const response = await LeaderboardService.getLeaderboard({
-            metric: activeMetric.value.apiKey,
+            metric: selectedMetric.value,
             period: timeRangeFilter.value,
             departmentId: departmentFilter.value,
             limit: 50
         });
-        
-        // Handle response gracefully
+
         if (response && response.rankings) {
             agents.value = transformApiData(response);
         } else {
-             agents.value = [];
+            agents.value = [];
         }
-
     } catch (error) {
         console.error('Leaderboard API failed:', error.message);
-        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load leaderboard data', life: 3000 });
+        toast.add({ severity: 'warn', summary: 'Note', detail: 'Could not load leaderboard data', life: 3000 });
         agents.value = [];
     } finally {
         loading.value = false;
     }
 };
 
-// Fetch departments from API
+// Fetch departments
 const fetchDepartments = async () => {
     try {
         const deptData = await DepartmentService.getDepartments();
-        departments.value = [
-            { name: 'All Departments', code: null },
-            ...deptData.map(d => ({ name: d.name, code: d.id }))
-        ];
+        departments.value = [{ name: 'All Departments', code: null }, ...deptData.map((d) => ({ name: d.name, code: d.id }))];
     } catch (error) {
-        console.warn('Using default departments:', error.message);
-        // Keep default departments
+        console.warn('Using default departments');
     }
 };
 
-// Load data
+// Show agent details
+const showAgentDetails = (agent) => {
+    selectedAgent.value = agent;
+    showAgentDetailsDialog.value = true;
+};
+
 onMounted(async () => {
     await fetchDepartments();
     await fetchLeaderboardData();
 });
 
-// Watch for filter changes
-watch([timeRangeFilter, departmentFilter, activeTab], () => {
+watch([timeRangeFilter, departmentFilter, selectedMetric], () => {
     fetchLeaderboardData();
 });
-
-// Show agent details
-const showAgentDetails = async (agent) => {
-    selectedAgent.value = agent;
-    showAgentDetailsDialog.value = true;
-    
-    // Try to fetch detailed data from API
-    try {
-        const detailedData = await LeaderboardService.getAgentPerformance(agent.id, timeRangeFilter.value);
-        // Merge detailed data with existing agent data
-        selectedAgent.value = {
-            ...agent,
-            details: {
-                ...agent.details,
-                categoriesHandled: detailedData.categoriesHandled || agent.details.categoriesHandled,
-                responsesByHour: detailedData.responseTimeDistribution?.map(h => h.count) || agent.details.responsesByHour
-            }
-        };
-    } catch (error) {
-        // Use existing mock data if API fails
-        console.error('Could not fetch agent details from API:', error.message);
-        toast.add({ severity: 'error', summary: 'Error', detail: 'Could not fetch detailed performance data', life: 3000 });
-    }
-};
-
-// Agent performance chart data
-const agentPerformanceChartData = computed(() => {
-    if (!selectedAgent.value) return null;
-
-    return {
-        labels: ['Resolution Time', 'Customer Satisfaction', 'Ticket Volume', 'First Response Time'],
-        datasets: [
-            {
-                label: 'Performance',
-                backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                borderColor: 'rgb(54, 162, 235)',
-                pointBackgroundColor: 'rgb(54, 162, 235)',
-                pointBorderColor: '#fff',
-                pointHoverBackgroundColor: '#fff',
-                pointHoverBorderColor: 'rgb(54, 162, 235)',
-                data: [
-                    // Normalize values between 0-100
-                    // Lower resolution time is better (invert scale)
-                    100 - (selectedAgent.value.metrics.resolution / 8) * 100,
-                    // Higher satisfaction is better (5.0 = 100%)
-                    (selectedAgent.value.metrics.satisfaction / 5) * 100,
-                    // Higher volume is better (normalize to 0-100 scale)
-                    (selectedAgent.value.metrics.volume / 100) * 100,
-                    // Lower first response time is better (invert scale)
-                    100 - (selectedAgent.value.metrics.firstResponse / 60) * 100
-                ]
-            }
-        ]
-    };
-});
-
-// Agent performance chart options
-const radarChartOptions = {
-    scales: {
-        r: {
-            angleLines: {
-                display: true
-            },
-            suggestedMin: 0,
-            suggestedMax: 100
-        }
-    }
-};
-
-// Response distribution chart data
-const responseDistributionChartData = computed(() => {
-    if (!selectedAgent.value) return null;
-
-    return {
-        labels: Array.from({ length: 24 }, (_, i) => `${i}:00`),
-        datasets: [
-            {
-                label: 'Responses',
-                data: selectedAgent.value.details.responsesByHour,
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                borderColor: 'rgb(75, 192, 192)',
-                borderWidth: 1
-            }
-        ]
-    };
-});
-
-// Response distribution chart options
-const lineChartOptions = {
-    scales: {
-        y: {
-            beginAtZero: true,
-            title: {
-                display: true,
-                text: 'Number of Responses'
-            }
-        },
-        x: {
-            title: {
-                display: true,
-                text: 'Hour of Day'
-            }
-        }
-    },
-    plugins: {
-        tooltip: {
-            callbacks: {
-                title: function (tooltipItems) {
-                    const hour = parseInt(tooltipItems[0].label);
-                    return `${hour}:00 - ${hour + 1}:00`;
-                }
-            }
-        }
-    }
-};
-
-// Categories handled chart data
-const categoriesChartData = computed(() => {
-    if (!selectedAgent.value) return null;
-
-    return {
-        labels: selectedAgent.value.details.categoriesHandled.map((c) => c.name),
-        datasets: [
-            {
-                data: selectedAgent.value.details.categoriesHandled.map((c) => c.count),
-                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
-            }
-        ]
-    };
-});
-
-// Categories handled chart options
-const pieChartOptions = {
-    plugins: {
-        legend: {
-            position: 'right'
-        }
-    }
-};
 </script>
 
 <template>
-    <div class="card">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-            <div>
-                <h1 class="text-3xl font-semibold mb-2">Employee Leaderboard</h1>
-                <p class="text-gray-600">Recognize top performers across different metrics</p>
-            </div>
+    <div class="min-h-screen">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-surface-900 dark:text-surface-0 mb-1">Leaderboard</h1>
+                    <p class="text-surface-600 dark:text-surface-400">Top performing team members</p>
+                </div>
 
-            <div class="flex flex-col sm:flex-row gap-3 mt-4 md:mt-0">
-                <Dropdown v-model="timeRangeFilter" :options="timeRanges" optionLabel="label" optionValue="value" placeholder="Select Time Range" class="w-full sm:w-auto" />
-
-                <Dropdown v-model="departmentFilter" :options="departments" optionLabel="name" optionValue="code" placeholder="Select Department" class="w-full sm:w-auto" />
+                <div class="flex flex-wrap gap-2">
+                    <Dropdown v-model="timeRangeFilter" :options="timeRanges" optionLabel="label" optionValue="value" class="w-40" />
+                    <Dropdown v-model="departmentFilter" :options="departments" optionLabel="name" optionValue="code" placeholder="All Depts" class="w-44" />
+                </div>
             </div>
         </div>
 
-        <div v-if="loading" class="flex justify-center py-12">
-            <ProgressSpinner />
+        <!-- Metric Selector Pills -->
+        <div class="flex flex-wrap gap-2 mb-8">
+            <button
+                v-for="metric in metricOptions"
+                :key="metric.key"
+                @click="selectedMetric = metric.key"
+                :class="[
+                    'px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2',
+                    selectedMetric === metric.key ? 'bg-primary text-white shadow-md' : 'bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300 hover:bg-surface-200 dark:hover:bg-surface-700'
+                ]"
+            >
+                <i :class="['pi', metric.icon, 'text-xs']"></i>
+                {{ metric.label }}
+            </button>
+        </div>
+
+        <!-- Loading State -->
+        <div v-if="loading" class="flex justify-center items-center py-20">
+            <ProgressSpinner strokeWidth="4" />
+        </div>
+
+        <!-- Empty State -->
+        <div v-else-if="agents.length === 0" class="text-center py-20">
+            <i class="pi pi-users text-6xl text-surface-300 dark:text-surface-600 mb-4"></i>
+            <h3 class="text-xl font-semibold text-surface-700 dark:text-surface-300 mb-2">No Data Available</h3>
+            <p class="text-surface-500 dark:text-surface-400">No performance data found for the selected filters</p>
         </div>
 
         <div v-else>
-            <!-- Metric Selection Tabs -->
-            <TabView v-model:activeIndex="activeTab" class="mb-6">
-                <TabPanel v-for="(metric, key) in metrics" :key="key" :header="metric.title">
-                    <div class="text-center mb-6">
-                        <p class="text-gray-600">{{ metric.description }}</p>
-                    </div>
-                </TabPanel>
-            </TabView>
-
-            <!-- Top 3 Agents Showcase -->
-            <div class="mb-8">
-                <h2 class="text-xl font-semibold mb-4">Top Performers</h2>
-
-                <div v-if="topAgents.length === 0" class="text-center py-8 bg-gray-50 rounded-lg">
-                    <i class="pi pi-users text-4xl text-gray-400 mb-4"></i>
-                    <p class="text-gray-600">No agents found for the selected filters</p>
-                </div>
-
-                <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div v-for="(agent, index) in topAgents" :key="agent.id" class="bg-white rounded-lg shadow-md overflow-hidden transition-all hover:shadow-lg cursor-pointer" @click="showAgentDetails(agent)">
-                        <div :class="['h-2', getRankingColor(index)]"></div>
-                        <div class="p-4">
-                            <div class="flex items-center mb-4">
-                                <div class="relative">
-                                    <img :src="agent.avatar" :alt="agent.name" class="w-16 h-16 rounded-full object-cover" />
-                                    <div :class="['absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center text-white rounded-full font-bold text-sm', getRankingColor(index)]">
-                                        {{ index + 1 }}
+            <!-- Top 3 Podium -->
+            <div class="mb-10">
+                <div class="flex justify-center items-end gap-4 md:gap-6">
+                    <!-- 2nd Place -->
+                    <div v-if="topAgents[1]" class="flex flex-col items-center w-28 md:w-36">
+                        <div :class="['relative p-4 rounded-2xl border-2 transition-all hover:scale-105 cursor-pointer w-full', getMedalBg(2)]" @click="showAgentDetails(topAgents[1])">
+                            <div class="flex flex-col items-center">
+                                <div class="relative mb-2">
+                                    <img
+                                        v-if="!imageErrors[topAgents[1].id]"
+                                        :src="topAgents[1].avatar"
+                                        :alt="topAgents[1].name"
+                                        class="w-14 h-14 md:w-16 md:h-16 rounded-full border-4 border-white dark:border-surface-800 shadow-lg"
+                                        @error="onImageError(topAgents[1].id)"
+                                    />
+                                    <div v-else class="w-14 h-14 md:w-16 md:h-16 rounded-full border-4 border-white dark:border-surface-800 shadow-lg bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                                        <i class="pi pi-user text-xl text-surface-500 dark:text-surface-400"></i>
                                     </div>
+                                    <div :class="['absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shadow bg-gradient-to-br', getMedalColor(2)]">2</div>
                                 </div>
-                                <div class="ml-4">
-                                    <h3 class="font-semibold text-lg">{{ agent.name }}</h3>
-                                    <p class="text-sm text-gray-600">{{ agent.department.name }}</p>
-                                </div>
-                            </div>
-
-                            <div class="bg-gray-50 p-3 rounded-lg">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center">
-                                        <i :class="[activeMetric.icon, 'text-xl mr-2', activeMetric.color.replace('bg-', 'text-')]"></i>
-                                        <span class="font-bold text-xl">{{ activeMetric.formatter(agent.metrics[Object.keys(metrics).find((key) => metrics[key] === activeMetric)]) }}</span>
-                                    </div>
-
-                                    <div class="flex items-center">
-                                        <i
-                                            :class="[
-                                                getTrendInfo(agent.changes[Object.keys(metrics).find((key) => metrics[key] === activeMetric)]).icon,
-                                                getTrendInfo(agent.changes[Object.keys(metrics).find((key) => metrics[key] === activeMetric)]).color,
-                                                'mr-1'
-                                            ]"
-                                        ></i>
-                                        <span :class="getTrendInfo(agent.changes[Object.keys(metrics).find((key) => metrics[key] === activeMetric)]).color">
-                                            {{ Math.abs(agent.changes[Object.keys(metrics).find((key) => metrics[key] === activeMetric)]).toFixed(1) }}%
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="text-xs text-gray-500 mt-1">vs. previous {{ timeRangeFilter }}</div>
+                                <h4 class="font-semibold text-sm text-center text-surface-900 dark:text-surface-0 truncate w-full">{{ topAgents[1].name.split(' ')[0] }}</h4>
+                                <p class="text-xs text-surface-500 dark:text-surface-400 truncate w-full text-center">{{ topAgents[1].department }}</p>
+                                <div class="mt-2 text-lg font-bold text-surface-900 dark:text-surface-0">{{ getPrimaryMetric(topAgents[1]) }}</div>
                             </div>
                         </div>
+                        <div class="w-full h-16 md:h-20 bg-gradient-to-t from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 rounded-b-lg mt-1"></div>
+                    </div>
+
+                    <!-- 1st Place (Center, Elevated) -->
+                    <div v-if="topAgents[0]" class="flex flex-col items-center w-32 md:w-44 -mb-4">
+                        <div :class="['relative p-5 rounded-2xl border-2 transition-all hover:scale-105 cursor-pointer w-full shadow-xl', getMedalBg(1)]" @click="showAgentDetails(topAgents[0])">
+                            <div class="flex flex-col items-center">
+                                <div class="absolute -top-3 left-1/2 -translate-x-1/2">
+                                    <i class="pi pi-crown text-yellow-500 text-2xl drop-shadow-lg"></i>
+                                </div>
+                                <div class="relative mb-2 mt-2">
+                                    <img
+                                        v-if="!imageErrors[topAgents[0].id]"
+                                        :src="topAgents[0].avatar"
+                                        :alt="topAgents[0].name"
+                                        class="w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-yellow-400 shadow-lg"
+                                        @error="onImageError(topAgents[0].id)"
+                                    />
+                                    <div v-else class="w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-yellow-400 shadow-lg bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                                        <i class="pi pi-user text-2xl text-surface-500 dark:text-surface-400"></i>
+                                    </div>
+                                    <div :class="['absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center text-white text-sm font-bold shadow bg-gradient-to-br', getMedalColor(1)]">1</div>
+                                </div>
+                                <h4 class="font-bold text-base text-center text-surface-900 dark:text-surface-0 truncate w-full">{{ topAgents[0].name.split(' ')[0] }}</h4>
+                                <p class="text-xs text-surface-500 dark:text-surface-400 truncate w-full text-center">{{ topAgents[0].department }}</p>
+                                <div class="mt-2 text-2xl font-bold text-surface-900 dark:text-surface-0">{{ getPrimaryMetric(topAgents[0]) }}</div>
+                            </div>
+                        </div>
+                        <div class="w-full h-24 md:h-28 bg-gradient-to-t from-yellow-400 to-yellow-500 dark:from-yellow-600 dark:to-yellow-700 rounded-b-lg mt-1"></div>
+                    </div>
+
+                    <!-- 3rd Place -->
+                    <div v-if="topAgents[2]" class="flex flex-col items-center w-28 md:w-36">
+                        <div :class="['relative p-4 rounded-2xl border-2 transition-all hover:scale-105 cursor-pointer w-full', getMedalBg(3)]" @click="showAgentDetails(topAgents[2])">
+                            <div class="flex flex-col items-center">
+                                <div class="relative mb-2">
+                                    <img
+                                        v-if="!imageErrors[topAgents[2].id]"
+                                        :src="topAgents[2].avatar"
+                                        :alt="topAgents[2].name"
+                                        class="w-14 h-14 md:w-16 md:h-16 rounded-full border-4 border-white dark:border-surface-800 shadow-lg"
+                                        @error="onImageError(topAgents[2].id)"
+                                    />
+                                    <div v-else class="w-14 h-14 md:w-16 md:h-16 rounded-full border-4 border-white dark:border-surface-800 shadow-lg bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                                        <i class="pi pi-user text-xl text-surface-500 dark:text-surface-400"></i>
+                                    </div>
+                                    <div :class="['absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shadow bg-gradient-to-br', getMedalColor(3)]">3</div>
+                                </div>
+                                <h4 class="font-semibold text-sm text-center text-surface-900 dark:text-surface-0 truncate w-full">{{ topAgents[2].name.split(' ')[0] }}</h4>
+                                <p class="text-xs text-surface-500 dark:text-surface-400 truncate w-full text-center">{{ topAgents[2].department }}</p>
+                                <div class="mt-2 text-lg font-bold text-surface-900 dark:text-surface-0">{{ getPrimaryMetric(topAgents[2]) }}</div>
+                            </div>
+                        </div>
+                        <div class="w-full h-12 md:h-14 bg-gradient-to-t from-amber-600 to-amber-700 dark:from-amber-700 dark:to-amber-800 rounded-b-lg mt-1"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Full Rankings -->
-            <div>
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold">Full Rankings</h2>
-                    <Button label="Export CSV" icon="pi pi-download" outlined @click="toast.add({ severity: 'info', summary: 'Info', detail: 'Export feature would be implemented here', life: 3000 })" />
+            <!-- Full Rankings Table -->
+            <div class="bg-surface-0 dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-700 overflow-hidden shadow-sm">
+                <div class="p-4 border-b border-surface-200 dark:border-surface-700">
+                    <h2 class="text-lg font-semibold text-surface-900 dark:text-surface-0">All Rankings</h2>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white rounded-lg shadow-md p-4">
-                        <DataTable
-                            :value="sortedAgents"
-                            :paginator="true"
-                            :rows="10"
-                            :rowsPerPageOptions="[5, 10, 25, 50]"
-                            paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown"
-                            :rowHover="true"
-                            stripedRows
-                            responsiveLayout="scroll"
-                            class="p-datatable-sm"
-                        >
-                            <Column field="name" header="Agent" style="min-width: 12rem">
-                                <template #body="{ data, index }">
-                                    <div class="flex items-center">
-                                        <div :class="['w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold mr-2', index < 3 ? getRankingColor(index) : 'bg-gray-200']">
-                                            {{ index + 1 }}
-                                        </div>
-                                        <img :src="data.avatar" :alt="data.name" class="w-8 h-8 rounded-full mr-2" />
-                                        <div>
-                                            <div class="font-medium">{{ data.name }}</div>
-                                            <div class="text-xs text-gray-500">{{ data.department.name }}</div>
-                                        </div>
-                                    </div>
-                                </template>
-                            </Column>
+                <DataTable
+                    :value="sortedAgents"
+                    :paginator="true"
+                    :rows="10"
+                    :rowsPerPageOptions="[10, 20, 50]"
+                    :rowHover="true"
+                    responsiveLayout="scroll"
+                    class="p-datatable-sm"
+                    @row-click="(e) => showAgentDetails(e.data)"
+                    :pt="{ bodyRow: { class: 'cursor-pointer' } }"
+                >
+                    <Column header="Rank" style="width: 4rem">
+                        <template #body="{ index }">
+                            <div
+                                :class="[
+                                    'w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm',
+                                    index === 0
+                                        ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-400'
+                                        : index === 1
+                                          ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                                          : index === 2
+                                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400'
+                                            : 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-400'
+                                ]"
+                            >
+                                {{ index + 1 }}
+                            </div>
+                        </template>
+                    </Column>
 
-                            <Column :field="Object.keys(metrics).find((key) => metrics[key] === activeMetric)" :header="activeMetric.title" sortable style="min-width: 8rem">
-                                <template #body="{ data }">
-                                    <div class="font-medium">
-                                        {{ activeMetric.formatter(data.metrics[Object.keys(metrics).find((key) => metrics[key] === activeMetric)]) }}
-                                    </div>
-                                </template>
-                            </Column>
+                    <Column header="Employee" style="min-width: 14rem">
+                        <template #body="{ data }">
+                            <div class="flex items-center gap-3">
+                                <img v-if="!imageErrors[data.id]" :src="data.avatar" :alt="data.name" class="w-10 h-10 rounded-full" @error="onImageError(data.id)" />
+                                <div v-else class="w-10 h-10 rounded-full bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                                    <i class="pi pi-user text-surface-500 dark:text-surface-400"></i>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-surface-900 dark:text-surface-0">{{ data.name }}</div>
+                                    <div class="text-xs text-surface-500 dark:text-surface-400">{{ data.department }}</div>
+                                </div>
+                            </div>
+                        </template>
+                    </Column>
 
-                            <Column field="change" header="Change" style="min-width: 8rem">
-                                <template #body="{ data }">
-                                    <div class="flex items-center">
-                                        <i
-                                            :class="[
-                                                getTrendInfo(data.changes[Object.keys(metrics).find((key) => metrics[key] === activeMetric)]).icon,
-                                                getTrendInfo(data.changes[Object.keys(metrics).find((key) => metrics[key] === activeMetric)]).color,
-                                                'mr-1'
-                                            ]"
-                                        ></i>
-                                        <span :class="getTrendInfo(data.changes[Object.keys(metrics).find((key) => metrics[key] === activeMetric)]).color">
-                                            {{ Math.abs(data.changes[Object.keys(metrics).find((key) => metrics[key] === activeMetric)]).toFixed(1) }}%
-                                        </span>
-                                    </div>
-                                </template>
-                            </Column>
+                    <Column header="Tickets" style="width: 6rem">
+                        <template #body="{ data }">
+                            <span class="font-semibold text-surface-900 dark:text-surface-0">{{ data.metrics.volume || 0 }}</span>
+                        </template>
+                    </Column>
 
-                            <Column header="Actions" style="width: 5rem">
-                                <template #body="{ data }">
-                                    <Button icon="pi pi-search" text rounded @click="showAgentDetails(data)" />
-                                </template>
-                            </Column>
-                        </DataTable>
-                    </div>
+                    <Column header="Satisfaction" style="width: 7rem">
+                        <template #body="{ data }">
+                            <div class="flex items-center gap-1">
+                                <i class="pi pi-star-fill text-yellow-500 text-xs"></i>
+                                <span class="font-semibold text-surface-900 dark:text-surface-0">{{ (data.metrics.satisfaction || 0).toFixed(1) }}</span>
+                            </div>
+                        </template>
+                    </Column>
 
-                    <div class="bg-white rounded-lg shadow-md p-4">
-                        <h3 class="text-lg font-semibold mb-3">{{ activeMetric.title }} Rankings</h3>
-                        <div class="relative" style="height: 350px">
-                            <Chart type="bar" :data="rankingData" :options="barChartOptions" />
-                        </div>
-                    </div>
-                </div>
+                    <Column header="Avg Resolution" style="width: 8rem">
+                        <template #body="{ data }">
+                            <span class="text-surface-700 dark:text-surface-300">{{ formatTime(data.metrics.resolution) }}</span>
+                        </template>
+                    </Column>
+
+                    <Column header="First Response" style="width: 8rem">
+                        <template #body="{ data }">
+                            <span class="text-surface-700 dark:text-surface-300">{{ formatTime(data.metrics.firstResponse, true) }}</span>
+                        </template>
+                    </Column>
+                </DataTable>
             </div>
         </div>
 
-        <!-- Agent Details Dialog -->
-        <Dialog v-model:visible="showAgentDetailsDialog" :header="selectedAgent?.name" :modal="true" :style="{ width: '90vw', maxWidth: '1000px' }" :closable="true" :maximizable="true">
-            <div v-if="selectedAgent" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Agent Profile -->
-                <div class="bg-white rounded-lg shadow-sm p-4">
-                    <div class="flex flex-col items-center mb-4 text-center">
-                        <img :src="selectedAgent.avatar" :alt="selectedAgent.name" class="w-24 h-24 rounded-full mb-3" />
-                        <h3 class="text-xl font-semibold">{{ selectedAgent.name }}</h3>
-                        <p class="text-gray-600">{{ selectedAgent.department.name }}</p>
-                    </div>
-
-                    <Divider />
-
-                    <div class="space-y-3">
-                        <div>
-                            <div class="text-sm text-gray-500 mb-1">Tickets Assigned</div>
-                            <div class="font-semibold">{{ selectedAgent.details.ticketsAssigned }}</div>
-                        </div>
-
-                        <div>
-                            <div class="text-sm text-gray-500 mb-1">Tickets Resolved</div>
-                            <div class="font-semibold">{{ selectedAgent.metrics.volume }}</div>
-                        </div>
-
-                        <div>
-                            <div class="text-sm text-gray-500 mb-1">Resolution Rate</div>
-                            <div class="font-semibold">{{ ((selectedAgent.metrics.volume / selectedAgent.details.ticketsAssigned) * 100).toFixed(1) }}%</div>
-                        </div>
-
-                        <div>
-                            <div class="text-sm text-gray-500 mb-1">Average Resolution Time</div>
-                            <div class="font-semibold">{{ formatTime(selectedAgent.metrics.resolution) }}</div>
-                        </div>
-
-                        <div>
-                            <div class="text-sm text-gray-500 mb-1">First Response Time</div>
-                            <div class="font-semibold">{{ formatTime(selectedAgent.metrics.firstResponse, true) }}</div>
-                        </div>
-
-                        <div>
-                            <div class="text-sm text-gray-500 mb-1">Customer Satisfaction</div>
-                            <div class="flex items-center">
-                                <Rating :modelValue="selectedAgent.metrics.satisfaction" :readonly="true" :stars="5" :cancel="false" />
-                                <span class="ml-2">{{ selectedAgent.metrics.satisfaction.toFixed(1) }}</span>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div class="text-sm text-gray-500 mb-1">Reopen Rate</div>
-                            <div class="font-semibold">{{ selectedAgent.details.reopenRate.toFixed(1) }}%</div>
-                        </div>
-
-                        <div>
-                            <div class="text-sm text-gray-500 mb-1">Escalation Rate</div>
-                            <div class="font-semibold">{{ selectedAgent.details.escalationRate.toFixed(1) }}%</div>
-                        </div>
-                    </div>
+        <Dialog v-model:visible="showAgentDetailsDialog" :header="selectedAgent?.name" :modal="true" :style="{ width: '500px', maxWidth: '95vw' }">
+            <div v-if="selectedAgent" class="flex flex-col items-center">
+                <img v-if="!imageErrors[selectedAgent.id]" :src="selectedAgent.avatar" :alt="selectedAgent.name" class="w-24 h-24 rounded-full mb-4 border-4 border-primary shadow-lg" @error="onImageError(selectedAgent.id)" />
+                <div v-else class="w-24 h-24 rounded-full mb-4 border-4 border-primary shadow-lg bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                    <i class="pi pi-user text-3xl text-surface-500 dark:text-surface-400"></i>
                 </div>
+                <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0 mb-1">{{ selectedAgent.name }}</h3>
+                <p class="text-surface-600 dark:text-surface-400 mb-6">{{ selectedAgent.department }}</p>
 
-                <!-- Performance Radar Chart -->
-                <div class="bg-white rounded-lg shadow-sm p-4">
-                    <h3 class="text-lg font-semibold mb-3">Performance Overview</h3>
-                    <div style="height: 300px">
-                        <Chart type="radar" :data="agentPerformanceChartData" :options="radarChartOptions" />
+                <div class="grid grid-cols-2 gap-4 w-full">
+                    <div class="bg-surface-50 dark:bg-surface-800 rounded-xl p-4 text-center">
+                        <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ selectedAgent.metrics.volume || 0 }}</div>
+                        <div class="text-xs text-surface-500 dark:text-surface-400 mt-1">Tickets Resolved</div>
                     </div>
-                    <div class="mt-4 text-sm text-gray-500 text-center">
-                        <p>Radar chart showing performance across all key metrics</p>
-                        <p class="mt-2 italic">Higher values indicate better performance</p>
+                    <div class="bg-surface-50 dark:bg-surface-800 rounded-xl p-4 text-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <i class="pi pi-star-fill text-yellow-500"></i>
+                            <span class="text-2xl font-bold text-surface-900 dark:text-surface-0">{{ (selectedAgent.metrics.satisfaction || 0).toFixed(1) }}</span>
+                        </div>
+                        <div class="text-xs text-surface-500 dark:text-surface-400 mt-1">Satisfaction</div>
                     </div>
-                </div>
-
-                <!-- Categories Handled -->
-                <div class="bg-white rounded-lg shadow-sm p-4">
-                    <h3 class="text-lg font-semibold mb-3">Categories Handled</h3>
-                    <div style="height: 300px">
-                        <Chart type="pie" :data="categoriesChartData" :options="pieChartOptions" />
+                    <div class="bg-surface-50 dark:bg-surface-800 rounded-xl p-4 text-center">
+                        <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ formatTime(selectedAgent.metrics.resolution) }}</div>
+                        <div class="text-xs text-surface-500 dark:text-surface-400 mt-1">Avg Resolution</div>
                     </div>
-                </div>
-
-                <!-- Response Time Distribution -->
-                <div class="md:col-span-3 bg-white rounded-lg shadow-sm p-4">
-                    <h3 class="text-lg font-semibold mb-3">Response Distribution by Hour</h3>
-                    <div style="height: 300px">
-                        <Chart type="line" :data="responseDistributionChartData" :options="lineChartOptions" />
+                    <div class="bg-surface-50 dark:bg-surface-800 rounded-xl p-4 text-center">
+                        <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ formatTime(selectedAgent.metrics.firstResponse, true) }}</div>
+                        <div class="text-xs text-surface-500 dark:text-surface-400 mt-1">First Response</div>
                     </div>
-                    <div class="mt-2 text-sm text-gray-500 text-center">Number of ticket responses by hour of day (24-hour format)</div>
                 </div>
             </div>
         </Dialog>
@@ -776,22 +434,15 @@ const pieChartOptions = {
 </template>
 
 <style scoped>
-.p-tabview-nav li .p-tabview-nav-link {
-    padding: 1rem 1.5rem;
+:deep(.p-datatable .p-datatable-tbody > tr) {
+    transition: background-color 0.2s;
 }
 
-:deep(.p-datatable-wrapper) {
-    overflow-x: auto;
+:deep(.p-datatable .p-datatable-tbody > tr:hover) {
+    background-color: var(--surface-50) !important;
 }
 
-:deep(.p-dialog-content) {
-    padding-bottom: 2rem;
-}
-
-:deep(.p-dialog-maximized) {
-    top: 1rem;
-    left: 1rem;
-    width: calc(100% - 2rem) !important;
-    height: calc(100% - 2rem) !important;
+:deep(.dark .p-datatable .p-datatable-tbody > tr:hover) {
+    background-color: var(--surface-800) !important;
 }
 </style>

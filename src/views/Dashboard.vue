@@ -36,31 +36,35 @@ const branchesData = ref([]);
 const scopeOptions = computed(() => {
     const role = authStore.user?.role;
     const options = [{ label: 'My Data', value: 'mine' }];
-    
+
     if (role === 'DEPARTMENT_HEAD' || role === 'ADMIN') {
         options.push({ label: 'My Department', value: 'department' });
     }
-    
+
     if (role === 'ADMIN') {
         options.push({ label: 'All Data', value: 'all' });
     }
-    
+
     return options;
 });
 
 // Watch for auth initialization to set initial scope
-watch(() => authStore.initialized, (init) => {
-    if (init && authStore.user) {
-        if (authStore.user.role === 'ADMIN') {
-            dashboardScope.value = 'all';
-        } else if (authStore.user.role === 'DEPARTMENT_HEAD') {
-            dashboardScope.value = 'department';
-        } else {
-            dashboardScope.value = 'mine';
+watch(
+    () => authStore.initialized,
+    (init) => {
+        if (init && authStore.user) {
+            if (authStore.user.role === 'ADMIN') {
+                dashboardScope.value = 'all';
+            } else if (authStore.user.role === 'DEPARTMENT_HEAD') {
+                dashboardScope.value = 'department';
+            } else {
+                dashboardScope.value = 'mine';
+            }
+            fetchDashboardData();
         }
-        fetchDashboardData();
-    }
-}, { immediate: true });
+    },
+    { immediate: true }
+);
 
 // Upcoming Deadlines
 const upcomingDeadlines = computed(() => {
@@ -68,19 +72,18 @@ const upcomingDeadlines = computed(() => {
     const now = new Date();
     const threeDaysFromNow = new Date();
     threeDaysFromNow.setDate(now.getDate() + 3);
-    
+
     return tickets
-        .filter(t => {
+        .filter((t) => {
             if (t.status === 'RESOLVED' || t.status === 'CLOSED') return false;
             if (!t.dueDate) return false;
             const dueDate = new Date(t.dueDate);
             // Show tickets due in the next 3 days or already overdue
-            return dueDate <= threeDaysFromNow; 
+            return dueDate <= threeDaysFromNow;
         })
         .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
         .slice(0, 5); // Show top 5
 });
-
 
 // Dashboard stats from API
 const dashboardStats = ref(null);
@@ -108,7 +111,7 @@ const ticketStats = computed(() => {
     if (dashboardStats.value && dashboardStats.value.tickets) {
         return dashboardStats.value.tickets;
     }
-    
+
     // Fallback to computing from raw ticket data
     const tickets = ticketsData.value.tickets;
     return {
@@ -197,7 +200,7 @@ const departmentWorkload = computed(() => {
 // Use API data for top performers if available
 const topPerformers = computed(() => {
     if (topPerformersData.value && topPerformersData.value.length > 0) {
-        return topPerformersData.value.map(p => ({
+        return topPerformersData.value.map((p) => ({
             id: p.userId,
             name: p.name,
             email: p.email,
@@ -207,7 +210,7 @@ const topPerformers = computed(() => {
             avatar: p.avatar || `https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(p.name)}`
         }));
     }
-    
+
     // Fallback to computing from ticket data
     const performanceMap = {};
 
@@ -240,16 +243,18 @@ const topPerformers = computed(() => {
 // Use API data for recent activity if available
 const recentActivity = computed(() => {
     if (recentActivityData.value && recentActivityData.value.length > 0) {
-        return recentActivityData.value.map(a => ({
-            id: a.id,
-            type: a.type.toLowerCase(),
-            user: a.userName,
-            ticket: a.ticketId ? `TICK-${a.ticketId}` : null,
-            time: new Date(a.timestamp),
-            description: a.description
-        })).slice(0, 3);
+        return recentActivityData.value
+            .map((a) => ({
+                id: a.id,
+                type: a.type.toLowerCase(),
+                user: a.userName,
+                ticket: a.ticketId ? `TICK-${a.ticketId}` : null,
+                time: new Date(a.timestamp),
+                description: a.description
+            }))
+            .slice(0, 3);
     }
-    
+
     // Fallback to computing from ticket data
     return ticketsData.value.tickets
         .map((ticket) => ({
@@ -264,25 +269,43 @@ const recentActivity = computed(() => {
         .slice(0, 3);
 });
 
-const avgResolutionTime = computed(() => {
-    if (dashboardStats.value && dashboardStats.value.avgResolutionTime) {
-        const hours = Math.floor(dashboardStats.value.avgResolutionTime);
-        const minutes = Math.round((dashboardStats.value.avgResolutionTime - hours) * 60);
-        return `${hours}h ${minutes}m`;
+// SLA Compliance Rate - % of resolved tickets that met their category's target time
+const slaComplianceRate = computed(() => {
+    // If API provides SLA compliance, use it
+    if (dashboardStats.value && dashboardStats.value.slaComplianceRate !== undefined) {
+        return dashboardStats.value.slaComplianceRate.toFixed(1);
     }
-    
-    const totalTime = categoriesData.value.reduce((sum, cat) => sum + cat.targetResolutionTime, 0);
-    const avgHours = totalTime / categoriesData.value.length || 0;
-    const hours = Math.floor(avgHours);
-    const minutes = Math.round((avgHours - hours) * 60);
-    return `${hours}h ${minutes}m`;
+
+    // Calculate from ticket data
+    const tickets = ticketsData.value.tickets || [];
+    const resolvedTickets = tickets.filter((t) => t.status === 'RESOLVED' || t.status === 'CLOSED');
+
+    if (resolvedTickets.length === 0) return '0.0';
+
+    // Count tickets that were resolved within their category's target time
+    let withinSla = 0;
+    resolvedTickets.forEach((ticket) => {
+        const category = categoriesData.value.find((c) => c.name === ticket.categoryName);
+        if (!category) return;
+
+        const targetHours = category.targetResolutionTime || 24;
+        const createdAt = new Date(ticket.createdAt);
+        const resolvedAt = ticket.resolvedAt ? new Date(ticket.resolvedAt) : new Date(ticket.updatedAt);
+        const actualHours = (resolvedAt - createdAt) / (1000 * 60 * 60);
+
+        if (actualHours <= targetHours) {
+            withinSla++;
+        }
+    });
+
+    return ((withinSla / resolvedTickets.length) * 100).toFixed(1);
 });
 
 const resolutionRate = computed(() => {
     if (dashboardStats.value && dashboardStats.value.resolutionRate !== undefined) {
         return dashboardStats.value.resolutionRate.toFixed(1);
     }
-    
+
     const tickets = ticketsData.value.tickets;
     const resolved = tickets.filter((t) => t.status === 'RESOLVED' || t.status === 'CLOSED').length;
     return tickets.length > 0 ? ((resolved / tickets.length) * 100).toFixed(1) : 0;
@@ -319,7 +342,7 @@ async function fetchDashboardData() {
     loading.value = true;
     try {
         const params = {
-            period: timeRangeFilter.value, 
+            period: timeRangeFilter.value,
             comparison: comparisonPeriod.value,
             scope: dashboardScope.value
         };
@@ -340,11 +363,11 @@ async function fetchDashboardData() {
         if (statsRes.status === 'fulfilled') {
             dashboardStats.value = statsRes.value;
         }
-        
+
         if (topPerformersRes.status === 'fulfilled') {
             topPerformersData.value = topPerformersRes.value;
         }
-        
+
         if (activityRes.status === 'fulfilled') {
             recentActivityData.value = activityRes.value;
         }
@@ -770,7 +793,7 @@ function navigateTo(path) {
 
         <!-- Upcoming Deadlines (Conditional) -->
         <div v-if="upcomingDeadlines.length > 0" class="mb-6">
-             <div class="card border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10 p-5 rounded-xl">
+            <div class="card border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10 p-5 rounded-xl">
                 <div class="flex items-center gap-3 mb-4">
                     <div class="p-2 bg-red-100 dark:bg-red-800/30 rounded-lg">
                         <i class="pi pi-clock text-red-600 dark:text-red-400 text-xl"></i>
@@ -782,7 +805,12 @@ function navigateTo(path) {
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                    <div v-for="ticket in upcomingDeadlines" :key="ticket.id" @click="navigateTo(`/tickets?id=${ticket.id}`)" class="bg-surface-0 dark:bg-surface-900 p-4 rounded-lg shadow-sm border border-surface-200 dark:border-surface-700 cursor-pointer hover:shadow-md transition-shadow relative overflow-hidden">
+                    <div
+                        v-for="ticket in upcomingDeadlines"
+                        :key="ticket.id"
+                        @click="navigateTo(`/tickets?id=${ticket.id}`)"
+                        class="bg-surface-0 dark:bg-surface-900 p-4 rounded-lg shadow-sm border border-surface-200 dark:border-surface-700 cursor-pointer hover:shadow-md transition-shadow relative overflow-hidden"
+                    >
                         <div class="flex justify-between items-start mb-2">
                             <span class="text-xs font-bold text-surface-500">#{{ ticket.id }}</span>
                             <span :class="['text-[10px] px-2 py-0.5 rounded-full font-bold uppercase', getPriorityBadgeSeverity(ticket.priority) === 'danger' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600']">
@@ -796,7 +824,7 @@ function navigateTo(path) {
                         </div>
                     </div>
                 </div>
-             </div>
+            </div>
         </div>
 
         <!-- Loading Indicator -->
@@ -808,7 +836,10 @@ function navigateTo(path) {
             <!-- Key Metrics Row -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- Open Tickets -->
-                <div @click="navigateToTickets('OPEN')" class="card h-full bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden group">
+                <div
+                    @click="navigateToTickets('OPEN')"
+                    class="card h-full bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden group"
+                >
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-l-xl"></div>
                     <div class="flex justify-between items-start mb-3 pl-2">
                         <div>
@@ -820,7 +851,9 @@ function navigateTo(path) {
                         </div>
                     </div>
                     <div class="flex items-center gap-2 pl-2">
-                        <span :class="['text-xs font-medium px-2 py-0.5 rounded', ticketStats.open.trend === 'UP' ? 'bg-red-50 text-red-600 dark:bg-red-400/10 dark:text-red-400' : 'bg-green-50 text-green-600 dark:bg-green-400/10 dark:text-green-400']">
+                        <span
+                            :class="['text-xs font-medium px-2 py-0.5 rounded', ticketStats.open.trend === 'UP' ? 'bg-red-50 text-red-600 dark:bg-red-400/10 dark:text-red-400' : 'bg-green-50 text-green-600 dark:bg-green-400/10 dark:text-green-400']"
+                        >
                             <i :class="[ticketStats.open.trend === 'UP' ? 'pi pi-arrow-up' : 'pi pi-arrow-down', 'text-[10px] mr-1']"></i>
                             {{ ticketStats.open.change }}%
                         </span>
@@ -829,7 +862,10 @@ function navigateTo(path) {
                 </div>
 
                 <!-- In Progress -->
-                <div @click="navigateToTickets('ONGOING')" class="card h-full bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden group">
+                <div
+                    @click="navigateToTickets('ONGOING')"
+                    class="card h-full bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden group"
+                >
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-orange-500 rounded-l-xl"></div>
                     <div class="flex justify-between items-start mb-3 pl-2">
                         <div>
@@ -841,7 +877,12 @@ function navigateTo(path) {
                         </div>
                     </div>
                     <div class="flex items-center gap-2 pl-2">
-                        <span :class="['text-xs font-medium px-2 py-0.5 rounded', ticketStats.ongoing.trend === 'UP' ? 'bg-red-50 text-red-600 dark:bg-red-400/10 dark:text-red-400' : 'bg-green-50 text-green-600 dark:bg-green-400/10 dark:text-green-400']">
+                        <span
+                            :class="[
+                                'text-xs font-medium px-2 py-0.5 rounded',
+                                ticketStats.ongoing.trend === 'UP' ? 'bg-red-50 text-red-600 dark:bg-red-400/10 dark:text-red-400' : 'bg-green-50 text-green-600 dark:bg-green-400/10 dark:text-green-400'
+                            ]"
+                        >
                             <i :class="[ticketStats.ongoing.trend === 'UP' ? 'pi pi-arrow-up' : 'pi pi-arrow-down', 'text-[10px] mr-1']"></i>
                             {{ ticketStats.ongoing.change }}%
                         </span>
@@ -850,7 +891,10 @@ function navigateTo(path) {
                 </div>
 
                 <!-- Resolved -->
-                <div @click="navigateToTickets('RESOLVED')" class="card h-full bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden group">
+                <div
+                    @click="navigateToTickets('RESOLVED')"
+                    class="card h-full bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden group"
+                >
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-green-500 rounded-l-xl"></div>
                     <div class="flex justify-between items-start mb-3 pl-2">
                         <div>
@@ -862,7 +906,12 @@ function navigateTo(path) {
                         </div>
                     </div>
                     <div class="flex items-center gap-2 pl-2">
-                        <span :class="['text-xs font-medium px-2 py-0.5 rounded', ticketStats.resolved.trend === 'UP' ? 'bg-green-50 text-green-600 dark:bg-green-400/10 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-400/10 dark:text-red-400']">
+                        <span
+                            :class="[
+                                'text-xs font-medium px-2 py-0.5 rounded',
+                                ticketStats.resolved.trend === 'UP' ? 'bg-green-50 text-green-600 dark:bg-green-400/10 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-400/10 dark:text-red-400'
+                            ]"
+                        >
                             <i :class="[ticketStats.resolved.trend === 'UP' ? 'pi pi-arrow-up' : 'pi pi-arrow-down', 'text-[10px] mr-1']"></i>
                             {{ ticketStats.resolved.change }}%
                         </span>
@@ -871,7 +920,10 @@ function navigateTo(path) {
                 </div>
 
                 <!-- Closed -->
-                <div @click="navigateToTickets('CLOSED')" class="card h-full bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden group">
+                <div
+                    @click="navigateToTickets('CLOSED')"
+                    class="card h-full bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden group"
+                >
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-purple-500 rounded-l-xl"></div>
                     <div class="flex justify-between items-start mb-3 pl-2">
                         <div>
@@ -883,7 +935,12 @@ function navigateTo(path) {
                         </div>
                     </div>
                     <div class="flex items-center gap-2 pl-2">
-                        <span :class="['text-xs font-medium px-2 py-0.5 rounded', ticketStats.closed.trend === 'UP' ? 'bg-green-50 text-green-600 dark:bg-green-400/10 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-400/10 dark:text-red-400']">
+                        <span
+                            :class="[
+                                'text-xs font-medium px-2 py-0.5 rounded',
+                                ticketStats.closed.trend === 'UP' ? 'bg-green-50 text-green-600 dark:bg-green-400/10 dark:text-green-400' : 'bg-red-50 text-red-600 dark:bg-red-400/10 dark:text-red-400'
+                            ]"
+                        >
                             <i :class="[ticketStats.closed.trend === 'UP' ? 'pi pi-arrow-up' : 'pi pi-arrow-down', 'text-[10px] mr-1']"></i>
                             {{ ticketStats.closed.change }}%
                         </span>
@@ -905,7 +962,18 @@ function navigateTo(path) {
                         <div class="relative w-40 h-40 mb-6">
                             <svg viewBox="0 0 100 100" class="w-full h-full transform -rotate-90">
                                 <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" class="text-surface-100 dark:text-surface-800" stroke-width="8" />
-                                <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" :class="resolutionRate >= 70 ? 'text-green-500' : resolutionRate >= 50 ? 'text-orange-500' : 'text-red-500'" stroke-width="8" stroke-dasharray="251.2" :stroke-dashoffset="251.2 - (251.2 * parseInt(resolutionRate)) / 100" stroke-linecap="round" />
+                                <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="40"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    :class="resolutionRate >= 70 ? 'text-green-500' : resolutionRate >= 50 ? 'text-orange-500' : 'text-red-500'"
+                                    stroke-width="8"
+                                    stroke-dasharray="251.2"
+                                    :stroke-dashoffset="251.2 - (251.2 * parseInt(resolutionRate)) / 100"
+                                    stroke-linecap="round"
+                                />
                             </svg>
                             <div class="absolute inset-0 flex flex-col items-center justify-center">
                                 <span class="text-4xl font-bold text-surface-900 dark:text-surface-0">{{ resolutionRate }}%</span>
@@ -926,23 +994,45 @@ function navigateTo(path) {
                     </div>
                 </div>
 
-                <!-- Average Resolution Time -->
+                <!-- SLA Compliance -->
                 <div class="bg-surface-0 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 p-6 rounded-xl shadow-sm">
                     <div class="flex items-center justify-between mb-6">
-                        <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0">Avg Resolution Time</h3>
-                        <Button icon="pi pi-clock" text rounded severity="secondary" size="small" class="cursor-default" />
+                        <h3 class="text-lg font-semibold text-surface-900 dark:text-surface-0">SLA Compliance</h3>
+                        <Button icon="pi pi-check-circle" text rounded severity="secondary" size="small" class="cursor-default" />
                     </div>
 
                     <div class="flex flex-col items-center justify-center py-4">
-                        <div class="text-5xl font-bold text-surface-900 dark:text-surface-0 mb-8">{{ avgResolutionTime }}</div>
+                        <!-- SLA Compliance Ring Chart -->
+                        <div class="relative w-32 h-32 mb-4">
+                            <svg viewBox="0 0 100 100" class="w-full h-full transform -rotate-90">
+                                <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" class="text-surface-100 dark:text-surface-800" stroke-width="8" />
+                                <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="40"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    :class="parseFloat(slaComplianceRate) >= 80 ? 'text-green-500' : parseFloat(slaComplianceRate) >= 60 ? 'text-orange-500' : 'text-red-500'"
+                                    stroke-width="8"
+                                    stroke-dasharray="251.2"
+                                    :stroke-dashoffset="251.2 - (251.2 * parseFloat(slaComplianceRate)) / 100"
+                                    stroke-linecap="round"
+                                />
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span class="text-3xl font-bold text-surface-900 dark:text-surface-0">{{ slaComplianceRate }}%</span>
+                                <span class="text-[10px] text-surface-500 dark:text-surface-400 mt-0.5 uppercase tracking-wider">Within SLA</span>
+                            </div>
+                        </div>
 
-                        <div class="w-full space-y-4">
-                            <div v-for="category in categoriesData.slice(0, 3)" :key="category.id">
-                                <div class="flex justify-between items-center mb-2">
-                                    <span class="text-sm font-medium text-surface-700 dark:text-surface-300">{{ category.name }}</span>
-                                    <span class="text-sm font-medium text-surface-900 dark:text-surface-100">{{ category.targetResolutionTime }}h target</span>
-                                </div>
-                                <ProgressBar :value="(category.targetResolutionTime / 72) * 100" :showValue="false" style="height: 6px" class="bg-surface-100 dark:bg-surface-800" :pt="{ value: { class: 'bg-primary-500' } }" />
+                        <p class="text-xs text-surface-500 dark:text-surface-400 text-center mb-4">Tickets resolved within target time</p>
+
+                        <!-- Category Targets -->
+                        <div class="w-full space-y-3 border-t border-surface-200 dark:border-surface-700 pt-4">
+                            <div class="text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider mb-2">Category Targets</div>
+                            <div v-for="category in categoriesData.slice(0, 4)" :key="category.id" class="flex justify-between items-center">
+                                <span class="text-sm text-surface-700 dark:text-surface-300 truncate max-w-[60%]">{{ category.name }}</span>
+                                <span class="text-sm font-semibold text-surface-900 dark:text-surface-100">{{ category.targetResolutionTime }}h</span>
                             </div>
                         </div>
                     </div>
@@ -956,7 +1046,12 @@ function navigateTo(path) {
                     </div>
 
                     <div class="space-y-0 overflow-y-auto max-h-[22rem]">
-                        <div v-for="(dept, index) in departmentsData" :key="dept.id" class="flex items-center justify-between p-3 hover:bg-surface-50 dark:hover:bg-surface-800/50 rounded-lg transition-colors cursor-pointer border-b border-surface-100 dark:border-surface-800 last:border-0" @click="navigateTo('/users/employees')">
+                        <div
+                            v-for="(dept, index) in departmentsData"
+                            :key="dept.id"
+                            class="flex items-center justify-between p-3 hover:bg-surface-50 dark:hover:bg-surface-800/50 rounded-lg transition-colors cursor-pointer border-b border-surface-100 dark:border-surface-800 last:border-0"
+                            @click="navigateTo('/users/employees')"
+                        >
                             <div>
                                 <h4 class="font-medium text-surface-900 dark:text-surface-0 text-sm mb-0.5">{{ dept.name }}</h4>
                                 <p class="text-xs text-surface-500 dark:text-surface-400">{{ dept.teamSize }} members</p>
@@ -1029,13 +1124,21 @@ function navigateTo(path) {
                             <p>No performance data available</p>
                         </div>
 
-                        <div v-for="(agent, index) in topPerformers" :key="agent.id" class="flex items-center gap-3 p-3 hover:bg-surface-50 dark:hover:bg-surface-800/50 rounded-lg transition-colors border-b border-surface-100 dark:border-surface-800 last:border-0 cursor-pointer" @click="navigateTo('/users/employees')">
+                        <div
+                            v-for="(agent, index) in topPerformers"
+                            :key="agent.id"
+                            class="flex items-center gap-3 p-3 hover:bg-surface-50 dark:hover:bg-surface-800/50 rounded-lg transition-colors border-b border-surface-100 dark:border-surface-800 last:border-0 cursor-pointer"
+                            @click="navigateTo('/users/employees')"
+                        >
                             <div class="relative flex-shrink-0">
                                 <img v-if="!imageErrorMap[`agent-${agent.id}`]" :src="agent.avatar" :alt="agent.name" class="w-10 h-10 rounded-full border border-surface-200 dark:border-surface-700" @error="onImageError(`agent-${agent.id}`)" />
                                 <div v-else class="w-10 h-10 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center border border-surface-200 dark:border-surface-700">
                                     <i class="pi pi-user text-surface-500 text-lg"></i>
                                 </div>
-                                <div :class="['absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-white rounded-full font-bold text-[10px] shadow-sm', index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : 'bg-amber-600']" v-if="index < 3">
+                                <div
+                                    :class="['absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-white rounded-full font-bold text-[10px] shadow-sm', index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : 'bg-amber-600']"
+                                    v-if="index < 3"
+                                >
                                     {{ index + 1 }}
                                 </div>
                             </div>
@@ -1173,8 +1276,16 @@ function navigateTo(path) {
 }
 
 /* Staggered delays */
-.grid > div:nth-child(1) { animation-delay: 0.05s; }
-.grid > div:nth-child(2) { animation-delay: 0.1s; }
-.grid > div:nth-child(3) { animation-delay: 0.15s; }
-.grid > div:nth-child(4) { animation-delay: 0.2s; }
+.grid > div:nth-child(1) {
+    animation-delay: 0.05s;
+}
+.grid > div:nth-child(2) {
+    animation-delay: 0.1s;
+}
+.grid > div:nth-child(3) {
+    animation-delay: 0.15s;
+}
+.grid > div:nth-child(4) {
+    animation-delay: 0.2s;
+}
 </style>
