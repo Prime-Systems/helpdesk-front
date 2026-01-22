@@ -23,6 +23,12 @@ const showDeleteDialog = ref(false);
 const articleToDelete = ref(null);
 const editingArticle = ref(null);
 const saving = ref(false);
+const imageErrors = ref({});
+
+// Handle image load errors
+const onImageError = (key) => {
+    imageErrors.value[key] = true;
+};
 
 // New article form
 const newArticleForm = ref({
@@ -72,7 +78,8 @@ const defaultArticles = [
         authorRole: 'Security Compliance Officer',
         authorAvatar: 'https://avatar.iran.liara.run/public/50?name=Sarah+Johnson',
         categoryId: 1,
-        content: '# Detecting Banking Fraud\n\nBank tellers are the first line of defense against fraud. Key warning signs include:\n\n- Inconsistent signatures\n- Customer nervousness\n- Large amounts from new accounts\n\nAlways verify identity and consult supervisors when needed.',
+        content:
+            '# Detecting Banking Fraud\n\nBank tellers are the first line of defense against fraud. Key warning signs include:\n\n- Inconsistent signatures\n- Customer nervousness\n- Large amounts from new accounts\n\nAlways verify identity and consult supervisors when needed.',
         publishedDate: new Date(2025, 2, 5),
         updatedDate: new Date(2025, 2, 5),
         tags: ['fraud prevention', 'security', 'compliance'],
@@ -161,14 +168,11 @@ const formatDate = (date) => {
 const fetchArticles = async () => {
     loading.value = true;
     try {
-        const [categoriesData, articlesData] = await Promise.all([
-            KnowledgeBaseService.getArticleCategories(),
-            KnowledgeBaseService.getArticles({ size: 100 })
-        ]);
-        
+        const [categoriesData, articlesData] = await Promise.all([KnowledgeBaseService.getArticleCategories(), KnowledgeBaseService.getArticles({ size: 100 })]);
+
         // Map categories from API
         if (categoriesData && categoriesData.length > 0) {
-            categories.value = categoriesData.map(cat => ({
+            categories.value = categoriesData.map((cat) => ({
                 id: cat.id,
                 name: cat.name,
                 icon: cat.icon || 'pi pi-file',
@@ -177,11 +181,11 @@ const fetchArticles = async () => {
         } else {
             categories.value = defaultCategories;
         }
-        
+
         // Map articles from API
         if (articlesData && (articlesData.articles || articlesData.length > 0)) {
             const apiArticles = articlesData.articles || articlesData;
-            articles.value = apiArticles.map(article => ({
+            articles.value = apiArticles.map((article) => ({
                 id: article.id,
                 title: article.title,
                 summary: article.summary,
@@ -225,7 +229,7 @@ const viewArticle = async (article) => {
     } catch (error) {
         // Fallback: just increment locally
     }
-    
+
     // Update local view count
     const articleToUpdate = articles.value.find((a) => a.id === article.id);
     if (articleToUpdate) {
@@ -312,11 +316,11 @@ const createArticle = async () => {
         toast.add({ severity: 'error', summary: 'Error', detail: 'Title and content are required', life: 3000 });
         return;
     }
-    
+
     saving.value = true;
     try {
         const response = await KnowledgeBaseService.createArticle(newArticleForm.value);
-        
+
         // Add to local list
         articles.value.unshift({
             id: response.id,
@@ -333,7 +337,7 @@ const createArticle = async () => {
             helpful: 0,
             comments: 0
         });
-        
+
         showCreateDialog.value = false;
         resetForm();
         toast.add({ severity: 'success', summary: 'Success', detail: 'Article created successfully', life: 3000 });
@@ -349,17 +353,17 @@ const updateArticle = async () => {
         toast.add({ severity: 'error', summary: 'Error', detail: 'Title and content are required', life: 3000 });
         return;
     }
-    
+
     saving.value = true;
     try {
         await KnowledgeBaseService.updateArticle(editingArticle.value.id, editingArticle.value);
-        
+
         // Update local list
-        const index = articles.value.findIndex(a => a.id === editingArticle.value.id);
+        const index = articles.value.findIndex((a) => a.id === editingArticle.value.id);
         if (index !== -1) {
             articles.value[index] = { ...articles.value[index], ...editingArticle.value };
         }
-        
+
         showEditDialog.value = false;
         editingArticle.value = null;
         toast.add({ severity: 'success', summary: 'Success', detail: 'Article updated successfully', life: 3000 });
@@ -372,14 +376,14 @@ const updateArticle = async () => {
 
 const deleteArticle = async () => {
     if (!articleToDelete.value) return;
-    
+
     saving.value = true;
     try {
         await KnowledgeBaseService.deleteArticle(articleToDelete.value.id);
-        
+
         // Remove from local list
-        articles.value = articles.value.filter(a => a.id !== articleToDelete.value.id);
-        
+        articles.value = articles.value.filter((a) => a.id !== articleToDelete.value.id);
+
         showDeleteDialog.value = false;
         articleToDelete.value = null;
         toast.add({ severity: 'success', summary: 'Success', detail: 'Article deleted successfully', life: 3000 });
@@ -465,7 +469,10 @@ const deleteArticle = async () => {
 
                         <div class="flex justify-between items-center">
                             <div class="flex items-center">
-                                <img :src="article.authorAvatar" :alt="article.author" class="w-8 h-8 rounded-full mr-2" />
+                                <img v-if="!imageErrors[`featured-${article.id}`]" :src="article.authorAvatar" :alt="article.author" class="w-8 h-8 rounded-full mr-2" @error="onImageError(`featured-${article.id}`)" />
+                                <div v-else class="w-8 h-8 rounded-full mr-2 bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                                    <i class="pi pi-user text-sm text-surface-500 dark:text-surface-400"></i>
+                                </div>
                                 <span class="text-sm text-gray-600">{{ article.author }}</span>
                             </div>
                             <span class="text-sm text-gray-500">{{ formatDate(article.publishedDate) }}</span>
@@ -504,7 +511,10 @@ const deleteArticle = async () => {
 
                             <div class="flex flex-col sm:flex-row justify-between gap-3">
                                 <div class="flex items-center">
-                                    <img :src="article.authorAvatar" :alt="article.author" class="w-8 h-8 rounded-full mr-2" />
+                                    <img v-if="!imageErrors[`article-${article.id}`]" :src="article.authorAvatar" :alt="article.author" class="w-8 h-8 rounded-full mr-2" @error="onImageError(`article-${article.id}`)" />
+                                    <div v-else class="w-8 h-8 rounded-full mr-2 bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                                        <i class="pi pi-user text-sm text-surface-500 dark:text-surface-400"></i>
+                                    </div>
                                     <div>
                                         <div class="text-sm font-medium">{{ article.author }}</div>
                                         <div class="text-xs text-gray-500">{{ article.authorRole }}</div>
@@ -532,7 +542,10 @@ const deleteArticle = async () => {
             <div v-if="currentArticle" class="article-content">
                 <div class="flex justify-between items-center mb-6 pb-4 border-b">
                     <div class="flex items-center">
-                        <img :src="currentArticle.authorAvatar" :alt="currentArticle.author" class="w-10 h-10 rounded-full mr-3" />
+                        <img v-if="!imageErrors[`dialog-${currentArticle.id}`]" :src="currentArticle.authorAvatar" :alt="currentArticle.author" class="w-10 h-10 rounded-full mr-3" @error="onImageError(`dialog-${currentArticle.id}`)" />
+                        <div v-else class="w-10 h-10 rounded-full mr-3 bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                            <i class="pi pi-user text-lg text-surface-500 dark:text-surface-400"></i>
+                        </div>
                         <div>
                             <div class="font-medium">{{ currentArticle.author }}</div>
                             <div class="text-sm text-gray-500">{{ currentArticle.authorRole }}</div>

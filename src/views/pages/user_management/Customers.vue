@@ -14,6 +14,12 @@ const deleteCustomerDialog = ref(false);
 const filters1 = ref();
 const loading1 = ref(null);
 const toast = useToast();
+const imageErrors = ref({});
+
+// Handle image load errors
+const onImageError = (key) => {
+    imageErrors.value[key] = true;
+};
 
 onBeforeMount(() => {
     CustomerService.getCustomersXLarge().then((data) => {
@@ -218,7 +224,17 @@ function saveCustomer() {
 
         <Dialog v-model:visible="customerDialog" :style="{ width: '450px' }" header="Customer Details" :modal="true">
             <div class="flex flex-col gap-6">
-                <img :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(customer.name || '')}`" alt="customer" class="block m-auto pb-4" width="200" />
+                <img
+                    v-if="!imageErrors['customer-dialog']"
+                    :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(customer.name || '')}`"
+                    alt="customer"
+                    class="block m-auto pb-4"
+                    width="200"
+                    @error="onImageError('customer-dialog')"
+                />
+                <div v-else class="w-48 h-48 rounded-full m-auto mb-4 bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                    <i class="pi pi-user text-6xl text-surface-500 dark:text-surface-400"></i>
+                </div>
                 <div>
                     <label for="name" class="block font-bold mb-3">Name</label>
                     <InputText id="name" v-model.trim="customer.name" required="true" autofocus :invalid="submitted && !customer.name" fluid />

@@ -13,6 +13,12 @@ const toast = useToast();
 const activeTab = ref('0');
 const performanceData = ref({});
 const isLoading = ref(false);
+const imageErrors = ref({});
+
+// Handle image load errors
+const onImageError = (key) => {
+    imageErrors.value[key] = true;
+};
 
 // Method to close the drawer
 const closeDrawer = () => {
@@ -291,10 +297,18 @@ const handleCall = () => {
                     <ProgressSpinner />
                 </div>
 
-                <!-- Employee Header -->
                 <div v-else class="flex flex-col md:flex-row mb-6 gap-4">
                     <div class="w-full md:w-1/3 flex justify-center">
-                        <img :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(employeeName || 'Employee')}`" :alt="employeeName" class="w-40 h-40 rounded-full border-4 border-primary" />
+                        <img
+                            v-if="!imageErrors['employee']"
+                            :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(employeeName || 'Employee')}`"
+                            :alt="employeeName"
+                            class="w-40 h-40 rounded-full border-4 border-primary"
+                            @error="onImageError('employee')"
+                        />
+                        <div v-else class="w-40 h-40 rounded-full border-4 border-primary bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                            <i class="pi pi-user text-5xl text-surface-500 dark:text-surface-400"></i>
+                        </div>
                     </div>
                     <div class="w-full md:w-2/3">
                         <h1 class="text-surface-900 dark:text-surface-0 font-bold text-3xl lg:text-4xl mb-2">{{ employeeName }}</h1>

@@ -12,6 +12,12 @@ const emit = defineEmits(['update:visible']);
 const toast = useToast();
 const activeTab = ref('0');
 const performanceData = ref({});
+const imageErrors = ref({});
+
+// Handle image load errors
+const onImageError = (key) => {
+    imageErrors.value[key] = true;
+};
 
 // Method to close the drawer
 const closeDrawer = () => {
@@ -168,7 +174,16 @@ const calculateTenure = (hireDate) => {
                 <!-- Employee Header -->
                 <div class="flex flex-col md:flex-row mb-6 gap-4">
                     <div class="w-full md:w-1/3 flex justify-center">
-                        <img :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(employee?.name || '')}`" alt="employee" class="w-40 h-40 rounded-full border-4 border-primary" />
+                        <img
+                            v-if="!imageErrors['employee']"
+                            :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(employee?.name || '')}`"
+                            alt="employee"
+                            class="w-40 h-40 rounded-full border-4 border-primary"
+                            @error="onImageError('employee')"
+                        />
+                        <div v-else class="w-40 h-40 rounded-full border-4 border-primary bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                            <i class="pi pi-user text-5xl text-surface-500 dark:text-surface-400"></i>
+                        </div>
                     </div>
                     <div class="w-full md:w-2/3">
                         <h1 class="text-surface-900 dark:text-surface-0 font-bold text-3xl lg:text-4xl mb-2">{{ employee?.name }}</h1>
@@ -376,12 +391,14 @@ const calculateTenure = (hireDate) => {
                                 </template>
                             </Card>
 
-                            <!-- Direct Manager -->
                             <Card class="shadow-md mt-6">
                                 <template #title>Reporting Structure</template>
                                 <template #content>
                                     <div class="flex items-center gap-4 p-4">
-                                        <img src="https://avatar.iran.liara.run/public/50?name=Manager" alt="Manager" class="w-16 h-16 rounded-full" />
+                                        <img v-if="!imageErrors['manager']" src="https://avatar.iran.liara.run/public/50?name=Manager" alt="Manager" class="w-16 h-16 rounded-full" @error="onImageError('manager')" />
+                                        <div v-else class="w-16 h-16 rounded-full bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                                            <i class="pi pi-user text-xl text-surface-500 dark:text-surface-400"></i>
+                                        </div>
                                         <div>
                                             <div class="font-semibold">Sarah Johnson</div>
                                             <div class="text-sm text-gray-500">Department Manager</div>

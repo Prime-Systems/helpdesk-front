@@ -18,6 +18,12 @@ const selectedMetrics = ref(['ticketsResolved', 'avgResolutionTime', 'customerSa
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
+const imageErrors = ref({});
+
+// Handle image load errors
+const onImageError = (key) => {
+    imageErrors.value[key] = true;
+};
 
 const availableMetrics = ref([
     { name: 'Tickets Resolved', key: 'ticketsResolved' },
@@ -34,12 +40,12 @@ const recentReports = ref([]);
 // Fetch employees and recent reports
 const fetchData = async () => {
     loading.value = true;
-    
+
     // Fetch Employees
     try {
         const employeesData = await EmployeeService.getEmployees();
         // Map API response to include 'name' property for Dropdown
-        employees.value = employeesData.map(e => ({
+        employees.value = employeesData.map((e) => ({
             ...e,
             name: e.name || (e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.email)
         }));
@@ -55,10 +61,10 @@ const fetchData = async () => {
     // Fetch Reports
     try {
         const reportsData = await ReportService.getReports({ size: 20 });
-        
+
         // Transform reports data if available
         if (reportsData && reportsData.reports) {
-            recentReports.value = reportsData.reports.map(report => ({
+            recentReports.value = reportsData.reports.map((report) => ({
                 id: report.id,
                 employeeName: report.employeeName,
                 employeeId: report.employeeId,
@@ -68,8 +74,8 @@ const fetchData = async () => {
                 metrics: report.metrics || {}
             }));
         } else if (reportsData && Array.isArray(reportsData.content)) {
-             // Handle paginated response structure if backend uses Spring Data REST style
-            recentReports.value = reportsData.content.map(report => ({
+            // Handle paginated response structure if backend uses Spring Data REST style
+            recentReports.value = reportsData.content.map((report) => ({
                 id: report.id,
                 employeeName: report.employeeName,
                 employeeId: report.employeeId,
@@ -152,7 +158,7 @@ const generateReport = async () => {
             endDate: formatDateForApi(dateRange.value[1]),
             metrics: selectedMetrics.value
         });
-        
+
         reportData.value = {
             employee: selectedEmployee.value,
             startDate: dateRange.value[0],
@@ -175,11 +181,11 @@ const generateReport = async () => {
         };
 
         recentReports.value = [newReport, ...recentReports.value];
-        
+
         toast.add({ severity: 'success', summary: 'Success', detail: 'Performance report generated', life: 3000 });
     } catch (error) {
         console.warn('Report API not available, using mock data:', error.message);
-        
+
         // Fallback to mock data
         reportData.value = {
             employee: selectedEmployee.value,
@@ -211,7 +217,7 @@ const generateReport = async () => {
             ]
         };
 
-        // Add to recent reports  
+        // Add to recent reports
         const newReport = {
             id: recentReports.value.length + 1,
             employeeName: selectedEmployee.value.name || `${selectedEmployee.value.firstName} ${selectedEmployee.value.lastName}`,
@@ -223,7 +229,7 @@ const generateReport = async () => {
         };
 
         recentReports.value = [newReport, ...recentReports.value];
-        
+
         toast.add({ severity: 'success', summary: 'Success', detail: 'Performance report generated (demo)', life: 3000 });
     } finally {
         loading.value = false;
@@ -280,7 +286,7 @@ const viewReport = async (report) => {
     try {
         // Fetch full report details from API
         const fullReport = await ReportService.getReportById(report.id);
-        
+
         reportData.value = {
             employee: {
                 name: fullReport.employeeName || report.employeeName,
@@ -309,7 +315,7 @@ const exportToPdf = () => {
         if (!reportData.value) return;
 
         const doc = new jsPDF();
-        
+
         // Add title
         doc.setFontSize(20);
         doc.text('Employee Performance Report', 14, 22);
@@ -335,7 +341,7 @@ const exportToPdf = () => {
         }
 
         doc.text('Performance Metrics', 14, 54);
-        
+
         // Check for autoTable support
         if (typeof doc.autoTable === 'function') {
             doc.autoTable({
@@ -347,9 +353,9 @@ const exportToPdf = () => {
                 headStyles: { fillColor: [66, 139, 202] }
             });
         } else {
-             // Fallback if autoTable not loaded
+            // Fallback if autoTable not loaded
             let yPos = 60;
-            metricsData.forEach(row => {
+            metricsData.forEach((row) => {
                 doc.text(`${row[0]}: ${row[1]}`, 14, yPos);
                 yPos += 7;
             });
@@ -449,7 +455,16 @@ const resetReport = () => {
                 <Column field="employeeName" header="Employee" sortable>
                     <template #body="slotProps">
                         <div class="flex items-center gap-2">
-                            <img :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(slotProps.data.employeeName)}`" class="w-8 h-8 rounded-full" :alt="slotProps.data.employeeName" />
+                            <img
+                                v-if="!imageErrors[`emp-${slotProps.data.id}`]"
+                                :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(slotProps.data.employeeName)}`"
+                                class="w-8 h-8 rounded-full"
+                                :alt="slotProps.data.employeeName"
+                                @error="onImageError(`emp-${slotProps.data.id}`)"
+                            />
+                            <div v-else class="w-8 h-8 rounded-full bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                                <i class="pi pi-user text-sm text-surface-500 dark:text-surface-400"></i>
+                            </div>
                             <div>
                                 <div>{{ slotProps.data.employeeName }}</div>
                                 <div class="text-xs text-gray-500">{{ slotProps.data.employeeId }}</div>

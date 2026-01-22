@@ -6,7 +6,6 @@ import { useToast } from 'primevue/usetoast';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 // PrimeVue Components
-import Avatar from 'primevue/avatar';
 import Badge from 'primevue/badge';
 import Button from 'primevue/button';
 import Calendar from 'primevue/calendar';
@@ -42,6 +41,12 @@ const selectedFile = ref(null);
 const uploadPreview = ref(null);
 const loading = ref(false);
 const isMobile = ref(false);
+const imageError = ref(false);
+
+// Handle profile image load error
+const onImageError = () => {
+    imageError.value = true;
+};
 
 // Form data
 const editProfile = ref({
@@ -588,7 +593,10 @@ const makeCall = () => {
             <!-- Mobile Header -->
             <div v-if="isMobile" class="mobile-header p-3 surface-0 shadow-1 bg-surface-0 dark:bg-surface-900 border-b border-surface-200 dark:border-surface-700">
                 <div class="flex items-center gap-3">
-                    <Avatar :image="profilePicture" size="large" shape="circle" />
+                    <img v-if="!imageError" :src="profilePicture" alt="Profile" class="w-12 h-12 rounded-full object-cover" @error="onImageError" />
+                    <div v-else class="w-12 h-12 rounded-full bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                        <i class="pi pi-user text-xl text-surface-500 dark:text-surface-400"></i>
+                    </div>
                     <div class="flex-1 min-w-0">
                         <h2 class="m-0 text-900 font-bold text-base truncate">{{ fullName }}</h2>
                         <p class="m-0 text-xs text-surface-600 dark:text-surface-400 truncate">{{ userStore.profile?.role || 'Employee' }}</p>
@@ -603,11 +611,21 @@ const makeCall = () => {
                     <Card class="h-full border-round-lg">
                         <template #content>
                             <div class="flex flex-col items-center text-center p-3">
-                                <Avatar :image="profilePicture" size="xlarge" shape="circle" class="border-2 border-primary mb-3 cursor-pointer hover:scale-105 transition-all" @click="showFileUpload = true" />
+                                <img
+                                    v-if="!imageError"
+                                    :src="profilePicture"
+                                    alt="Profile"
+                                    class="w-20 h-20 rounded-full object-cover border-2 border-primary mb-3 cursor-pointer hover:scale-105 transition-all"
+                                    @click="showFileUpload = true"
+                                    @error="onImageError"
+                                />
+                                <div v-else class="w-20 h-20 rounded-full border-2 border-primary mb-3 cursor-pointer hover:scale-105 transition-all bg-surface-200 dark:bg-surface-700 flex items-center justify-center" @click="showFileUpload = true">
+                                    <i class="pi pi-user text-3xl text-surface-500 dark:text-surface-400"></i>
+                                </div>
                                 <h3 class="m-0 text-lg font-bold truncate w-full">{{ fullName }}</h3>
                                 <p class="text-sm text-surface-600 dark:text-surface-400 m-0 mt-1">{{ userStore.profile?.role || 'Employee' }}</p>
 
-                                <Badge :value="userStore.profile?.isActive ? 'Active' : 'Inactive'" :severity="userStore.profile?.isActive ? 'success' : 'danger'" class="mt-2" />
+                                <Badge :value="userStore.profile?.isActive !== false ? 'Active' : 'Inactive'" :severity="userStore.profile?.isActive !== false ? 'success' : 'danger'" class="mt-2" />
                             </div>
 
                             <Divider />
@@ -792,7 +810,21 @@ const makeCall = () => {
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div class="col-span-1 md:col-span-2 mb-4">
                                                 <div class="flex flex-col items-center gap-3">
-                                                    <Avatar :image="uploadPreview || profilePicture" size="xlarge" shape="circle" class="border-3 border-primary cursor-pointer hover:scale-105 transition-all" @click="showFileUpload = true" />
+                                                    <img
+                                                        v-if="!imageError || uploadPreview"
+                                                        :src="uploadPreview || profilePicture"
+                                                        alt="Profile"
+                                                        class="w-20 h-20 rounded-full object-cover border-3 border-primary cursor-pointer hover:scale-105 transition-all"
+                                                        @click="showFileUpload = true"
+                                                        @error="onImageError"
+                                                    />
+                                                    <div
+                                                        v-else
+                                                        class="w-20 h-20 rounded-full border-3 border-primary cursor-pointer hover:scale-105 transition-all bg-surface-200 dark:bg-surface-700 flex items-center justify-center"
+                                                        @click="showFileUpload = true"
+                                                    >
+                                                        <i class="pi pi-user text-3xl text-surface-500 dark:text-surface-400"></i>
+                                                    </div>
                                                     <Button icon="pi pi-camera" label="Change Photo" severity="secondary" outlined size="small" @click="showFileUpload = true" />
                                                 </div>
                                             </div>
@@ -1042,7 +1074,10 @@ const makeCall = () => {
         <Dialog v-model:visible="showFileUpload" header="Profile Picture" :modal="true" :breakpoints="{ '960px': '75vw', '640px': '90vw' }" :style="{ width: '400px' }" :draggable="false">
             <div class="upload-dialog">
                 <div class="flex justify-center mb-4">
-                    <Avatar :image="uploadPreview || profilePicture" size="xlarge" shape="circle" class="border-3 border-primary" />
+                    <img v-if="!imageError || uploadPreview" :src="uploadPreview || profilePicture" alt="Profile" class="w-20 h-20 rounded-full object-cover border-3 border-primary" @error="onImageError" />
+                    <div v-else class="w-20 h-20 rounded-full border-3 border-primary bg-surface-200 dark:bg-surface-700 flex items-center justify-center">
+                        <i class="pi pi-user text-3xl text-surface-500 dark:text-surface-400"></i>
+                    </div>
                 </div>
 
                 <FileUpload mode="basic" accept="image/*" :maxFileSize="2000000" chooseLabel="Choose Image" @select="onFileSelect" :auto="true" />
