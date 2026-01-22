@@ -80,9 +80,7 @@ const securitySettings = ref({
 // Enums and options
 const genderOptions = [
     { label: 'Male', value: 'MALE' },
-    { label: 'Female', value: 'FEMALE' },
-    { label: 'Other', value: 'OTHER' },
-    { label: 'Prefer not to say', value: 'PREFER_NOT_TO_SAY' }
+    { label: 'Female', value: 'FEMALE' }
 ];
 
 const leaveTypes = [

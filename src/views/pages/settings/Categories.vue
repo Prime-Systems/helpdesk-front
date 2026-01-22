@@ -1,7 +1,7 @@
 <script setup>
 import { useBranchStore } from '@/stores/BranchStore';
 import { useCategoryStore } from '@/stores/CategoryStore';
-import { useDepartmentStore } from '@/stores/departmentStore';
+import { useDepartmentStore } from '@/stores/DepartmentStore';
 import { useEmployeeStore } from '@/stores/EmployeeStore';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';

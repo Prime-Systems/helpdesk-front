@@ -2,7 +2,7 @@
 import { BranchService } from '@/service/BranchService';
 import { EmployeeService } from '@/service/EmployeeService';
 import { useAuthStore } from '@/stores/AuthStore';
-import { useDepartmentStore } from '@/stores/departmentStore';
+import { useDepartmentStore } from '@/stores/DepartmentStore';
 import { useEmployeeStore } from '@/stores/EmployeeStore';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
@@ -32,8 +32,7 @@ const loading1 = ref(null);
 const toast = useToast();
 const genderOptions = [
     { label: 'Male', value: 'MALE' },
-    { label: 'Female', value: 'FEMALE' },
-    { label: 'Other', value: 'OTHER' }
+    { label: 'Female', value: 'FEMALE' }
 ];
 
 // Update your existing roles to match your backend Role enum
