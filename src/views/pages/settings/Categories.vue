@@ -896,7 +896,7 @@ const getManagerOptions = computed(() => {
                         </div>
 
                         <div class="field-checkbox">
-                            <Checkbox id="dept-isActive" v-model="departmentForm.status" :binary="false" :true-value="'ACTIVE'" :false-value="'INACTIVE'" />
+                            <Checkbox id="dept-isActive" v-model="departmentForm.status" :binary="true" trueValue="ACTIVE" falseValue="INACTIVE" />
                             <label for="dept-isActive" class="ml-2">Active</label>
                         </div>
                     </div>
@@ -1078,7 +1078,7 @@ const getManagerOptions = computed(() => {
                 </div>
 
                 <div class="field-checkbox">
-                    <Checkbox id="branch-isActive" v-model="branchForm.status" :binary="false" :true-value="'ACTIVE'" :false-value="'INACTIVE'" />
+                    <Checkbox id="branch-isActive" v-model="branchForm.status" :binary="true" trueValue="ACTIVE" falseValue="INACTIVE" />
                     <label for="branch-isActive" class="ml-2">Active</label>
                 </div>
             </div>
