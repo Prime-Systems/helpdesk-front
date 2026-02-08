@@ -32,7 +32,10 @@ export const useEmployeeStore = defineStore('employee', {
                 this.employees.push(response);
                 return response;
             } catch (error) {
-                this.error = error.message;
+                // console.log('Full Error Object:', error);
+                // console.log('Error Response:', error.response);
+                // console.log('Error Response Data:', error.response?.data);
+                this.error = error.response?.data?.message || error.response?.data?.detail || error.message;
                 throw error;
             } finally {
                 this.loading = false;
@@ -51,7 +54,7 @@ export const useEmployeeStore = defineStore('employee', {
                 }
                 return response;
             } catch (error) {
-                this.error = error.message;
+                this.error = error.response?.data?.message || error.response?.data?.detail || error.message;
                 throw error;
             } finally {
                 this.loading = false;
@@ -66,7 +69,7 @@ export const useEmployeeStore = defineStore('employee', {
                 await EmployeeService.deleteEmployee(id);
                 this.employees = this.employees.filter((e) => e.id !== id);
             } catch (error) {
-                this.error = error.message;
+                this.error = error.response?.data?.message || error.response?.data?.detail || error.message;
             } finally {
                 this.loading = false;
             }
