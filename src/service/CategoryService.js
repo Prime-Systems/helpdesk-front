@@ -52,5 +52,15 @@ export const CategoryService = {
     async deleteCategory(categoryId) {
         const response = await axios.delete(`/categories/${categoryId}`);
         return response.data;
+    },
+
+    /**
+     * Get direct subcategories of a category
+     * @param {number} parentId - Parent category ID
+     * @returns {Promise<Array<CategoryDto>>}
+     */
+    async getSubcategories(parentId) {
+        const response = await axios.get(`/categories/${parentId}/subcategories`);
+        return response.data;
     }
 };

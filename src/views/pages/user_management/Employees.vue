@@ -154,6 +154,7 @@ async function saveEmployee() {
         try {
             // Prepare the user data according to backend API specification
             const userData = {
+                id: employee.value.id, // Database ID — required for update URL
                 firstName: employee.value.firstName || '',
                 lastName: employee.value.lastName || '',
                 otherNames: employee.value.otherNames || '',

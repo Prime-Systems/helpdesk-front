@@ -21,16 +21,19 @@ const categoryDialog = ref(false);
 const deleteCategoryDialog = ref(false);
 const categoryDetailDialog = ref(false);
 const categorySubmitted = ref(false);
+const expandedCategories = ref(new Set());
+const categorySearch = ref('');
 const categoryForm = ref({
     id: null,
     name: '',
     description: '',
     departmentId: null,
     maxResolutionTime: 24,
-    priority: 'medium',
+    priority: 'MEDIUM',
     isActive: true,
     requiresApproval: false,
-    tags: []
+    tags: [],
+    parentCategoryId: null
 });
 
 // Department Management
@@ -122,7 +125,7 @@ onMounted(async () => {
 });
 
 // ============ CATEGORY METHODS ============
-const openNewCategory = () => {
+const openNewCategory = (parentId = null) => {
     categoryForm.value = {
         id: null,
         name: '',
@@ -132,7 +135,8 @@ const openNewCategory = () => {
         priority: 'MEDIUM',
         isActive: true,
         requiresApproval: false,
-        tags: []
+        tags: [],
+        parentCategoryId: parentId
     };
     categorySubmitted.value = false;
     categoryDialog.value = true;
@@ -149,7 +153,8 @@ const editCategory = (category) => {
         priority: category.defaultPriority,
         isActive: category.status === 'ACTIVE',
         requiresApproval: category.requiresApproval,
-        tags: tagsArray
+        tags: tagsArray,
+        parentCategoryId: category.parentCategoryId
     };
     categoryDialog.value = true;
 };
@@ -165,20 +170,19 @@ const saveCategory = async () => {
     if (categoryForm.value.name.trim() && categoryForm.value.departmentId) {
         try {
             const categoryData = {
-                id: categoryForm.value.id || generateId(),
                 name: categoryForm.value.name,
                 description: categoryForm.value.description,
                 targetResolutionTime: categoryForm.value.maxResolutionTime,
-                departmentName: getDepartmentName(categoryForm.value.departmentId),
                 departmentId: categoryForm.value.departmentId,
                 defaultPriority: categoryForm.value.priority,
                 tags: categoryForm.value.tags.join(','),
                 status: categoryForm.value.isActive ? 'ACTIVE' : 'INACTIVE',
-                requiresApproval: categoryForm.value.requiresApproval
+                requiresApproval: categoryForm.value.requiresApproval,
+                parentCategoryId: categoryForm.value.parentCategoryId
             };
 
             if (categoryForm.value.id) {
-                await categoryStore.updateCategory(categoryData);
+                await categoryStore.updateCategory({ id: categoryForm.value.id, ...categoryData });
                 toast.add({ severity: 'success', summary: 'Success', detail: 'Category Updated', life: 3000 });
             } else {
                 await categoryStore.addCategory(categoryData);
@@ -219,9 +223,72 @@ const resetCategoryForm = () => {
         priority: 'MEDIUM',
         isActive: true,
         requiresApproval: false,
-        tags: []
+        tags: [],
+        parentCategoryId: null
     };
 };
+
+// ============ SUBCATEGORY HELPERS ============
+const toggleExpand = (categoryId) => {
+    if (expandedCategories.value.has(categoryId)) {
+        expandedCategories.value.delete(categoryId);
+    } else {
+        expandedCategories.value.add(categoryId);
+    }
+};
+
+const isExpanded = (categoryId) => expandedCategories.value.has(categoryId);
+
+// Recursively count all descendants
+const countSubcategories = (category) => {
+    if (!category.subcategories?.length) return 0;
+    let count = category.subcategories.length;
+    for (const sub of category.subcategories) {
+        count += countSubcategories(sub);
+    }
+    return count;
+};
+
+// Flatten categories for the parent dropdown with indentation
+const flattenForDropdown = (cats, excludeId = null, depth = 0) => {
+    const options = [];
+    for (const cat of cats) {
+        if (cat.id === excludeId) continue;
+        options.push({
+            id: cat.id,
+            label: '\u00A0\u00A0'.repeat(depth) + (depth > 0 ? '├─ ' : '') + cat.name,
+            depth
+        });
+        if (cat.subcategories?.length) {
+            options.push(...flattenForDropdown(cat.subcategories, excludeId, depth + 1));
+        }
+    }
+    return options;
+};
+
+const parentCategoryOptions = computed(() => {
+    return [
+        { id: null, label: 'None (Top-level)', depth: 0 },
+        ...flattenForDropdown(categories.value, categoryForm.value.id)
+    ];
+});
+
+// Filter categories by search (searches the tree recursively)
+const filterCategories = (cats, query) => {
+    if (!query) return cats;
+    const lower = query.toLowerCase();
+    const result = [];
+    for (const cat of cats) {
+        const nameMatch = cat.name.toLowerCase().includes(lower);
+        const filteredChildren = filterCategories(cat.subcategories || [], query);
+        if (nameMatch || filteredChildren.length > 0) {
+            result.push({ ...cat, subcategories: nameMatch ? (cat.subcategories || []) : filteredChildren });
+        }
+    }
+    return result;
+};
+
+const filteredCategories = computed(() => filterCategories(categories.value, categorySearch.value));
 
 // ============ DEPARTMENT METHODS ============
 const openNewDepartment = () => {
@@ -515,62 +582,164 @@ const getManagerOptions = computed(() => {
         <TabView v-model:activeIndex="activeTab">
             <!-- Categories Tab -->
             <TabPanel header="Categories">
-                <div class="flex justify-between mb-4">
+                <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-semibold">Ticket Categories</h2>
-                    <Button label="Add Category" icon="pi pi-plus" @click="openNewCategory" />
+                    <Button label="Add Category" icon="pi pi-plus" @click="openNewCategory()" />
+                </div>
+
+                <!-- Search bar -->
+                <div class="mb-4">
+                    <IconField>
+                        <InputIcon>
+                            <i class="pi pi-search" />
+                        </InputIcon>
+                        <InputText v-model="categorySearch" placeholder="Search categories..." class="w-full" />
+                    </IconField>
                 </div>
 
                 <div v-if="loading" class="flex justify-center py-8">
                     <ProgressSpinner />
                 </div>
 
-                <DataTable v-else :value="categories" dataKey="id" :paginator="true" :rows="10" :rowHover="true" stripedRows responsiveLayout="scroll" class="p-datatable-sm">
-                    <Column field="name" header="Category Name" sortable>
-                        <template #body="{ data }">
-                            <div class="font-medium">{{ data.name }}</div>
-                            <div class="text-xs text-gray-500 mt-1">{{ data.description }}</div>
-                        </template>
-                    </Column>
+                <!-- Recursive Category Tree -->
+                <div v-else class="border rounded-lg overflow-hidden">
+                    <!-- Header row -->
+                    <div class="grid grid-cols-12 gap-2 px-4 py-3 bg-gray-50 dark:bg-gray-800 font-semibold text-sm text-gray-600 dark:text-gray-300 border-b">
+                        <div class="col-span-4">Category Name</div>
+                        <div class="col-span-2">Department</div>
+                        <div class="col-span-2">Resolution Time</div>
+                        <div class="col-span-1">Priority</div>
+                        <div class="col-span-1">Status</div>
+                        <div class="col-span-2 text-right">Actions</div>
+                    </div>
 
-                    <Column field="departmentId" header="Department" sortable>
-                        <template #body="{ data }">
-                            {{ getDepartmentName(data.departmentId) }}
-                        </template>
-                    </Column>
+                    <!-- Empty state -->
+                    <div v-if="filteredCategories.length === 0" class="text-center py-8 text-gray-500">
+                        <i class="pi pi-folder-open text-4xl mb-2"></i>
+                        <p>No categories found</p>
+                    </div>
 
-                    <Column field="maxResolutionTime" header="Resolution Time" sortable>
-                        <template #body="{ data }">
-                            {{ formatTime(data.targetResolutionTime) }}
-                        </template>
-                    </Column>
-
-                    <Column field="priority" header="Priority" sortable>
-                        <template #body="{ data }">
-                            <Tag :value="data.defaultPriority.charAt(0).toUpperCase() + data.defaultPriority.slice(1)" :class="getPriorityClass(data.defaultPriority)">
-                                <i :class="[getPriorityIcon(data.defaultPriority), 'mr-1']"></i>
-                                {{ data.defaultPriority.charAt(0).toUpperCase() + data.defaultPriority.slice(1) }}
-                            </Tag>
-                        </template>
-                    </Column>
-
-                    <Column field="isActive" header="Status" sortable>
-                        <template #body="{ data }">
-                            <Tag :severity="data.isActive ? 'success' : 'danger'">
-                                {{ data.isActive ? 'ACTIVE' : 'INACTIVE' }}
-                            </Tag>
-                        </template>
-                    </Column>
-
-                    <Column header="Actions" :exportable="false">
-                        <template #body="{ data }">
-                            <div class="flex gap-2">
-                                <Button icon="pi pi-eye" rounded outlined severity="info" @click="viewCategoryDetails(data)" />
-                                <Button icon="pi pi-pencil" rounded outlined @click="editCategory(data)" />
-                                <Button icon="pi pi-trash" rounded outlined severity="danger" @click="confirmDeleteCategory(data)" />
+                    <!-- Tree items -->
+                    <template v-for="category in filteredCategories" :key="category.id">
+                        <div
+                            class="category-tree-item grid grid-cols-12 gap-2 px-4 py-3 items-center border-b hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                        >
+                            <div class="col-span-4 flex items-center gap-2">
+                                <button
+                                    v-if="category.subcategories?.length > 0"
+                                    class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                    @click="toggleExpand(category.id)"
+                                >
+                                    <i :class="isExpanded(category.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-xs"></i>
+                                </button>
+                                <span v-else class="w-6"></span>
+                                <div>
+                                    <div class="font-medium">{{ category.name }}</div>
+                                    <div class="text-xs text-gray-500 mt-0.5">{{ category.description }}</div>
+                                </div>
                             </div>
+                            <div class="col-span-2 text-sm">{{ category.departmentName || getDepartmentName(category.departmentId) }}</div>
+                            <div class="col-span-2 text-sm">{{ category.targetResolutionTime ? formatTime(category.targetResolutionTime) : '—' }}</div>
+                            <div class="col-span-1">
+                                <Tag v-if="category.defaultPriority" :class="getPriorityClass(category.defaultPriority)" class="text-xs">
+                                    <i :class="[getPriorityIcon(category.defaultPriority), 'mr-1']"></i>
+                                    {{ category.defaultPriority }}
+                                </Tag>
+                            </div>
+                            <div class="col-span-1">
+                                <Tag :severity="category.status === 'ACTIVE' ? 'success' : 'danger'" class="text-xs">
+                                    {{ category.status }}
+                                </Tag>
+                            </div>
+                            <div class="col-span-2 flex gap-1 justify-end">
+                                <Button icon="pi pi-eye" rounded outlined severity="info" size="small" @click="viewCategoryDetails(category)" v-tooltip.top="'View'" />
+                                <Button icon="pi pi-plus" rounded outlined severity="success" size="small" @click="openNewCategory(category.id)" v-tooltip.top="'Add Subcategory'" />
+                                <Button icon="pi pi-pencil" rounded outlined size="small" @click="editCategory(category)" v-tooltip.top="'Edit'" />
+                                <Button icon="pi pi-trash" rounded outlined severity="danger" size="small" @click="confirmDeleteCategory(category)" v-tooltip.top="'Delete'" />
+                            </div>
+                        </div>
+
+                        <!-- Level 1 subcategories -->
+                        <template v-if="isExpanded(category.id) && category.subcategories?.length">
+                            <template v-for="sub1 in category.subcategories" :key="sub1.id">
+                                <div
+                                    class="category-tree-item grid grid-cols-12 gap-2 px-4 py-2.5 items-center border-b hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors bg-gray-50/50 dark:bg-gray-800/30"
+                                >
+                                    <div class="col-span-4 flex items-center gap-2" style="padding-left: 24px">
+                                        <button
+                                            v-if="sub1.subcategories?.length > 0"
+                                            class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                            @click="toggleExpand(sub1.id)"
+                                        >
+                                            <i :class="isExpanded(sub1.id) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-xs"></i>
+                                        </button>
+                                        <span v-else class="w-6"></span>
+                                        <span class="text-gray-400 mr-1">├─</span>
+                                        <div>
+                                            <div class="font-medium">{{ sub1.name }}</div>
+                                            <div v-if="sub1.description" class="text-xs text-gray-500 mt-0.5">{{ sub1.description }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-span-2 text-sm">{{ sub1.departmentName || getDepartmentName(sub1.departmentId) }}</div>
+                                    <div class="col-span-2 text-sm">{{ sub1.targetResolutionTime ? formatTime(sub1.targetResolutionTime) : '—' }}</div>
+                                    <div class="col-span-1">
+                                        <Tag v-if="sub1.defaultPriority" :class="getPriorityClass(sub1.defaultPriority)" class="text-xs">
+                                            <i :class="[getPriorityIcon(sub1.defaultPriority), 'mr-1']"></i>
+                                            {{ sub1.defaultPriority }}
+                                        </Tag>
+                                    </div>
+                                    <div class="col-span-1">
+                                        <Tag :severity="sub1.status === 'ACTIVE' ? 'success' : 'danger'" class="text-xs">
+                                            {{ sub1.status }}
+                                        </Tag>
+                                    </div>
+                                    <div class="col-span-2 flex gap-1 justify-end">
+                                        <Button icon="pi pi-eye" rounded outlined severity="info" size="small" @click="viewCategoryDetails(sub1)" v-tooltip.top="'View'" />
+                                        <Button icon="pi pi-plus" rounded outlined severity="success" size="small" @click="openNewCategory(sub1.id)" v-tooltip.top="'Add Subcategory'" />
+                                        <Button icon="pi pi-pencil" rounded outlined size="small" @click="editCategory(sub1)" v-tooltip.top="'Edit'" />
+                                        <Button icon="pi pi-trash" rounded outlined severity="danger" size="small" @click="confirmDeleteCategory(sub1)" v-tooltip.top="'Delete'" />
+                                    </div>
+                                </div>
+
+                                <!-- Level 2 subcategories -->
+                                <template v-if="isExpanded(sub1.id) && sub1.subcategories?.length">
+                                    <div
+                                        v-for="sub2 in sub1.subcategories"
+                                        :key="sub2.id"
+                                        class="category-tree-item grid grid-cols-12 gap-2 px-4 py-2 items-center border-b hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors bg-gray-100/50 dark:bg-gray-800/50"
+                                    >
+                                        <div class="col-span-4 flex items-center gap-2" style="padding-left: 56px">
+                                            <span class="w-6"></span>
+                                            <span class="text-gray-400 mr-1">├─</span>
+                                            <div>
+                                                <div class="font-medium text-sm">{{ sub2.name }}</div>
+                                                <div v-if="sub2.description" class="text-xs text-gray-500 mt-0.5">{{ sub2.description }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-span-2 text-sm">{{ sub2.departmentName || getDepartmentName(sub2.departmentId) }}</div>
+                                        <div class="col-span-2 text-sm">{{ sub2.targetResolutionTime ? formatTime(sub2.targetResolutionTime) : '—' }}</div>
+                                        <div class="col-span-1">
+                                            <Tag v-if="sub2.defaultPriority" :class="getPriorityClass(sub2.defaultPriority)" class="text-xs">
+                                                <i :class="[getPriorityIcon(sub2.defaultPriority), 'mr-1']"></i>
+                                                {{ sub2.defaultPriority }}
+                                            </Tag>
+                                        </div>
+                                        <div class="col-span-1">
+                                            <Tag :severity="sub2.status === 'ACTIVE' ? 'success' : 'danger'" class="text-xs">
+                                                {{ sub2.status }}
+                                            </Tag>
+                                        </div>
+                                        <div class="col-span-2 flex gap-1 justify-end">
+                                            <Button icon="pi pi-eye" rounded outlined severity="info" size="small" @click="viewCategoryDetails(sub2)" v-tooltip.top="'View'" />
+                                            <Button icon="pi pi-pencil" rounded outlined size="small" @click="editCategory(sub2)" v-tooltip.top="'Edit'" />
+                                            <Button icon="pi pi-trash" rounded outlined severity="danger" size="small" @click="confirmDeleteCategory(sub2)" v-tooltip.top="'Delete'" />
+                                        </div>
+                                    </div>
+                                </template>
+                            </template>
                         </template>
-                    </Column>
-                </DataTable>
+                    </template>
+                </div>
             </TabPanel>
 
             <!-- Departments Tab -->
@@ -687,8 +856,21 @@ const getManagerOptions = computed(() => {
         </TabView>
 
         <!-- Category Dialog -->
-        <Dialog v-model:visible="categoryDialog" :header="categoryForm.id ? 'Edit Category' : 'Add Category'" :modal="true" class="p-fluid" :style="{ width: '550px' }">
+        <Dialog v-model:visible="categoryDialog" :header="categoryForm.id ? 'Edit Category' : (categoryForm.parentCategoryId ? 'Add Subcategory' : 'Add Category')" :modal="true" class="p-fluid" :style="{ width: '550px' }">
             <div class="grid grid-cols-1 gap-4">
+                <div class="field">
+                    <label for="parentCategory" class="font-medium mb-2 block">Parent Category</label>
+                    <Dropdown
+                        id="parentCategory"
+                        v-model="categoryForm.parentCategoryId"
+                        :options="parentCategoryOptions"
+                        optionLabel="label"
+                        optionValue="id"
+                        placeholder="Select parent category"
+                    />
+                    <small class="text-gray-500">Leave as "None" to create a top-level category</small>
+                </div>
+
                 <div class="field">
                     <label for="name" class="font-medium mb-2 block">Name</label>
                     <InputText id="name" v-model.trim="categoryForm.name" required autofocus :class="{ 'p-invalid': categorySubmitted && !categoryForm.name }" />
@@ -778,6 +960,14 @@ const getManagerOptions = computed(() => {
                     <div class="mt-1">{{ selectedCategory.name }}</div>
                 </div>
 
+                <div v-if="selectedCategory.parentCategoryName" class="detail-item">
+                    <label class="font-semibold text-gray-700">Parent Category:</label>
+                    <div class="mt-1 flex items-center gap-2">
+                        <i class="pi pi-folder text-gray-400"></i>
+                        <span>{{ selectedCategory.parentCategoryName }}</span>
+                    </div>
+                </div>
+
                 <div class="detail-item">
                     <label class="font-semibold text-gray-700">Description:</label>
                     <div class="mt-1">{{ selectedCategory.description || 'N/A' }}</div>
@@ -785,15 +975,15 @@ const getManagerOptions = computed(() => {
 
                 <div class="detail-item">
                     <label class="font-semibold text-gray-700">Department:</label>
-                    <div class="mt-1">{{ getDepartmentName(selectedCategory.departmentId) }}</div>
+                    <div class="mt-1">{{ selectedCategory.departmentName || getDepartmentName(selectedCategory.departmentId) }}</div>
                 </div>
 
                 <div class="detail-item">
                     <label class="font-semibold text-gray-700">Target Resolution Time:</label>
-                    <div class="mt-1">{{ formatTime(selectedCategory.targetResolutionTime) }}</div>
+                    <div class="mt-1">{{ selectedCategory.targetResolutionTime ? formatTime(selectedCategory.targetResolutionTime) : 'N/A' }}</div>
                 </div>
 
-                <div class="detail-item">
+                <div class="detail-item" v-if="selectedCategory.defaultPriority">
                     <label class="font-semibold text-gray-700">Default Priority:</label>
                     <div class="mt-1">
                         <Tag :class="getPriorityClass(selectedCategory.defaultPriority)">
@@ -806,8 +996,8 @@ const getManagerOptions = computed(() => {
                 <div class="detail-item">
                     <label class="font-semibold text-gray-700">Status:</label>
                     <div class="mt-1">
-                        <Tag :severity="selectedCategory.isActive ? 'success' : 'danger'">
-                            {{ selectedCategory.isActive ? 'ACTIVE' : 'INACTIVE' }}
+                        <Tag :severity="selectedCategory.status === 'ACTIVE' ? 'success' : 'danger'">
+                            {{ selectedCategory.status }}
                         </Tag>
                     </div>
                 </div>
@@ -826,6 +1016,13 @@ const getManagerOptions = computed(() => {
                         <Tag v-for="tag in selectedCategory.tags.split(',')" :key="tag" :value="tag.trim()" class="bg-blue-100 text-blue-800" />
                     </div>
                 </div>
+
+                <div v-if="selectedCategory.subcategories?.length" class="detail-item">
+                    <label class="font-semibold text-gray-700">Subcategories ({{ selectedCategory.subcategories.length }}):</label>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        <Tag v-for="sub in selectedCategory.subcategories" :key="sub.id" :value="sub.name" severity="info" />
+                    </div>
+                </div>
             </div>
 
             <template #footer>
@@ -842,17 +1039,22 @@ const getManagerOptions = computed(() => {
         </Dialog>
 
         <!-- Delete Category Dialog -->
-        <Dialog v-model:visible="deleteCategoryDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
+        <Dialog v-model:visible="deleteCategoryDialog" :style="{ width: '450px' }" header="Confirm Delete" :modal="true">
             <div class="confirmation-content">
                 <i class="pi pi-exclamation-triangle mr-3 text-xl text-yellow-500" />
-                <span v-if="selectedCategory"
-                    >Are you sure you want to delete <b>{{ selectedCategory.name }}</b
-                    >?</span
-                >
+                <span v-if="selectedCategory">
+                    Are you sure you want to delete <b>{{ selectedCategory.name }}</b>?
+                    <div v-if="countSubcategories(selectedCategory) > 0" class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm">
+                        <i class="pi pi-info-circle text-yellow-600 mr-2"></i>
+                        <span class="text-yellow-800">
+                            This will also delete <b>{{ countSubcategories(selectedCategory) }}</b> subcategor{{ countSubcategories(selectedCategory) === 1 ? 'y' : 'ies' }}.
+                        </span>
+                    </div>
+                </span>
             </div>
             <template #footer>
                 <Button label="No" icon="pi pi-times" outlined @click="deleteCategoryDialog = false" />
-                <Button label="Yes" icon="pi pi-check" severity="danger" @click="deleteCategory" />
+                <Button label="Yes, Delete" icon="pi pi-check" severity="danger" @click="deleteCategory" />
             </template>
         </Dialog>
 

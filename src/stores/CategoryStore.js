@@ -27,39 +27,64 @@ export const useCategoryStore = defineStore('category', {
                     this.categories = [
                         {
                             id: 1,
-                            name: 'Test Issues',
-                            description: 'Problems with physical equipment',
+                            name: 'IT Support',
+                            description: 'All IT-related issues',
                             departmentId: 1,
-                            departmentName: 'IT Support',
-                            maxResolutionTime: 48,
-                            priority: 'MEDIUM',
-                            isActive: true,
+                            departmentName: 'Information Technology',
+                            targetResolutionTime: 24,
+                            defaultPriority: 'MEDIUM',
+                            tags: 'it,tech,support',
+                            status: 'ACTIVE',
                             requiresApproval: false,
-                            tags: ['hardware', 'equipment']
+                            parentCategoryId: null,
+                            parentCategoryName: null,
+                            subcategories: [
+                                {
+                                    id: 2,
+                                    name: 'Hardware',
+                                    description: 'Hardware-related issues',
+                                    departmentId: 1,
+                                    departmentName: 'Information Technology',
+                                    targetResolutionTime: 48,
+                                    defaultPriority: 'LOW',
+                                    tags: 'hardware,equipment',
+                                    status: 'ACTIVE',
+                                    requiresApproval: false,
+                                    parentCategoryId: 1,
+                                    parentCategoryName: 'IT Support',
+                                    subcategories: []
+                                },
+                                {
+                                    id: 3,
+                                    name: 'Software',
+                                    description: 'Software-related issues',
+                                    departmentId: 1,
+                                    departmentName: 'Information Technology',
+                                    targetResolutionTime: 24,
+                                    defaultPriority: 'HIGH',
+                                    tags: 'software,applications',
+                                    status: 'ACTIVE',
+                                    requiresApproval: false,
+                                    parentCategoryId: 1,
+                                    parentCategoryName: 'IT Support',
+                                    subcategories: []
+                                }
+                            ]
                         },
                         {
-                            id: 2,
-                            name: 'Test Issues',
-                            description: 'Problems with applications or operating systems',
-                            departmentId: 1,
-                            departmentName: 'IT Support',
-                            maxResolutionTime: 24,
-                            priority: 'HIGH',
-                            isActive: true,
-                            requiresApproval: false,
-                            tags: ['software', 'applications']
-                        },
-                        {
-                            id: 3,
-                            name: 'Test Inquiries',
-                            description: 'Questions about billing or payments',
+                            id: 4,
+                            name: 'HR',
+                            description: 'Human resources inquiries',
                             departmentId: 2,
-                            departmentName: 'Customer Service',
-                            maxResolutionTime: 72,
-                            priority: 'LOW',
-                            isActive: true,
+                            departmentName: 'Human Resources',
+                            targetResolutionTime: 72,
+                            defaultPriority: 'LOW',
+                            tags: 'hr,people',
+                            status: 'ACTIVE',
                             requiresApproval: true,
-                            tags: ['billing', 'payments']
+                            parentCategoryId: null,
+                            parentCategoryName: null,
+                            subcategories: []
                         }
                     ];
                 }
@@ -73,8 +98,9 @@ export const useCategoryStore = defineStore('category', {
             this.error = null;
 
             try {
-                const response = await CategoryService.createCategory(category);
-                this.categories.push(response);
+                await CategoryService.createCategory(category);
+                // Re-fetch the full tree since adding a subcategory changes the tree shape
+                await this.fetchCategories();
             } catch (error) {
                 this.error = error.message;
                 console.error('Error adding category:', error);
@@ -88,11 +114,9 @@ export const useCategoryStore = defineStore('category', {
             this.error = null;
 
             try {
-                const response = await CategoryService.updateCategory(category.id, category);
-                const index = this.categories.findIndex((c) => c.id === category.id);
-                if (index !== -1) {
-                    this.categories[index] = response;
-                }
+                await CategoryService.updateCategory(category.id, category);
+                // Re-fetch the full tree to handle parent changes / moves
+                await this.fetchCategories();
             } catch (error) {
                 this.error = error.message;
             } finally {
@@ -106,10 +130,8 @@ export const useCategoryStore = defineStore('category', {
 
             try {
                 await CategoryService.deleteCategory(id);
-                const index = this.categories.findIndex((c) => c.id === id);
-                if (index !== -1) {
-                    this.categories.splice(index, 1);
-                }
+                // Re-fetch the full tree since cascade delete changes the tree
+                await this.fetchCategories();
             } catch (error) {
                 this.error = error.message;
             } finally {
@@ -122,17 +144,61 @@ export const useCategoryStore = defineStore('category', {
         getCategories: (state) => state.categories,
         getLoading: (state) => state.loading,
         getError: (state) => state.error,
+
+        /**
+         * Recursively search the category tree to find by ID
+         */
         getCategoryById: (state) => (id) => {
-            return state.categories.find((category) => category.id === id);
+            const findInTree = (categories) => {
+                for (const cat of categories) {
+                    if (cat.id === id) return cat;
+                    if (cat.subcategories?.length) {
+                        const found = findInTree(cat.subcategories);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            };
+            return findInTree(state.categories);
         },
+
+        /**
+         * Get active top-level categories (status === 'ACTIVE')
+         */
         getActiveCategories: (state) => {
-            return state.categories.filter((category) => category.isActive);
+            return state.categories.filter((category) => category.status === 'ACTIVE');
         },
+
+        /**
+         * Get inactive top-level categories
+         */
         getInactiveCategories: (state) => {
-            return state.categories.filter((category) => !category.isActive);
+            return state.categories.filter((category) => category.status !== 'ACTIVE');
         },
+
+        /**
+         * Filter top-level categories by department
+         */
         getCategoriesByDepartmentId: (state) => (departmentId) => {
             return state.categories.filter((category) => category.departmentId === departmentId);
+        },
+
+        /**
+         * Flatten the entire category tree into a flat array
+         * Useful for search and generic dropdowns
+         */
+        getAllCategoriesFlat: (state) => {
+            const result = [];
+            const flatten = (categories) => {
+                for (const cat of categories) {
+                    result.push(cat);
+                    if (cat.subcategories?.length) {
+                        flatten(cat.subcategories);
+                    }
+                }
+            };
+            flatten(state.categories);
+            return result;
         }
     }
 });

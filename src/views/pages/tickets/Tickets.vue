@@ -43,13 +43,16 @@ onBeforeMount(() => {
     // });
 
     CategoryService.getCategories().then((data) => {
+        // Store as tree — top-level categories with nested subcategories[]
+        categoriesTree.value = data;
+        // Build flat options for the parent category dropdown
         categories.value = data.map((cat) => ({
-            label: cat.name, // Use 'name' instead of 'displayName'
-            value: cat.name, // Use 'name' to match ticket.categoryName
-            data: cat, // Store the full category object for reference
+            label: cat.name,
+            value: cat.name,
+            data: cat,
             id: cat.id
         }));
-        console.log('Categories', categories.value);
+        console.log('Categories (tree)', categoriesTree.value);
     });
 
     // EmployeeService.getEmployees().then((data) => {
@@ -149,6 +152,9 @@ const filters = ref({
 });
 const submitted = ref(false);
 const categories = ref([]);
+const categoriesTree = ref([]);
+const selectedParentCategoryName = ref(null);
+const subcategoryOptions = ref([]);
 
 const documents = ref([
     { name: 'Project Proposal.pdf', type: 'pdf', url: '/files/project-proposal.pdf' },
@@ -321,16 +327,38 @@ async function saveTicket() {
     submitted.value = true;
 
     if (ticket.value?.categoryName?.trim()) {
-        // --- STEP 1: RESOLVE CATEGORY ID (Do this for both Update and Create) ---
-        // If your dropdown stores the category name in 'categoryName', find the matching ID
-        const selectedCategory = categories.value.find((category) => category.value === ticket.value.categoryName || category.name === ticket.value.categoryName);
+        // --- STEP 1: RESOLVE CATEGORY ID ---
+        // Prefer subcategory if selected, otherwise use parent category
+        let resolvedCategoryId = null;
+        let resolvedCategoryName = ticket.value.categoryName;
 
-        if (selectedCategory) {
-            ticket.value.categoryId = selectedCategory.id;
+        if (ticket.value.subcategoryName) {
+            // Subcategory selected — find its ID
+            const parentCat = categoriesTree.value.find((c) => c.name === ticket.value.categoryName);
+            const subCat = parentCat?.subcategories?.find((s) => s.name === ticket.value.subcategoryName);
+            if (subCat) {
+                resolvedCategoryId = subCat.id;
+                resolvedCategoryName = subCat.name;
+            }
+        }
+
+        if (!resolvedCategoryId) {
+            // No subcategory — use the parent category ID
+            const selectedCategory = categories.value.find(
+                (category) => category.value === ticket.value.categoryName || category.name === ticket.value.categoryName
+            );
+            if (selectedCategory) {
+                resolvedCategoryId = selectedCategory.id;
+            }
+        }
+
+        if (resolvedCategoryId) {
+            ticket.value.categoryId = resolvedCategoryId;
+            ticket.value.categoryName = resolvedCategoryName;
         } else {
             console.error('Could not find matching category for:', ticket.value.categoryName);
             toast.add({ severity: 'error', summary: 'Error', detail: 'Please select a valid category', life: 3000 });
-            return; // Stop execution if category is invalid
+            return;
         }
 
         // --- STEP 2: HANDLE UPDATE OR CREATE ---
@@ -793,7 +821,39 @@ function getEmployeeDetails(name) {
 }
 
 function getCategoryDetails(categoryName) {
+    // Search top-level categories and their subcategories
+    for (const cat of categoriesTree.value) {
+        if (cat.name === categoryName) return { ...cat, departmentName: cat.departmentName };
+        if (cat.subcategories?.length) {
+            const sub = cat.subcategories.find((s) => s.name === categoryName);
+            if (sub) return { ...sub, departmentName: sub.departmentName || cat.departmentName, parentCategoryName: cat.name };
+        }
+    }
+    // Fallback to the old flat-list search
     return categories.value.find((category) => category.value === categoryName);
+}
+
+// Helper: find a category object by name in the tree (top-level or subcategory)
+function findCategoryInTree(name) {
+    for (const cat of categoriesTree.value) {
+        if (cat.name === name) return cat;
+        if (cat.subcategories?.length) {
+            const sub = cat.subcategories.find((s) => s.name === name);
+            if (sub) return sub;
+        }
+    }
+    return null;
+}
+
+// Helper: get the parent category name for a given category name
+function getParentCategoryName(categoryName) {
+    for (const cat of categoriesTree.value) {
+        if (cat.subcategories?.length) {
+            const sub = cat.subcategories.find((s) => s.name === categoryName);
+            if (sub) return cat.name;
+        }
+    }
+    return null;
 }
 
 function cancelEdit() {
@@ -844,28 +904,64 @@ function updateTicketAssignee() {
     }
 }
 
-// Fixed: Add onCategoryChange function
+// Handle parent category selection — populate subcategory dropdown
 function onCategoryChange() {
-    // You can add logic here to auto-set priority based on category if needed
     console.log('Category changed to:', ticket.value.categoryName);
+    // Reset subcategory when parent changes
+    selectedParentCategoryName.value = ticket.value.categoryName;
+    ticket.value.subcategoryName = null;
+    subcategoryOptions.value = [];
+
     if (ticket.value.categoryName) {
-        const selectedCat = categories.value.find((c) => c.value === ticket.value.categoryName);
-        if (selectedCat && selectedCat.data) {
-            // Set priority automatically
-            if (selectedCat.data.defaultPriority) {
-                ticket.value.priority = selectedCat.data.defaultPriority;
+        const parentCat = categoriesTree.value.find((c) => c.name === ticket.value.categoryName);
+        if (parentCat) {
+            // Populate subcategory options if this parent has children
+            if (parentCat.subcategories?.length) {
+                subcategoryOptions.value = parentCat.subcategories
+                    .filter((sub) => sub.status === 'ACTIVE')
+                    .map((sub) => ({
+                        label: sub.name,
+                        value: sub.name,
+                        data: sub,
+                        id: sub.id
+                    }));
             }
-            // Set due date automatically from target resolution time
-            if (selectedCat.data.targetResolutionTime) {
-                const now = new Date();
-                now.setHours(now.getHours() + selectedCat.data.targetResolutionTime);
-                ticket.value.dueDate = now;
-            }
+            // Auto-set priority and due date from parent
+            applyDefaultsFromCategory(parentCat);
         }
     } else {
         ticket.value.priority = 'MEDIUM';
     }
+}
 
+// Handle subcategory selection — override with subcategory defaults if available
+function onSubcategoryChange() {
+    if (ticket.value.subcategoryName) {
+        const parentCat = categoriesTree.value.find((c) => c.name === selectedParentCategoryName.value);
+        if (parentCat?.subcategories?.length) {
+            const subCat = parentCat.subcategories.find((s) => s.name === ticket.value.subcategoryName);
+            if (subCat) {
+                applyDefaultsFromCategory(subCat, parentCat);
+            }
+        }
+    } else {
+        // Reverted to parent defaults
+        const parentCat = categoriesTree.value.find((c) => c.name === selectedParentCategoryName.value);
+        if (parentCat) applyDefaultsFromCategory(parentCat);
+    }
+}
+
+// Apply priority and due date defaults from a category, with optional parent fallback
+function applyDefaultsFromCategory(cat, parentCat = null) {
+    const priority = cat.defaultPriority || parentCat?.defaultPriority;
+    if (priority) ticket.value.priority = priority;
+
+    const resolutionTime = cat.targetResolutionTime || parentCat?.targetResolutionTime;
+    if (resolutionTime) {
+        const now = new Date();
+        now.setHours(now.getHours() + resolutionTime);
+        ticket.value.dueDate = now;
+    }
 }
 
 const shareTicket = () => {
@@ -958,7 +1054,8 @@ const confirmEscalateTicket = async () => {
 
                 <Column field="categoryName" header="Category" style="min-width: 8rem" sortable :showFilterMenu="false">
                     <template #body="{ data }">
-                        {{ data.categoryName }}
+                        <span v-if="getParentCategoryName(data.categoryName)" class="text-xs text-gray-400">{{ getParentCategoryName(data.categoryName) }} → </span>
+                        <span>{{ data.categoryName }}</span>
                     </template>
                     <template #filter="{ filterModel }">
                         <Select v-model="filters['categoryName'].value" :options="categories" placeholder="Select Category" style="min-width: 6rem" :showClear="true" optionLabel="label" optionValue="value">
@@ -1056,7 +1153,7 @@ const confirmEscalateTicket = async () => {
             <div class="flex flex-col gap-6">
                 <div>
                     <label for="categoryName" class="block font-bold mb-3">Category</label>
-                    <Dropdown id="categoryName" v-model="ticket.categoryName" :options="categories" optionLabel="label" optionValue="value" placeholder="Select a category" class="w-full" @change="onCategoryChange">
+                    <Dropdown id="categoryName" v-model="ticket.categoryName" :options="categories" optionLabel="label" optionValue="value" placeholder="Select a category" class="w-full" @change="onCategoryChange" filter>
                         <template #value="slotProps">
                             <div v-if="slotProps.value" class="flex items-center">
                                 <span>{{ slotProps.value }}</span>
@@ -1069,13 +1166,28 @@ const confirmEscalateTicket = async () => {
                             <div class="flex flex-col p-2">
                                 <div class="flex justify-between items-center mb-1">
                                     <span class="font-medium">{{ slotProps.option.label }}</span>
-                                    <Tag :value="slotProps.option.data.defaultPriority" :severity="getPriorityLabel(slotProps.option.data.defaultPriority)" size="small" />
+                                    <Tag v-if="slotProps.option.data?.defaultPriority" :value="slotProps.option.data.defaultPriority" :severity="getPriorityLabel(slotProps.option.data.defaultPriority)" size="small" />
                                 </div>
-                                <span class="text-sm text-gray-600">{{ slotProps.option.data.departmentName }}</span>
-                                <span class="text-xs text-gray-500">Target: {{ slotProps.option.data.targetResolutionTime }}h</span>
+                                <span class="text-sm text-gray-600">{{ slotProps.option.data?.departmentName }}</span>
+                                <span v-if="slotProps.option.data?.targetResolutionTime" class="text-xs text-gray-500">Target: {{ slotProps.option.data.targetResolutionTime }}h</span>
+                                <span v-if="slotProps.option.data?.subcategories?.length" class="text-xs text-blue-500">{{ slotProps.option.data.subcategories.length }} subcategor{{ slotProps.option.data.subcategories.length === 1 ? 'y' : 'ies' }}</span>
                             </div>
                         </template>
                     </Dropdown>
+                </div>
+
+                <!-- Subcategory dropdown — only visible when the selected category has subcategories -->
+                <div v-if="subcategoryOptions.length > 0">
+                    <label for="subcategoryName" class="block font-bold mb-3">Subcategory</label>
+                    <Dropdown id="subcategoryName" v-model="ticket.subcategoryName" :options="subcategoryOptions" optionLabel="label" optionValue="value" placeholder="Select a subcategory (optional)" class="w-full" showClear @change="onSubcategoryChange">
+                        <template #option="slotProps">
+                            <div class="flex flex-col p-2">
+                                <span class="font-medium">{{ slotProps.option.label }}</span>
+                                <span v-if="slotProps.option.data?.defaultPriority" class="text-xs text-gray-500">Priority: {{ slotProps.option.data.defaultPriority }}</span>
+                            </div>
+                        </template>
+                    </Dropdown>
+                    <small class="text-gray-500 mt-1 block">Optionally select a more specific subcategory</small>
                 </div>
 
                 <!-- <div>
@@ -1346,7 +1458,10 @@ const confirmEscalateTicket = async () => {
                                             <div class="flex items-center">
                                                 <span class="text-gray-500 min-w-[120px]">Category</span>
                                                 <div class="flex flex-col">
-                                                    <span class="font-medium">{{ ticket.categoryName }}</span>
+                                                    <div class="flex items-center gap-1">
+                                                        <span v-if="getParentCategoryName(ticket.categoryName)" class="text-sm text-gray-400">{{ getParentCategoryName(ticket.categoryName) }} →</span>
+                                                        <span class="font-medium">{{ ticket.categoryName }}</span>
+                                                    </div>
                                                     <span v-if="getCategoryDetails(ticket.categoryName)" class="text-xs text-gray-500">
                                                         {{ getCategoryDetails(ticket.categoryName).departmentName }} • Target: {{ getCategoryDetails(ticket.categoryName).targetResolutionTime }}h
                                                     </span>
