@@ -32,7 +32,7 @@ const newFaqForm = ref({
 // Check if current user has admin/manager privileges
 const isAdmin = computed(() => {
     const role = authStore.userRole;
-    return role === 'ADMIN' || role === 'MANAGER';
+    return role === 'ADMIN' || role === 'MANAGER' || role === 'SUPER_ADMIN';
 });
 
 // Default categories (fallback)

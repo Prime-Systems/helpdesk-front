@@ -114,13 +114,13 @@ const router = createRouter({
                     path: '/users/leave',
                     name: 'leave',
                     component: () => import('@/views/pages/user_management/Leave.vue'),
-                    meta: { roles: ['ADMIN'] }
+                    meta: { roles: ['ADMIN', 'SUPER_ADMIN'] }
                 },
                 {
                     path: '/users/bulk-import',
                     name: 'bulk-import',
                     component: () => import('@/views/pages/user_management/BulkImport.vue'),
-                    meta: { roles: ['ADMIN'] }
+                    meta: { roles: ['ADMIN', 'SUPER_ADMIN'] }
                 },
                 {
                     path: '/kb/faqs',
@@ -136,25 +136,25 @@ const router = createRouter({
                     path: '/performance/employees',
                     name: 'employeePerformance',
                     component: () => import('@/views/pages/performance_reports/EmployeesPerformance.vue'),
-                    meta: { roles: ['ADMIN'] }
+                    meta: { roles: ['ADMIN', 'SUPER_ADMIN'] }
                 },
                 {
                     path: '/performance/documents',
                     name: 'documents',
                     component: () => import('@/views/pages/performance_reports/Documents.vue'),
-                    meta: { roles: ['ADMIN'] }
+                    meta: { roles: ['ADMIN', 'SUPER_ADMIN'] }
                 },
                 {
                     path: '/settings/automation',
                     name: 'automation',
                     component: () => import('@/views/pages/settings/Automation.vue'),
-                    meta: { roles: ['ADMIN'] }
+                    meta: { roles: ['ADMIN', 'SUPER_ADMIN'] }
                 },
                 {
                     path: '/settings/categories',
                     name: 'categories',
                     component: () => import('@/views/pages/settings/Categories.vue'),
-                    meta: { roles: ['ADMIN'] }
+                    meta: { roles: ['ADMIN', 'SUPER_ADMIN'] }
                 },
                 {
                     path: '/leaderboard',

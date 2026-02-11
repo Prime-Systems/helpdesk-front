@@ -14,7 +14,7 @@ import { useRouter } from 'vue-router';
 const authStore = useAuthStore();
 const router = useRouter();
 const isAdmin = computed(() => {
-    return authStore.user?.role === 'ADMIN' || authStore.user?.role === 'MANAGER';
+    return authStore.user?.role === 'ADMIN' || authStore.user?.role === 'MANAGER' || authStore.user?.role === 'SUPER_ADMIN';
 });
 const departments = ref([]);
 const branches = ref([]);

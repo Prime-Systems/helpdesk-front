@@ -37,11 +37,11 @@ const scopeOptions = computed(() => {
     const role = authStore.user?.role;
     const options = [{ label: 'My Data', value: 'mine' }];
 
-    if (role === 'DEPARTMENT_HEAD' || role === 'ADMIN') {
+    if (role === 'DEPARTMENT_HEAD' || role === 'ADMIN' || role === 'SUPER_ADMIN') {
         options.push({ label: 'My Department', value: 'department' });
     }
 
-    if (role === 'ADMIN') {
+    if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
         options.push({ label: 'All Data', value: 'all' });
     }
 
@@ -53,7 +53,7 @@ watch(
     () => authStore.initialized,
     (init) => {
         if (init && authStore.user) {
-            if (authStore.user.role === 'ADMIN') {
+            if (authStore.user.role === 'ADMIN' || authStore.user.role === 'SUPER_ADMIN') {
                 dashboardScope.value = 'all';
             } else if (authStore.user.role === 'DEPARTMENT_HEAD') {
                 dashboardScope.value = 'department';

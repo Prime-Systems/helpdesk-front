@@ -14,7 +14,7 @@ const model = computed(() => {
     try {
         const user = authStore.user;
         const role = user?.role;
-        const isAdmin = role === 'ADMIN';
+        const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
 
         console.log('AppMenu computing model. Role:', role, 'IsAdmin:', isAdmin);
 
