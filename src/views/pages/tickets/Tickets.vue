@@ -43,9 +43,9 @@ onBeforeMount(() => {
     // });
 
     CategoryService.getCategories().then((data) => {
-        // Store as tree — top-level categories with nested subcategories[]
+        // Store as tree :— top-level categories with nested subcategories[]
         categoriesTree.value = data;
-        // Build flat options for the parent category dropdown
+        // Build flat options for the parent category dropdown 
         categories.value = data.map((cat) => ({
             label: cat.name,
             value: cat.name,
