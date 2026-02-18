@@ -20,6 +20,9 @@ export const TicketService = {
         formData.append('title', ticketData.title);
         formData.append('description', ticketData.description);
         formData.append('categoryId', ticketData.categoryId);
+        if (ticketData.subCategoryId) {
+            formData.append('subCategoryId', ticketData.subCategoryId);
+        }
         formData.append('tags', ticketData.tags || '');
         formData.append('createdById', ticketData.createdById);
 
@@ -40,6 +43,9 @@ export const TicketService = {
         formData.append('title', ticketData.title);
         formData.append('description', ticketData.description);
         formData.append('categoryId', ticketData.categoryId);
+        if (ticketData.subCategoryId) {
+            formData.append('subCategoryId', ticketData.subCategoryId);
+        }
         formData.append('tags', ticketData.tags || '');
         // Note: For update, you might need different parameters based on your backend
 
@@ -158,6 +164,9 @@ export const TicketService = {
         formData.append('title', ticketData.title);
         formData.append('description', ticketData.description);
         formData.append('categoryId', ticketData.categoryId);
+        if (ticketData.subCategoryId) {
+            formData.append('subCategoryId', ticketData.subCategoryId);
+        }
         formData.append('tags', ticketData.tags || '');
         formData.append('customerName', ticketData.customerName);
         formData.append('customerEmail', ticketData.customerEmail);

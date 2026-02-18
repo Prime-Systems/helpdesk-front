@@ -41,8 +41,7 @@ const roles = [
     { label: 'Team Lead', value: 'TEAM_LEAD' },
     { label: 'Manager', value: 'MANAGER' },
     { label: 'Director', value: 'DIRECTOR' },
-    { label: 'Admin', value: 'ADMIN' },
-    { label: 'Super Admin', value: 'SUPER_ADMIN' }
+    { label: 'Admin', value: 'ADMIN' }
 ];
 // Initialize filters immediately
 initFilters1();

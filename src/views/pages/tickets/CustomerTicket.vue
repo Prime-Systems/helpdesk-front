@@ -26,7 +26,10 @@ const formData = ref({
 });
 
 const categories = ref([]);
+const categoriesTree = ref([]);
 const selectedCategory = ref(null);
+const selectedSubcategory = ref(null);
+const subcategoryOptions = ref([]);
 const attachment = ref(null);
 const fileInputRef = ref(null);
 
@@ -47,6 +50,9 @@ onBeforeMount(async () => {
     try {
         loading.value = true;
         const data = await CategoryService.getCategories();
+
+        // Store as tree (top-level categories with nested subcategories[])
+        categoriesTree.value = data;
 
         // Filter and map categories exactly as in ticket management
         categories.value = data
@@ -80,6 +86,10 @@ const selectedCategoryDetails = computed(() => {
 
 // Update priority and due date based on selected category
 const onCategoryChange = () => {
+    // Reset subcategory when parent category changes
+    selectedSubcategory.value = null;
+    subcategoryOptions.value = [];
+
     if (selectedCategory.value) {
         const category = categories.value.find((c) => c.value === selectedCategory.value);
         if (category?.data) {
@@ -87,9 +97,37 @@ const onCategoryChange = () => {
             if (category.data.defaultPriority) {
                 formData.value.priority = category.data.defaultPriority;
             }
+
+            // Populate subcategory options if this parent has children
+            if (category.data.subcategories?.length) {
+                subcategoryOptions.value = category.data.subcategories
+                    .filter((sub) => sub.status === 'ACTIVE')
+                    .map((sub) => ({
+                        label: sub.name,
+                        value: sub.id,
+                        name: sub.name,
+                        data: sub,
+                        id: sub.id
+                    }));
+            }
         }
     }
     clearError('categoryId');
+};
+
+const onSubcategoryChange = () => {
+    if (selectedSubcategory.value) {
+        const subCat = subcategoryOptions.value.find((s) => s.value === selectedSubcategory.value);
+        if (subCat?.data?.defaultPriority) {
+            formData.value.priority = subCat.data.defaultPriority;
+        }
+    } else {
+        // Reverted to parent defaults
+        const category = categories.value.find((c) => c.value === selectedCategory.value);
+        if (category?.data?.defaultPriority) {
+            formData.value.priority = category.data.defaultPriority;
+        }
+    }
 };
 
 const validateForm = () => {
@@ -140,6 +178,7 @@ const handleSubmit = async () => {
             title: formData.value.title.trim(),
             description: formData.value.description.trim(),
             categoryId: selectedCategory.value,
+            subCategoryId: selectedSubcategory.value || null,
             tags: formData.value.tags?.trim() || '',
             priority: formData.value.priority,
             status: 'OPEN',
@@ -212,6 +251,8 @@ const resetForm = () => {
         status: 'OPEN'
     };
     selectedCategory.value = null;
+    selectedSubcategory.value = null;
+    subcategoryOptions.value = [];
     attachment.value = null;
     errors.value = {};
     submitSuccess.value = false;
@@ -500,6 +541,34 @@ const copyTrackingToken = async () => {
                     </small>
                 </div>
 
+                <!-- Subcategory Selection (shown when the selected category has subcategories) -->
+                <div v-if="subcategoryOptions.length > 0" class="mb-6">
+                    <label class="block text-surface-900 dark:text-surface-0 font-semibold mb-4 text-lg">
+                        Narrow it down (optional)
+                    </label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div
+                            v-for="sub in subcategoryOptions"
+                            :key="sub.value"
+                            @click="
+                                selectedSubcategory = selectedSubcategory === sub.value ? null : sub.value;
+                                onSubcategoryChange();
+                            "
+                            :class="[
+                                'p-3 rounded-xl border-2 cursor-pointer transition-all duration-200',
+                                selectedSubcategory === sub.value ? 'border-primary bg-primary-50 dark:bg-primary-900/20 shadow-md' : 'border-surface-200 dark:border-surface-700 hover:border-primary-300 hover:shadow-sm'
+                            ]"
+                        >
+                            <div class="font-medium text-surface-900 dark:text-surface-0 text-sm">
+                                {{ sub.label }}
+                            </div>
+                            <div v-if="sub.data?.description" class="text-xs text-surface-500 dark:text-surface-400 mt-1 line-clamp-2">
+                                {{ sub.data.description }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Category Info Badge -->
                 <div v-if="selectedCategoryDetails" class="mb-6 p-4 bg-primary-50 dark:bg-primary-900/20 rounded-xl border border-primary-200 dark:border-primary-800">
                     <div class="flex items-start gap-3">
@@ -768,7 +837,10 @@ const copyTrackingToken = async () => {
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                     <div>
                         <p class="text-xs text-surface-500 dark:text-surface-400 mb-1">Category</p>
-                        <p class="font-medium">{{ ticketDetails?.categoryName }}</p>
+                        <p class="font-medium">
+                            {{ ticketDetails?.categoryName }}
+                            <span v-if="ticketDetails?.subCategoryName" class="text-sm text-surface-400"> → {{ ticketDetails?.subCategoryName }}</span>
+                        </p>
                     </div>
                     <div>
                         <p class="text-xs text-surface-500 dark:text-surface-400 mb-1">Created</p>

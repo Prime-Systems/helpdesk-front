@@ -327,39 +327,36 @@ async function saveTicket() {
     submitted.value = true;
 
     if (ticket.value?.categoryName?.trim()) {
-        // --- STEP 1: RESOLVE CATEGORY ID ---
-        // Prefer subcategory if selected, otherwise use parent category
-        let resolvedCategoryId = null;
-        let resolvedCategoryName = ticket.value.categoryName;
+        // --- STEP 1: RESOLVE CATEGORY ID + SUBCATEGORY ID ---
+        // Always send the parent category ID; send subCategoryId separately if selected
+        let parentCategoryId = null;
+        let subCategoryId = null;
 
-        if (ticket.value.subcategoryName) {
-            // Subcategory selected — find its ID
-            const parentCat = categoriesTree.value.find((c) => c.name === ticket.value.categoryName);
-            const subCat = parentCat?.subcategories?.find((s) => s.name === ticket.value.subcategoryName);
-            if (subCat) {
-                resolvedCategoryId = subCat.id;
-                resolvedCategoryName = subCat.name;
-            }
+        // Find parent category ID
+        const selectedCategory = categories.value.find(
+            (category) => category.value === ticket.value.categoryName || category.name === ticket.value.categoryName
+        );
+        if (selectedCategory) {
+            parentCategoryId = selectedCategory.id;
         }
 
-        if (!resolvedCategoryId) {
-            // No subcategory — use the parent category ID
-            const selectedCategory = categories.value.find(
-                (category) => category.value === ticket.value.categoryName || category.name === ticket.value.categoryName
-            );
-            if (selectedCategory) {
-                resolvedCategoryId = selectedCategory.id;
-            }
-        }
-
-        if (resolvedCategoryId) {
-            ticket.value.categoryId = resolvedCategoryId;
-            ticket.value.categoryName = resolvedCategoryName;
-        } else {
+        if (!parentCategoryId) {
             console.error('Could not find matching category for:', ticket.value.categoryName);
             toast.add({ severity: 'error', summary: 'Error', detail: 'Please select a valid category', life: 3000 });
             return;
         }
+
+        // Find subcategory ID if selected
+        if (ticket.value.subcategoryName) {
+            const parentCat = categoriesTree.value.find((c) => c.name === ticket.value.categoryName);
+            const subCat = parentCat?.subcategories?.find((s) => s.name === ticket.value.subcategoryName);
+            if (subCat) {
+                subCategoryId = subCat.id;
+            }
+        }
+
+        ticket.value.categoryId = parentCategoryId;
+        ticket.value.subCategoryId = subCategoryId;
 
         // --- STEP 2: HANDLE UPDATE OR CREATE ---
         if (ticket.value.id) {
@@ -367,11 +364,10 @@ async function saveTicket() {
             const index = findIndexById(ticket.value.id);
             if (index !== -1) {
                 try {
-                    // Call the API (passing the resolved categoryId and file)
                     const response = await TicketService.updateTicket(ticket.value.id, ticket.value, selectedFile.value);
 
                     if (response) {
-                        tickets.value.splice(index, 1, { ...response }); // Use response data to ensure UI is in sync
+                        tickets.value.splice(index, 1, { ...response });
                         toast.add({ severity: 'success', summary: 'Successful', detail: 'Ticket Updated', life: 3000 });
                     }
                 } catch (error) {
@@ -405,6 +401,7 @@ function resetTicketForm() {
         title: '',
         description: '',
         categoryName: null,
+        subcategoryName: null,
         tags: '',
         attachmentUrl: null,
         assignedUserName: '',
@@ -415,6 +412,8 @@ function resetTicketForm() {
     };
     selectedAssignee.value = null;
     selectedFile.value = null;
+    selectedParentCategoryName.value = null;
+    subcategoryOptions.value = [];
     submitted.value = false;
 }
 
@@ -465,8 +464,47 @@ function editTicket(prod) {
     // Copy ticket
     ticket.value = { ...prod };
 
-    // Set category (it's already a string from API)
-    ticket.value.categoryName = prod.categoryName;
+    // Determine if the ticket's categoryName is actually a subcategory
+    // The API now returns subCategoryName separately
+    if (prod.subCategoryName) {
+        // Find the parent category for this subcategory
+        const parentCatName = getParentCategoryName(prod.subCategoryName) || prod.categoryName;
+        ticket.value.categoryName = parentCatName;
+        ticket.value.subcategoryName = prod.subCategoryName;
+        selectedParentCategoryName.value = parentCatName;
+
+        // Populate subcategory options
+        const parentCat = categoriesTree.value.find((c) => c.name === parentCatName);
+        if (parentCat?.subcategories?.length) {
+            subcategoryOptions.value = parentCat.subcategories
+                .filter((sub) => sub.status === 'ACTIVE')
+                .map((sub) => ({
+                    label: sub.name,
+                    value: sub.name,
+                    data: sub,
+                    id: sub.id
+                }));
+        }
+    } else {
+        // No subcategory — set category as-is
+        ticket.value.categoryName = prod.categoryName;
+        ticket.value.subcategoryName = null;
+        selectedParentCategoryName.value = prod.categoryName;
+        subcategoryOptions.value = [];
+
+        // Still populate subcategory options in case user wants to add one
+        const parentCat = categoriesTree.value.find((c) => c.name === prod.categoryName);
+        if (parentCat?.subcategories?.length) {
+            subcategoryOptions.value = parentCat.subcategories
+                .filter((sub) => sub.status === 'ACTIVE')
+                .map((sub) => ({
+                    label: sub.name,
+                    value: sub.name,
+                    data: sub,
+                    id: sub.id
+                }));
+        }
+    }
 
     // Set assignee - match by the full name we created
     if (prod.assignedUserName) {
@@ -1054,8 +1092,8 @@ const confirmEscalateTicket = async () => {
 
                 <Column field="categoryName" header="Category" style="min-width: 8rem" sortable :showFilterMenu="false">
                     <template #body="{ data }">
-                        <span v-if="getParentCategoryName(data.categoryName)" class="text-xs text-gray-400">{{ getParentCategoryName(data.categoryName) }} → </span>
                         <span>{{ data.categoryName }}</span>
+                        <span v-if="data.subCategoryName" class="text-xs text-gray-400"> → {{ data.subCategoryName }}</span>
                     </template>
                     <template #filter="{ filterModel }">
                         <Select v-model="filters['categoryName'].value" :options="categories" placeholder="Select Category" style="min-width: 6rem" :showClear="true" optionLabel="label" optionValue="value">
@@ -1459,8 +1497,8 @@ const confirmEscalateTicket = async () => {
                                                 <span class="text-gray-500 min-w-[120px]">Category</span>
                                                 <div class="flex flex-col">
                                                     <div class="flex items-center gap-1">
-                                                        <span v-if="getParentCategoryName(ticket.categoryName)" class="text-sm text-gray-400">{{ getParentCategoryName(ticket.categoryName) }} →</span>
                                                         <span class="font-medium">{{ ticket.categoryName }}</span>
+                                                        <span v-if="ticket.subCategoryName" class="text-sm text-gray-400">→ {{ ticket.subCategoryName }}</span>
                                                     </div>
                                                     <span v-if="getCategoryDetails(ticket.categoryName)" class="text-xs text-gray-500">
                                                         {{ getCategoryDetails(ticket.categoryName).departmentName }} • Target: {{ getCategoryDetails(ticket.categoryName).targetResolutionTime }}h
