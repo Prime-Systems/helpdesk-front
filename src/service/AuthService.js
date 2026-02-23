@@ -28,7 +28,8 @@ export const AuthService = {
      */
     async logout(token) {
         try {
-            await axios.post(`/auth/logout?token=${encodeURIComponent(token)}`);
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+            await axios.post('/auth/logout', null, { headers });
         } catch (error) {
             console.error('Logout error:', error);
         }
