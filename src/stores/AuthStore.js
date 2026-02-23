@@ -16,6 +16,33 @@ export const useAuthStore = defineStore('auth', {
     }),
 
     actions: {
+        normalizeTokenResponse(response, fallbackRefreshToken = null) {
+            if (!response) {
+                return null;
+            }
+
+            if (typeof response === 'string') {
+                return {
+                    token: response,
+                    refreshToken: fallbackRefreshToken
+                };
+            }
+
+            if (typeof response === 'object') {
+                const token = response.token || response.accessToken || null;
+                if (!token) {
+                    return null;
+                }
+
+                return {
+                    token,
+                    refreshToken: response.refreshToken || fallbackRefreshToken
+                };
+            }
+
+            return null;
+        },
+
         async initialize() {
             if (this.initialized) return;
 
@@ -25,11 +52,11 @@ export const useAuthStore = defineStore('auth', {
 
                 if (token) {
                     // Verify token with backend to ensure it's still valid
-                    const isValid = await this.verifyTokenWithBackend(token);
+                    const verifiedSession = await this.verifyTokenWithBackend(token, refreshToken);
 
-                    if (isValid && !this.isTokenExpired(token)) {
+                    if (verifiedSession?.token && !this.isTokenExpired(verifiedSession.token)) {
                         // Token is valid, set user from token
-                        this.setAuthFromToken(token, refreshToken);
+                        this.setAuthFromToken(verifiedSession.token, verifiedSession.refreshToken);
                     } else if (refreshToken && !this.isTokenExpired(refreshToken)) {
                         // Try to refresh the token
                         await this.refreshSession();
@@ -45,12 +72,12 @@ export const useAuthStore = defineStore('auth', {
             }
         },
 
-        async verifyTokenWithBackend(token) {
+        async verifyTokenWithBackend(token, refreshToken = null) {
             try {
                 const response = await AuthService.verifyToken(token);
-                return response !== null;
+                return this.normalizeTokenResponse(response, refreshToken);
             } catch (error) {
-                return false;
+                return null;
             }
         },
 
@@ -107,7 +134,13 @@ export const useAuthStore = defineStore('auth', {
 
             try {
                 const response = await AuthService.refreshToken(this.refreshToken);
-                this.setAuthFromToken(response.token, response.refreshToken);
+                const refreshedSession = this.normalizeTokenResponse(response, this.refreshToken);
+
+                if (!refreshedSession?.token) {
+                    throw new Error('Refresh endpoint did not return a usable access token');
+                }
+
+                this.setAuthFromToken(refreshedSession.token, refreshedSession.refreshToken);
                 return true;
             } catch (error) {
                 console.error('Token refresh failed:', error);
@@ -118,8 +151,14 @@ export const useAuthStore = defineStore('auth', {
 
         // Method to extract user from token
         setAuthFromToken(token, refreshToken = null) {
+            if (!token) {
+                this.clearAuth();
+                return;
+            }
+
+            const effectiveRefreshToken = refreshToken || this.refreshToken;
             this.token = token;
-            this.refreshToken = refreshToken;
+            this.refreshToken = effectiveRefreshToken;
 
             // Decode token to get user information
             if (token) {
@@ -142,18 +181,20 @@ export const useAuthStore = defineStore('auth', {
                 this.tokenExpiresAt = decodedToken.exp * 1000;
             }
 
-            if (refreshToken) {
+            if (effectiveRefreshToken) {
                 try {
-                    const decodedRefreshToken = jwtDecode(refreshToken);
+                    const decodedRefreshToken = jwtDecode(effectiveRefreshToken);
                     this.refreshTokenExpiresAt = decodedRefreshToken.exp * 1000;
                 } catch (error) {
                     console.error('Error decoding refresh token:', error);
                     this.refreshTokenExpiresAt = null;
                 }
+            } else {
+                this.refreshTokenExpiresAt = null;
             }
 
             // Store tokens based on remember me preference
-            this.storeTokens(token, refreshToken);
+            this.storeTokens(token, effectiveRefreshToken);
 
             // Set default authorization header
             this.setAuthHeader(token);
@@ -221,10 +262,17 @@ export const useAuthStore = defineStore('auth', {
         },
 
         storeTokens(token, refreshToken) {
+            if (!token) {
+                this.clearStoredTokens();
+                return;
+            }
+
             if (this.rememberMe) {
                 localStorage.setItem('token', token);
                 if (refreshToken) {
                     localStorage.setItem('refreshToken', refreshToken);
+                } else {
+                    localStorage.removeItem('refreshToken');
                 }
                 // Clear session storage when using persistent storage
                 sessionStorage.removeItem('token');
@@ -233,6 +281,8 @@ export const useAuthStore = defineStore('auth', {
                 sessionStorage.setItem('token', token);
                 if (refreshToken) {
                     sessionStorage.setItem('refreshToken', refreshToken);
+                } else {
+                    sessionStorage.removeItem('refreshToken');
                 }
                 // Clear local storage when using session storage
                 localStorage.removeItem('token');
