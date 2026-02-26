@@ -290,7 +290,7 @@ function saveCustomer() {
         </Dialog>
 
         <!-- Customer Details Drawer -->
-        <CustomerDetails :visible="customerDetailsDialog" :customer="customer" @update:visible="customerDetailsDialog = $event" />
+        <CustomerDetails :visible="customerDetailsDialog" :employee="customer" @update:visible="customerDetailsDialog = $event" />
     </div>
 </template>
 

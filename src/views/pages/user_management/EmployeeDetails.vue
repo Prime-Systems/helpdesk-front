@@ -69,6 +69,25 @@ onMounted(() => {
     }, 500);
 });
 
+const employeeName = computed(() => {
+    const firstName = props.employee?.firstName || '';
+    const lastName = props.employee?.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    return fullName || props.employee?.name || '';
+});
+
+const employeeDepartment = computed(() => {
+    return props.employee?.departmentName || props.employee?.department || 'Not assigned';
+});
+
+const employeeBranch = computed(() => {
+    return props.employee?.branchName || props.employee?.branch || 'Not assigned';
+});
+
+const employeePhone = computed(() => {
+    return props.employee?.phoneNumber || props.employee?.phone || '';
+});
+
 // Computed properties for charts
 const ticketCategoryData = computed(() => {
     if (!performanceData.value.ticketsByCategory) return [];
@@ -176,7 +195,7 @@ const calculateTenure = (hireDate) => {
                     <div class="w-full md:w-1/3 flex justify-center">
                         <img
                             v-if="!imageErrors['employee']"
-                            :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(employee?.name || '')}`"
+                            :src="`https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(employeeName || '')}`"
                             alt="employee"
                             class="w-40 h-40 rounded-full border-4 border-primary"
                             @error="onImageError('employee')"
@@ -186,15 +205,15 @@ const calculateTenure = (hireDate) => {
                         </div>
                     </div>
                     <div class="w-full md:w-2/3">
-                        <h1 class="text-surface-900 dark:text-surface-0 font-bold text-3xl lg:text-4xl mb-2">{{ employee?.name }}</h1>
+                        <h1 class="text-surface-900 dark:text-surface-0 font-bold text-3xl lg:text-4xl mb-2">{{ employeeName }}</h1>
                         <div class="flex flex-col gap-1 text-gray-600">
                             <div class="flex items-center gap-2">
                                 <i class="pi pi-briefcase text-primary"></i>
-                                <span>{{ employee?.role }} - {{ employee?.department }}</span>
+                                <span>{{ employee?.role }} - {{ employeeDepartment }}</span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <i class="pi pi-map-marker text-primary"></i>
-                                <span>{{ employee?.branch }}</span>
+                                <span>{{ employeeBranch }}</span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <i class="pi pi-calendar text-primary"></i>
@@ -293,7 +312,7 @@ const calculateTenure = (hireDate) => {
                                             </div>
                                         </div>
                                         <div class="text-center">
-                                            <h3 class="text-lg font-semibold mb-1">{{ employee?.name }}</h3>
+                                            <h3 class="text-lg font-semibold mb-1">{{ employeeName }}</h3>
                                             <p class="text-gray-500 mb-3">Currently ranks #{{ performanceData.leaderboardPosition }} in the team</p>
                                             <p v-if="performanceData.leaderboardPosition <= 3" class="text-green-600 font-semibold">Top performer!</p>
                                             <p v-else-if="performanceData.leaderboardPosition <= 10" class="text-blue-600 font-semibold">Above average</p>
@@ -314,7 +333,7 @@ const calculateTenure = (hireDate) => {
                                         <div class="space-y-4">
                                             <div class="flex items-center">
                                                 <span class="text-gray-500 min-w-[120px]">Full Name</span>
-                                                <span>{{ employee?.name }}</span>
+                                                <span>{{ employeeName }}</span>
                                             </div>
                                             <div class="flex items-center">
                                                 <span class="text-gray-500 min-w-[120px]">Email</span>
@@ -322,7 +341,7 @@ const calculateTenure = (hireDate) => {
                                             </div>
                                             <div class="flex items-center">
                                                 <span class="text-gray-500 min-w-[120px]">Phone</span>
-                                                <span>{{ employee?.phone }}</span>
+                                                <span>{{ employeePhone }}</span>
                                             </div>
                                             <div class="flex items-center">
                                                 <span class="text-gray-500 min-w-[120px]">Hire Date</span>
@@ -343,11 +362,11 @@ const calculateTenure = (hireDate) => {
                                             </div>
                                             <div class="flex items-center">
                                                 <span class="text-gray-500 min-w-[120px]">Department</span>
-                                                <span>{{ employee?.department }}</span>
+                                                <span>{{ employeeDepartment }}</span>
                                             </div>
                                             <div class="flex items-center">
                                                 <span class="text-gray-500 min-w-[120px]">Branch</span>
-                                                <span>{{ employee?.branch }}</span>
+                                                <span>{{ employeeBranch }}</span>
                                             </div>
                                             <div class="flex items-center">
                                                 <span class="text-gray-500 min-w-[120px]">Role</span>

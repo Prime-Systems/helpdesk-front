@@ -30,7 +30,7 @@ watch(
     () => props.employee,
     (newEmployee) => {
         if (newEmployee && props.visible) {
-            loadPerformanceData(newEmployee.employeeId);
+            loadPerformanceData(newEmployee.employeeId || newEmployee.customerId);
         }
     },
     { immediate: true }
@@ -106,7 +106,11 @@ const loadPerformanceData = async (employeeId) => {
 // Computed properties
 const employeeName = computed(() => {
     if (!props.employee) return '';
-    return `${props.employee.firstName || ''} ${props.employee.lastName || ''}`.trim();
+
+    const firstName = props.employee.firstName || '';
+    const lastName = props.employee.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    return fullName || props.employee.name || '';
 });
 
 const employeeEmail = computed(() => {
@@ -126,7 +130,7 @@ const employeeRole = computed(() => {
 });
 
 const employeeBranch = computed(() => {
-    return props.employee?.branch || 'Head Office';
+    return props.employee?.branchName || props.employee?.branch || 'Not assigned';
 });
 
 // Computed properties for charts
