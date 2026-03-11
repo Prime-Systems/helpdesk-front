@@ -227,10 +227,10 @@ const calculateTenure = (hireDate) => {
                                 <span class="text-primary text-2xl font-bold">{{ performanceData.ticketsResolved || '—' }}</span>
                                 <span class="text-xs text-gray-600">Tickets Resolved</span>
                             </div>
-                            <div class="bg-green-100 rounded-lg p-3 flex flex-col items-center justify-center">
+                            <!-- <div class="bg-green-100 rounded-lg p-3 flex flex-col items-center justify-center">
                                 <span class="text-green-600 text-2xl font-bold">{{ performanceData.customerSatisfaction || '—' }}/5</span>
                                 <span class="text-xs text-gray-600">Customer Rating</span>
-                            </div>
+                            </div> -->
                             <div class="bg-blue-100 rounded-lg p-3 flex flex-col items-center justify-center">
                                 <span class="text-blue-600 text-2xl font-bold">{{ performanceData.averageResolutionTime || '—' }}</span>
                                 <span class="text-xs text-gray-600">Avg Resolution</span>
@@ -390,10 +390,10 @@ const calculateTenure = (hireDate) => {
                                             <div class="text-xs text-gray-500 mb-1">Resolution Time</div>
                                             <div class="text-lg font-semibold">{{ performanceData.averageResolutionTime }}</div>
                                         </div>
-                                        <div class="border rounded-lg p-4">
+                                        <!-- <div class="border rounded-lg p-4">
                                             <div class="text-xs text-gray-500 mb-1">Customer Rating</div>
                                             <div class="text-lg font-semibold">{{ performanceData.customerSatisfaction }} / 5</div>
-                                        </div>
+                                        </div> -->
                                         <div class="border rounded-lg p-4">
                                             <div class="text-xs text-gray-500 mb-1">Total Tickets</div>
                                             <div class="text-lg font-semibold">{{ performanceData.ticketsResolved }} tickets</div>

@@ -205,8 +205,9 @@ const topPerformers = computed(() => {
             name: p.name,
             email: p.email,
             department: p.department,
+            branch: p.branchName,
             resolvedCount: p.resolvedCount,
-            avgRating: p.avgRating,
+            // avgRating: p.avgRating,
             avatar: p.avatar || `https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(p.name)}`
         }));
     }
@@ -224,6 +225,7 @@ const topPerformers = computed(() => {
                     name: `${employee.firstName} ${employee.lastName}`,
                     email: employee.email,
                     department: employee.departmentName,
+                    branch: employee.branchName,
                     resolvedCount: 0,
                     avatar: `https://avatar.iran.liara.run/public/50?name=${employee.firstName}+${employee.lastName}`
                 };
@@ -1149,7 +1151,7 @@ function navigateTo(path) {
 
                             <div class="flex-1 min-w-0">
                                 <h4 class="font-medium text-surface-900 dark:text-surface-0 truncate text-sm">{{ agent.name }}</h4>
-                                <p class="text-xs text-surface-500 dark:text-surface-400 truncate">{{ agent.department }}</p>
+                                <p class="text-xs text-surface-500 dark:text-surface-400 truncate">{{ agent.department }}<span v-if="agent.branch"> • {{ agent.branch }}</span></p>
                             </div>
 
                             <div class="text-right flex-shrink-0">

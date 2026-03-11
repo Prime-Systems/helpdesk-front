@@ -14,7 +14,7 @@ const dateRange = ref([new Date(new Date().setMonth(new Date().getMonth() - 1)),
 const loading = ref(false);
 const generateDialogVisible = ref(false);
 const reportData = ref(null);
-const selectedMetrics = ref(['ticketsResolved', 'avgResolutionTime', 'customerSatisfaction', 'responseTime']);
+const selectedMetrics = ref(['ticketsResolved', 'avgResolutionTime', 'responseTime']);
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
@@ -28,7 +28,7 @@ const onImageError = (key) => {
 const availableMetrics = ref([
     { name: 'Tickets Resolved', key: 'ticketsResolved' },
     { name: 'Average Resolution Time', key: 'avgResolutionTime' },
-    { name: 'Customer Satisfaction', key: 'customerSatisfaction' },
+    // { name: 'Customer Satisfaction', key: 'customerSatisfaction' },
     { name: 'Response Time', key: 'responseTime' },
     { name: 'First Contact Resolution Rate', key: 'firstContactResolution' },
     { name: 'Knowledge Base Contributions', key: 'kbContributions' }
@@ -489,11 +489,11 @@ const resetReport = () => {
                     </template>
                 </Column>
 
-                <Column field="metrics.customerSatisfaction" header="CSAT" sortable>
+                <!-- <Column field="metrics.customerSatisfaction" header="CSAT" sortable>
                     <template #body="slotProps">
                         <Rating :modelValue="slotProps.data.metrics.customerSatisfaction" :readonly="true" :cancel="false" />
                     </template>
-                </Column>
+                </Column> -->
 
                 <Column header="Actions" :exportable="false">
                     <template #body="slotProps">

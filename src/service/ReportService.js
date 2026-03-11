@@ -22,7 +22,7 @@ export const ReportService = {
             employeeId: params.employeeId,
             startDate: params.startDate,
             endDate: params.endDate,
-            metrics: params.metrics || ['ticketsResolved', 'resolutionTime', 'satisfaction', 'firstResponse']
+            metrics: params.metrics || ['ticketsResolved', 'resolutionTime', 'firstResponse']
         });
         return response.data;
     },
@@ -42,7 +42,7 @@ export const ReportService = {
             departmentId: params.departmentId,
             startDate: params.startDate,
             endDate: params.endDate,
-            metrics: params.metrics || ['ticketsResolved', 'resolutionTime', 'satisfaction', 'volume']
+            metrics: params.metrics || ['ticketsResolved', 'resolutionTime', 'volume']
         });
         return response.data;
     },

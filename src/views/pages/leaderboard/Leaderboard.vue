@@ -35,7 +35,7 @@ const agents = ref([]);
 // Metric options for quick selection
 const metricOptions = [
     { key: 'volume', label: 'Tickets Resolved', icon: 'pi-ticket', color: 'bg-green-500' },
-    { key: 'satisfaction', label: 'Satisfaction', icon: 'pi-star-fill', color: 'bg-yellow-500' },
+    // { key: 'satisfaction', label: 'Satisfaction', icon: 'pi-star-fill', color: 'bg-yellow-500' },
     { key: 'resolution', label: 'Resolution Time', icon: 'pi-clock', color: 'bg-blue-500' },
     { key: 'firstResponse', label: 'Response Time', icon: 'pi-reply', color: 'bg-purple-500' }
 ];
@@ -128,9 +128,10 @@ const transformApiData = (apiData) => {
         name: agent.name,
         avatar: agent.profilePictureUrl || `https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(agent.name)}`,
         department: agent.department || 'General',
+        branch: agent.branchName,
         metrics: {
             resolution: agent.metrics?.resolutionTime || 0,
-            satisfaction: agent.metrics?.customerSatisfaction || 0,
+            // satisfaction: agent.metrics?.customerSatisfaction || 0,
             volume: agent.metrics?.ticketVolume || 0,
             firstResponse: agent.metrics?.firstResponseTime || 0
         }
@@ -255,7 +256,7 @@ watch([timeRangeFilter, departmentFilter, selectedMetric], () => {
                                     <div :class="['absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shadow bg-gradient-to-br', getMedalColor(2)]">2</div>
                                 </div>
                                 <h4 class="font-semibold text-sm text-center text-surface-900 dark:text-surface-0 truncate w-full">{{ topAgents[1].name.split(' ')[0] }}</h4>
-                                <p class="text-xs text-surface-500 dark:text-surface-400 truncate w-full text-center">{{ topAgents[1].department }}</p>
+                                <p class="text-xs text-surface-500 dark:text-surface-400 truncate w-full text-center">{{ topAgents[1].department }}<span v-if="topAgents[1].branch"> • {{ topAgents[1].branch }}</span></p>
                                 <div class="mt-2 text-lg font-bold text-surface-900 dark:text-surface-0">{{ getPrimaryMetric(topAgents[1]) }}</div>
                             </div>
                         </div>
@@ -283,7 +284,7 @@ watch([timeRangeFilter, departmentFilter, selectedMetric], () => {
                                     <div :class="['absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center text-white text-sm font-bold shadow bg-gradient-to-br', getMedalColor(1)]">1</div>
                                 </div>
                                 <h4 class="font-bold text-base text-center text-surface-900 dark:text-surface-0 truncate w-full">{{ topAgents[0].name.split(' ')[0] }}</h4>
-                                <p class="text-xs text-surface-500 dark:text-surface-400 truncate w-full text-center">{{ topAgents[0].department }}</p>
+                                <p class="text-xs text-surface-500 dark:text-surface-400 truncate w-full text-center">{{ topAgents[0].department }}<span v-if="topAgents[0].branch"> • {{ topAgents[0].branch }}</span></p>
                                 <div class="mt-2 text-2xl font-bold text-surface-900 dark:text-surface-0">{{ getPrimaryMetric(topAgents[0]) }}</div>
                             </div>
                         </div>
@@ -308,7 +309,7 @@ watch([timeRangeFilter, departmentFilter, selectedMetric], () => {
                                     <div :class="['absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shadow bg-gradient-to-br', getMedalColor(3)]">3</div>
                                 </div>
                                 <h4 class="font-semibold text-sm text-center text-surface-900 dark:text-surface-0 truncate w-full">{{ topAgents[2].name.split(' ')[0] }}</h4>
-                                <p class="text-xs text-surface-500 dark:text-surface-400 truncate w-full text-center">{{ topAgents[2].department }}</p>
+                                <p class="text-xs text-surface-500 dark:text-surface-400 truncate w-full text-center">{{ topAgents[2].department }}<span v-if="topAgents[2].branch"> • {{ topAgents[2].branch }}</span></p>
                                 <div class="mt-2 text-lg font-bold text-surface-900 dark:text-surface-0">{{ getPrimaryMetric(topAgents[2]) }}</div>
                             </div>
                         </div>
@@ -362,7 +363,7 @@ watch([timeRangeFilter, departmentFilter, selectedMetric], () => {
                                 </div>
                                 <div>
                                     <div class="font-medium text-surface-900 dark:text-surface-0">{{ data.name }}</div>
-                                    <div class="text-xs text-surface-500 dark:text-surface-400">{{ data.department }}</div>
+                                    <div class="text-xs text-surface-500 dark:text-surface-400">{{ data.department }}<span v-if="data.branch"> • {{ data.branch }}</span></div>
                                 </div>
                             </div>
                         </template>
@@ -374,14 +375,14 @@ watch([timeRangeFilter, departmentFilter, selectedMetric], () => {
                         </template>
                     </Column>
 
-                    <Column header="Satisfaction" style="width: 7rem">
+                    <!-- <Column header="Satisfaction" style="width: 7rem">
                         <template #body="{ data }">
                             <div class="flex items-center gap-1">
                                 <i class="pi pi-star-fill text-yellow-500 text-xs"></i>
                                 <span class="font-semibold text-surface-900 dark:text-surface-0">{{ (data.metrics.satisfaction || 0).toFixed(1) }}</span>
                             </div>
                         </template>
-                    </Column>
+                    </Column> -->
 
                     <Column header="Avg Resolution" style="width: 8rem">
                         <template #body="{ data }">
@@ -405,20 +406,20 @@ watch([timeRangeFilter, departmentFilter, selectedMetric], () => {
                     <i class="pi pi-user text-3xl text-surface-500 dark:text-surface-400"></i>
                 </div>
                 <h3 class="text-xl font-bold text-surface-900 dark:text-surface-0 mb-1">{{ selectedAgent.name }}</h3>
-                <p class="text-surface-600 dark:text-surface-400 mb-6">{{ selectedAgent.department }}</p>
+                <p class="text-surface-600 dark:text-surface-400 mb-6">{{ selectedAgent.department }}<span v-if="selectedAgent.branch"> • {{ selectedAgent.branch }}</span></p>
 
                 <div class="grid grid-cols-2 gap-4 w-full">
                     <div class="bg-surface-50 dark:bg-surface-800 rounded-xl p-4 text-center">
                         <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ selectedAgent.metrics.volume || 0 }}</div>
                         <div class="text-xs text-surface-500 dark:text-surface-400 mt-1">Tickets Resolved</div>
                     </div>
-                    <div class="bg-surface-50 dark:bg-surface-800 rounded-xl p-4 text-center">
+                    <!-- <div class="bg-surface-50 dark:bg-surface-800 rounded-xl p-4 text-center">
                         <div class="flex items-center justify-center gap-1">
                             <i class="pi pi-star-fill text-yellow-500"></i>
                             <span class="text-2xl font-bold text-surface-900 dark:text-surface-0">{{ (selectedAgent.metrics.satisfaction || 0).toFixed(1) }}</span>
                         </div>
                         <div class="text-xs text-surface-500 dark:text-surface-400 mt-1">Satisfaction</div>
-                    </div>
+                    </div> -->
                     <div class="bg-surface-50 dark:bg-surface-800 rounded-xl p-4 text-center">
                         <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ formatTime(selectedAgent.metrics.resolution) }}</div>
                         <div class="text-xs text-surface-500 dark:text-surface-400 mt-1">Avg Resolution</div>

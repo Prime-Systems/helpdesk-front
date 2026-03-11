@@ -891,10 +891,10 @@ const makeCall = () => {
                                                                 <div class="metric-label">Tickets Resolved</div>
                                                                 <div class="metric-value">{{ performanceStats?.ticketsResolved || 0 }}</div>
                                                             </div>
-                                                            <div class="metric-item">
+                                                            <!-- <div class="metric-item">
                                                                 <div class="metric-label">Avg Rating</div>
                                                                 <div class="metric-value">{{ performanceStats?.customerSatisfactionScore?.toFixed(1) || '0.0' }}</div>
-                                                            </div>
+                                                            </div> -->
                                                             <div class="metric-item">
                                                                 <div class="metric-label">Response Time</div>
                                                                 <div class="metric-value">{{ performanceStats?.firstResponseTimeAverage?.toFixed(1) || '0.0' }}min</div>
