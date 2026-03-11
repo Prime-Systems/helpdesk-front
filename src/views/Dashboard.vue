@@ -347,6 +347,10 @@ async function fetchDashboardData() {
             scope: dashboardScope.value
         };
 
+        if (dashboardScope.value === 'all' && (authStore.user?.role === 'ADMIN' || authStore.user?.role === 'SUPER_ADMIN')) {
+            params.global = true;
+        }
+
         // Fetch dashboard stats from API alongside raw data
         const [statsRes, topPerformersRes, activityRes, ticketsRes, categoriesRes, departmentsRes, employeesRes, branchesRes] = await Promise.allSettled([
             DashboardService.getStats(params),

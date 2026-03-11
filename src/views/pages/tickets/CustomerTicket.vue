@@ -179,7 +179,7 @@ const handleSubmit = async () => {
             description: formData.value.description.trim(),
             categoryId: selectedCategory.value,
             subCategoryId: selectedSubcategory.value || null,
-            tags: formData.value.tags?.trim() || '',
+            // tags: formData.value.tags?.trim() || '',
             priority: formData.value.priority,
             status: 'OPEN',
             isCustomerTicket: true,
@@ -655,12 +655,12 @@ const copyTrackingToken = async () => {
                     </div>
                 </div>
 
-                <!-- Tags (Optional) -->
-                <div class="mb-8">
+                <!-- Tags input disabled per requirements -->
+                <!-- <div class="mb-8">
                     <label for="tags" class="block text-surface-900 dark:text-surface-0 font-semibold mb-2"> Keywords (Optional) </label>
                     <InputText id="tags" v-model="formData.tags" placeholder="e.g., urgent, payment, mobile" class="w-full" />
                     <small class="text-surface-500 dark:text-surface-400 text-sm mt-2 block"> Separate multiple keywords with commas </small>
-                </div>
+                </div> -->
 
                 <!-- Submit Button -->
                 <Button label="Submit Request" icon="pi pi-send" @click="handleSubmit" :loading="submitting" :disabled="submitting" class="w-full" size="large" />

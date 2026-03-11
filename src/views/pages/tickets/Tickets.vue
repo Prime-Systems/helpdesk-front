@@ -1290,11 +1290,12 @@ const confirmEscalateTicket = async () => {
                     <small class="text-gray-500">Priority is set automatically based on the selected category.</small>
                 </div>
 
-                <div>
+                <!-- Tags disabled -->
+                <!-- <div>
                     <label for="tags" class="block font-bold mb-3">Tags</label>
                     <InputText id="tags" v-model="ticket.tags" class="w-full" placeholder="Enter tags separated by commas" />
                     <small class="text-gray-500">Separate tags with commas</small>
-                </div>
+                </div> -->
 
                 <div>
                     <label class="block font-bold mb-3">Attachment</label>
@@ -1544,7 +1545,8 @@ const confirmEscalateTicket = async () => {
                                         </div>
                                     </div>
 
-                                    <div class="space-y-4" v-if="ticket.tags">
+                                    <div class="space-y-4" v-if="ticket.tags && false">
+                                        <!-- Hide tags -->
                                         <h2 class="text-sm font-semibold">Tags</h2>
                                         <div class="flex flex-wrap gap-2">
                                             <Tag v-for="tag in ticket.tags.split(',')" :key="tag.trim()" :value="tag.trim()" severity="info" />
