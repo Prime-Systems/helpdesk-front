@@ -37,6 +37,7 @@ const model = computed(() => {
             {
                 label: 'User Management',
                 icon: 'pi pi-fw pi-user',
+                visible: isAdmin,
                 items: [
                     {
                         label: 'Employees',
