@@ -190,6 +190,16 @@ const router = createRouter({
             meta: { requiresGuest: true }
         },
         {
+            path: '/auth/forgot-password',
+            name: 'forgotPassword',
+            component: () => import('@/views/pages/auth/ForgotPassword.vue')
+        },
+        {
+            path: '/auth/reset-password',
+            name: 'resetPassword',
+            component: () => import('@/views/pages/auth/ResetPassword.vue')
+        },
+        {
             path: '/auth/access',
             name: 'accessDenied',
             component: () => import('@/views/pages/auth/Access.vue')
@@ -252,7 +262,6 @@ router.beforeEach(async (to, from, next) => {
 
         // Force redirect to change password for all other routes
         console.log('User must change password, redirecting...');
-        return next({ name: 'changePassword' });
         return next({ name: 'changePassword' });
     }
     // =================================================

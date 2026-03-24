@@ -350,6 +350,20 @@ export const useAuthStore = defineStore('auth', {
             }
         },
 
+        async forgotPassword(email) {
+            this.loading = true;
+            this.error = null;
+            try {
+                await AuthService.forgotPassword(email);
+                return true;
+            } catch (err) {
+                this.handleAuthError(err);
+                return false;
+            } finally {
+                this.loading = false;
+            }
+        },
+
         clearError() {
             this.error = null;
         }

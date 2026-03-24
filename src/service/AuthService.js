@@ -80,5 +80,18 @@ export const AuthService = {
             newPassword
         });
         return response.data;
+    },
+
+    /**
+     * Reset password using a reset token (from forgot password email)
+     * @param {string} token - Password reset token
+     * @param {string} newPassword - New password (min 8 chars)
+     */
+    async resetPassword(token, newPassword) {
+        const response = await axios.post('/auth/reset-password', {
+            token,
+            newPassword
+        });
+        return response.data;
     }
 };
