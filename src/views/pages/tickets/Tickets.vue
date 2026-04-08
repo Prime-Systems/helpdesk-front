@@ -87,6 +87,7 @@ const loadTicketFromUrl = async () => {
             if (ticketDetails) {
                 ticket.value = { ...ticketDetails };
                 ticketDetailsDialog.value = true;
+                await loadTicketFeedbackStatus(ticketDetails.id);
                 await fetchComments(ticketDetails.id);
             }
         } catch (error) {
@@ -127,6 +128,22 @@ const selectedStatus = ref(null);
 const loadingComments = ref(false);
 const addingComment = ref(false);
 const ticketComments = ref([]); // Store comments by ticket ID
+const feedbackDialog = ref(false);
+const feedbackStatus = ref(null);
+const feedbackLoading = ref(false);
+const submittingFeedback = ref(false);
+const feedbackForm = ref({
+    rating: 0,
+    comment: '',
+    isAnonymous: false,
+    categories: []
+});
+const feedbackCategories = [
+    { name: 'Speed', value: 'SPEED' },
+    { name: 'Helpfulness', value: 'HELPFULNESS' },
+    { name: 'Knowledge', value: 'KNOWLEDGE' },
+    { name: 'Communication', value: 'COMMUNICATION' }
+];
 
 // Fixed ticket object with proper defaults
 const ticket = ref({
@@ -137,9 +154,13 @@ const ticket = ref({
     attachmentUrl: null, // Single string, not array
     assignedUserName: '',
     assignedUserEmail: '',
+    createdById: null,
     dueDate: null,
     priority: 'MEDIUM',
-    status: 'OPEN'
+    status: 'OPEN',
+    isCustomerTicket: false,
+    feedbackEligible: false,
+    feedbackSubmitted: false
 });
 
 const selectedTickets = ref();
@@ -168,6 +189,24 @@ const statuses = ref(['open', 'ongoing', 'resolved', 'closed']);
 const priorities = ref(['low', 'medium', 'high', 'urgent']);
 
 const users = ref([]);
+
+const canViewFeedbackState = computed(() => {
+    if (!ticket.value?.id || !authStore.user || ticket.value.isCustomerTicket) {
+        return false;
+    }
+
+    const isRequester = ticket.value.createdById === authStore.user.id;
+    const hasGlobalAccess = ['ADMIN', 'DIRECTOR', 'SUPER_ADMIN'].includes(authStore.user.role);
+    return isRequester || hasGlobalAccess;
+});
+
+const canSubmitFeedbackForTicket = computed(() => {
+    if (!canViewFeedbackState.value || !feedbackStatus.value) {
+        return false;
+    }
+
+    return Boolean(feedbackStatus.value.eligible) && !feedbackStatus.value.submitted && ticket.value.createdById === authStore.user?.id;
+});
 
 const transformCategoryValue = (value) => {
     return value || 'Unknown Category';
@@ -213,7 +252,15 @@ async function openTicketDetailsDialog(event) {
     ticketDetailsDialog.value = true;
     ticket.value = { ...event.data };
 
-    // Fetch comments for this ticket
+    try {
+        const ticketDetails = await TicketService.getTicketById(event.data.id);
+        ticket.value = { ...event.data, ...ticketDetails };
+    } catch (error) {
+        console.error('Failed to load full ticket details:', error);
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load full ticket details', life: 3000 });
+    }
+
+    await loadTicketFeedbackStatus(ticket.value.id);
     await fetchComments(ticket.value.id);
 }
 
@@ -225,6 +272,85 @@ function initFilters() {
         priority: { value: null, matchMode: FilterMatchMode.EQUALS },
         description: { value: null, matchMode: FilterMatchMode.CONTAINS }
     };
+}
+
+function resetFeedbackForm() {
+    feedbackForm.value = {
+        rating: 0,
+        comment: '',
+        isAnonymous: false,
+        categories: []
+    };
+}
+
+async function loadTicketFeedbackStatus(ticketId = ticket.value?.id) {
+    if (!ticketId || ticket.value?.isCustomerTicket || !canViewFeedbackState.value) {
+        feedbackStatus.value = null;
+        return;
+    }
+
+    feedbackLoading.value = true;
+    try {
+        feedbackStatus.value = await TicketService.getFeedbackStatus(ticketId);
+    } catch (error) {
+        console.error('Failed to load feedback status:', error);
+        feedbackStatus.value = null;
+    } finally {
+        feedbackLoading.value = false;
+    }
+}
+
+function openFeedbackDialog() {
+    resetFeedbackForm();
+    feedbackDialog.value = true;
+}
+
+async function submitFeedbackForTicket() {
+    if (!canSubmitFeedbackForTicket.value) {
+        return;
+    }
+
+    if (!feedbackForm.value.rating) {
+        toast.add({ severity: 'warn', summary: 'Rating Required', detail: 'Please provide a star rating.', life: 3000 });
+        return;
+    }
+
+    submittingFeedback.value = true;
+    try {
+        const response = await TicketService.addFeedback(ticket.value.id, {
+            rating: feedbackForm.value.rating,
+            comment: feedbackForm.value.comment,
+            categories: feedbackForm.value.categories,
+            isAnonymous: feedbackForm.value.isAnonymous
+        });
+
+        if (response?.responseCode && response.responseCode !== '000') {
+            throw new Error(response.message || 'Failed to submit feedback');
+        }
+
+        feedbackDialog.value = false;
+        await loadTicketFeedbackStatus(ticket.value.id);
+
+        const refreshedTicket = await TicketService.getTicketById(ticket.value.id);
+        ticket.value = { ...ticket.value, ...refreshedTicket };
+
+        const index = findIndexById(ticket.value.id);
+        if (index !== -1) {
+            tickets.value[index] = { ...tickets.value[index], ...refreshedTicket };
+        }
+
+        toast.add({ severity: 'success', summary: 'Thank You', detail: 'Your feedback has been submitted.', life: 3000 });
+    } catch (error) {
+        console.error('Failed to submit ticket feedback:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: error.message || error.response?.data?.message || 'Failed to submit feedback',
+            life: 3000
+        });
+    } finally {
+        submittingFeedback.value = false;
+    }
 }
 
 // Fixed: Handle single file upload
@@ -1364,6 +1490,7 @@ const confirmEscalateTicket = async () => {
                         <div class="flex items-center">
                             <Button icon="pi pi-pencil" text size="small" label="Edit" @click="editTicket(ticket)" />
                             <Button v-if="ticket.status !== 'ESCALATED' && ticket.status !== 'RESOLVED' && ticket.status !== 'CLOSED'" icon="pi pi-exclamation-triangle" text severity="warn" size="small" label="Escalate" @click="openEscalateDialog" />
+                            <Button v-if="canSubmitFeedbackForTicket" icon="pi pi-star" text size="small" label="Rate Resolution" @click="openFeedbackDialog" />
                             <Button icon="pi pi-share-alt" text size="small" label="Share" @click="shareTicket" />
                         </div>
                     </div>
@@ -1559,6 +1686,37 @@ const confirmEscalateTicket = async () => {
                                             <p class="text-sm text-gray-600 leading-relaxed">{{ ticket.description }}</p>
                                         </div>
 
+                                        <div v-if="canViewFeedbackState" class="mb-6 rounded-xl border border-surface-200 dark:border-surface-700 p-4">
+                                            <div v-if="feedbackLoading" class="flex items-center gap-3 text-sm text-surface-500 dark:text-surface-400">
+                                                <ProgressSpinner style="width: 24px; height: 24px" strokeWidth="4" />
+                                                <span>Loading feedback status...</span>
+                                            </div>
+
+                                            <div v-else-if="feedbackStatus?.submitted" class="space-y-3">
+                                                <div class="flex items-center justify-between gap-4">
+                                                    <div>
+                                                        <h2 class="text-lg font-semibold">Customer Satisfaction</h2>
+                                                        <p class="text-sm text-surface-500 dark:text-surface-400">Feedback has been submitted for this ticket.</p>
+                                                    </div>
+                                                    <Rating :modelValue="feedbackStatus.rating || 0" readonly :cancel="false" />
+                                                </div>
+                                                <p v-if="feedbackStatus.submittedAt" class="text-xs text-surface-500 dark:text-surface-400">
+                                                    Submitted {{ formatDate(feedbackStatus.submittedAt) }}
+                                                </p>
+                                                <p v-if="feedbackStatus.comment" class="text-sm text-surface-700 dark:text-surface-300 bg-surface-100 dark:bg-surface-800 rounded-lg p-3">
+                                                    {{ feedbackStatus.comment }}
+                                                </p>
+                                            </div>
+
+                                            <div v-else-if="canSubmitFeedbackForTicket" class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                                <div>
+                                                    <h2 class="text-lg font-semibold">Rate This Resolution</h2>
+                                                    <p class="text-sm text-surface-500 dark:text-surface-400">Share how well this ticket was resolved so we can track customer satisfaction accurately.</p>
+                                                </div>
+                                                <Button label="Rate Resolution" icon="pi pi-star" @click="openFeedbackDialog" />
+                                            </div>
+                                        </div>
+
                                         <!-- Fixed: Single attachment display -->
                                         <div class="mb-6" v-if="ticket.attachmentUrl">
                                             <h2 class="text-lg font-semibold mb-2">Attachment</h2>
@@ -1662,6 +1820,48 @@ const confirmEscalateTicket = async () => {
                 </template>
             </Drawer>
         </div>
+
+        <Dialog v-model:visible="feedbackDialog" :style="{ width: '34rem', maxWidth: '95vw' }" header="Rate Resolution" :modal="true">
+            <div class="flex flex-col gap-5">
+                <div>
+                    <p class="text-sm text-surface-500 dark:text-surface-400 mb-1">Ticket</p>
+                    <p class="font-semibold text-surface-900 dark:text-surface-0">{{ ticket.title }}</p>
+                    <p v-if="ticket.assignedUserName" class="text-sm text-surface-500 dark:text-surface-400 mt-1">Handled by {{ ticket.assignedUserName }}</p>
+                </div>
+
+                <div class="flex flex-col items-center gap-2">
+                    <label class="font-medium text-lg">How would you rate the resolution?</label>
+                    <Rating v-model="feedbackForm.rating" :cancel="false" />
+                </div>
+
+                <div class="flex flex-col gap-2">
+                    <label class="font-medium">What went well? (Optional)</label>
+                    <div class="flex flex-wrap gap-2">
+                        <div v-for="cat in feedbackCategories" :key="cat.value" class="field-checkbox">
+                            <Checkbox v-model="feedbackForm.categories" :inputId="`ticket-feedback-${cat.value}`" :name="cat.name" :value="cat.value" />
+                            <label :for="`ticket-feedback-${cat.value}`" class="ml-2">{{ cat.name }}</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2">
+                    <label for="ticket-feedback-comment" class="font-medium">Additional Comments</label>
+                    <Textarea id="ticket-feedback-comment" v-model="feedbackForm.comment" rows="4" placeholder="Tell us more about your experience..." class="w-full" />
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <Checkbox v-model="feedbackForm.isAnonymous" binary inputId="ticket-feedback-anonymous" />
+                    <label for="ticket-feedback-anonymous" class="cursor-pointer">Submit anonymously</label>
+                </div>
+            </div>
+
+            <template #footer>
+                <div class="flex justify-end gap-2 w-full">
+                    <Button label="Cancel" text @click="feedbackDialog = false" />
+                    <Button label="Submit Feedback" icon="pi pi-send" :loading="submittingFeedback" @click="submitFeedbackForTicket" />
+                </div>
+            </template>
+        </Dialog>
     </div>
 </template>
 

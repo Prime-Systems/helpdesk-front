@@ -3,8 +3,10 @@ import { CategoryService } from '@/service/CategoryService';
 import { TicketService } from '@/service/TicketService';
 import { useToast } from 'primevue/usetoast';
 import { computed, onBeforeMount, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 const toast = useToast();
+const router = useRouter();
 const loading = ref(true);
 const submitting = ref(false);
 const submitSuccess = ref(false);
@@ -82,6 +84,22 @@ onBeforeMount(async () => {
 const selectedCategoryDetails = computed(() => {
     if (!selectedCategory.value) return null;
     return categories.value.find((cat) => cat.value === selectedCategory.value)?.data;
+});
+
+const canLeaveFeedback = computed(() => Boolean(ticketDetails.value?.feedbackEligible) && !ticketDetails.value?.feedbackSubmitted);
+const feedbackSummary = computed(() => {
+    if (!ticketDetails.value?.feedbackSubmitted) {
+        return null;
+    }
+
+    const submittedAt = ticketDetails.value.feedbackSubmittedAt
+        ? new Date(ticketDetails.value.feedbackSubmittedAt).toLocaleString()
+        : null;
+
+    return {
+        rating: ticketDetails.value.feedbackRating || 0,
+        submittedAt
+    };
 });
 
 // Update priority and due date based on selected category
@@ -471,6 +489,18 @@ const copyTrackingToken = async () => {
             life: 3000
         });
     }
+};
+
+const openFeedbackPage = () => {
+    if (!trackingToken.value) {
+        return;
+    }
+
+    showTrackingDialog.value = false;
+    router.push({
+        name: 'feedback',
+        query: { token: trackingToken.value }
+    });
 };
 </script>
 
@@ -862,6 +892,27 @@ const copyTrackingToken = async () => {
                 <h4 class="font-semibold text-surface-900 dark:text-surface-0 mb-2">Description</h4>
                 <div class="bg-surface-50 dark:bg-surface-800 rounded-lg p-4 whitespace-pre-wrap text-sm">
                     {{ ticketDetails?.description }}
+                </div>
+            </div>
+
+            <div class="rounded-xl border border-surface-200 dark:border-surface-700 p-4 bg-surface-0 dark:bg-surface-900">
+                <div v-if="canLeaveFeedback" class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h4 class="font-semibold text-surface-900 dark:text-surface-0 mb-1">Rate This Resolution</h4>
+                        <p class="text-sm text-surface-600 dark:text-surface-400">Your feedback helps us measure customer satisfaction and improve support quality.</p>
+                    </div>
+                    <Button label="Rate Resolution" icon="pi pi-star" @click="openFeedbackPage" />
+                </div>
+
+                <div v-else-if="feedbackSummary" class="flex flex-col gap-2">
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <h4 class="font-semibold text-surface-900 dark:text-surface-0 mb-1">Feedback Received</h4>
+                            <p class="text-sm text-surface-600 dark:text-surface-400">Thanks for rating this ticket.</p>
+                        </div>
+                        <Rating :modelValue="feedbackSummary.rating" readonly :cancel="false" />
+                    </div>
+                    <p v-if="feedbackSummary.submittedAt" class="text-xs text-surface-500 dark:text-surface-400">Submitted {{ feedbackSummary.submittedAt }}</p>
                 </div>
             </div>
 

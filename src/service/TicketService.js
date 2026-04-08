@@ -82,6 +82,11 @@ export const TicketService = {
         return response.data;
     },
 
+    async getFeedbackStatusByTrackingToken(trackingToken) {
+        const response = await axios.get(`/tickets/track/${trackingToken}/feedback-status`);
+        return response.data;
+    },
+
     async reassignTicket(ticketId, newUserId) {
         const response = await axios.post(`/tickets/${ticketId}/reassign`, null, {
             params: { newUserId }
@@ -91,6 +96,11 @@ export const TicketService = {
 
     async addFeedback(ticketId, feedback) {
         const response = await axios.post(`/tickets/${ticketId}/feedback`, feedback);
+        return response.data;
+    },
+
+    async getFeedbackStatus(ticketId) {
+        const response = await axios.get(`/tickets/${ticketId}/feedback-status`);
         return response.data;
     },
 
