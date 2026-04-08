@@ -163,7 +163,6 @@ export const useAuthStore = defineStore('auth', {
             // Decode token to get user information
             if (token) {
                 const decodedToken = jwtDecode(token);
-                console.log('Decoded token:', decodedToken);
 
                 // Create user object from token claims
                 this.user = {
@@ -234,7 +233,6 @@ export const useAuthStore = defineStore('auth', {
         // Auto-refresh token if expiring soon
         async autoRefreshIfNeeded() {
             if (this.token && this.isTokenExpiring) {
-                console.log('Token expiring soon, attempting refresh...');
                 return await this.refreshSession();
             }
             return true;

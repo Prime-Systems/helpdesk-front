@@ -1,4 +1,4 @@
-import TicketService from '@/services/TicketService.js';
+import { TicketService } from '@/service/TicketService.js';
 import { defineStore } from 'pinia';
 
 export const useTicketStore = defineStore('ticket', {
@@ -15,7 +15,7 @@ export const useTicketStore = defineStore('ticket', {
 
             try {
                 const response = await TicketService.getTickets();
-                this.tickets = response.data;
+                this.tickets = response.tickets ?? [];
             } catch (error) {
                 this.error = error.message;
             } finally {
@@ -28,8 +28,8 @@ export const useTicketStore = defineStore('ticket', {
             this.error = null;
 
             try {
-                const response = await TicketService.addTicket(ticket);
-                this.tickets.push(response.data);
+                const createdTicket = await TicketService.createTicket(ticket);
+                this.tickets.unshift(createdTicket);
             } catch (error) {
                 this.error = error.message;
             } finally {
@@ -42,10 +42,10 @@ export const useTicketStore = defineStore('ticket', {
             this.error = null;
 
             try {
-                const response = await TicketService.updateTicket(ticket);
+                const updatedTicket = await TicketService.updateTicket(ticket.id, ticket);
                 const index = this.tickets.findIndex((t) => t.id === ticket.id);
                 if (index !== -1) {
-                    this.tickets[index] = response.data;
+                    this.tickets[index] = updatedTicket;
                 }
             } catch (error) {
                 this.error = error.message;
