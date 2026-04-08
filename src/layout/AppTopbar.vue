@@ -38,7 +38,7 @@ onMounted(() => {
 const loadTickets = async () => {
     try {
         const data = await TicketService.getTickets();
-        tickets.value = data;
+        tickets.value = data.tickets ?? [];
     } catch (error) {
         console.error('Failed to load tickets for calendar', error);
     }

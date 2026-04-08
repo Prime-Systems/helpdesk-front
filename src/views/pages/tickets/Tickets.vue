@@ -14,7 +14,7 @@ const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 
-const isAdmin = computed(() => authStore.user?.role === 'ADMIN' || authStore.user?.role === 'SUPER_ADMIN');
+const isAdmin = computed(() => ['MANAGER', 'ADMIN', 'DIRECTOR', 'SUPER_ADMIN'].includes(authStore.user?.role));
 
 onBeforeMount(() => {
     TicketService.getTickets().then((data) => {

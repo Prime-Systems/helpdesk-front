@@ -1,4 +1,5 @@
 <script setup>
+import { BranchService } from '@/service/BranchService';
 import { DepartmentService } from '@/service/DepartmentService';
 import { LeaderboardService } from '@/service/LeaderboardService';
 import { useToast } from 'primevue/usetoast';
@@ -8,10 +9,12 @@ const toast = useToast();
 const loading = ref(true);
 const timeRangeFilter = ref('month');
 const departmentFilter = ref(null);
+const branchFilter = ref(null);
 const selectedAgent = ref(null);
 const showAgentDetailsDialog = ref(false);
 const selectedMetric = ref('volume'); // Default to ticket volume
 const imageErrors = ref({}); // Track failed images
+const leaderboardMeta = ref(null);
 
 // Handle image load errors
 const onImageError = (agentId) => {
@@ -28,6 +31,7 @@ const timeRanges = [
 
 // Department options
 const departments = ref([{ name: 'All Departments', code: null }]);
+const branches = ref([{ name: 'All Branches (Global)', code: null }]);
 
 // Agent data from API
 const agents = ref([]);
@@ -41,17 +45,7 @@ const metricOptions = [
 ];
 
 // Sorted agents based on selected metric
-const sortedAgents = computed(() => {
-    const metric = selectedMetric.value;
-    // For time-based metrics, lower is better; for volume/satisfaction, higher is better
-    const ascending = metric === 'resolution' || metric === 'firstResponse';
-
-    return [...agents.value].sort((a, b) => {
-        const aVal = a.metrics[metric] || 0;
-        const bVal = b.metrics[metric] || 0;
-        return ascending ? aVal - bVal : bVal - aVal;
-    });
-});
+const sortedAgents = computed(() => [...agents.value].sort((a, b) => a.rank - b.rank));
 
 // Top 3 agents for podium
 const topAgents = computed(() => sortedAgents.value.slice(0, 3));
@@ -125,6 +119,7 @@ const getMedalBg = (position) => {
 const transformApiData = (apiData) => {
     return apiData.rankings.map((agent) => ({
         id: agent.userId,
+        rank: agent.rank,
         name: agent.name,
         avatar: agent.profilePictureUrl || `https://avatar.iran.liara.run/public/50?name=${encodeURIComponent(agent.name)}`,
         department: agent.department || 'General',
@@ -146,18 +141,22 @@ const fetchLeaderboardData = async () => {
             metric: selectedMetric.value,
             period: timeRangeFilter.value,
             departmentId: departmentFilter.value,
+            branchId: branchFilter.value,
             limit: 50
         });
 
         if (response && response.rankings) {
             agents.value = transformApiData(response);
+            leaderboardMeta.value = response.metadata || null;
         } else {
             agents.value = [];
+            leaderboardMeta.value = null;
         }
     } catch (error) {
         console.error('Leaderboard API failed:', error.message);
         toast.add({ severity: 'warn', summary: 'Note', detail: 'Could not load leaderboard data', life: 3000 });
         agents.value = [];
+        leaderboardMeta.value = null;
     } finally {
         loading.value = false;
     }
@@ -173,6 +172,16 @@ const fetchDepartments = async () => {
     }
 };
 
+// Fetch branches
+const fetchBranches = async () => {
+    try {
+        const branchData = await BranchService.getBranches();
+        branches.value = [{ name: 'All Branches (Global)', code: null }, ...branchData.map((branch) => ({ name: branch.name, code: branch.id }))];
+    } catch (error) {
+        console.warn('Using default branches');
+    }
+};
+
 // Show agent details
 const showAgentDetails = (agent) => {
     selectedAgent.value = agent;
@@ -180,11 +189,12 @@ const showAgentDetails = (agent) => {
 };
 
 onMounted(async () => {
+    await fetchBranches();
     await fetchDepartments();
     await fetchLeaderboardData();
 });
 
-watch([timeRangeFilter, departmentFilter, selectedMetric], () => {
+watch([timeRangeFilter, departmentFilter, branchFilter, selectedMetric], () => {
     fetchLeaderboardData();
 });
 </script>
@@ -196,11 +206,15 @@ watch([timeRangeFilter, departmentFilter, selectedMetric], () => {
             <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div>
                     <h1 class="text-3xl font-bold text-surface-900 dark:text-surface-0 mb-1">Leaderboard</h1>
-                    <p class="text-surface-600 dark:text-surface-400">Top performing team members</p>
+                    <p class="text-surface-600 dark:text-surface-400">
+                        Top performing team members
+                        <span v-if="leaderboardMeta?.totalAgents"> • {{ leaderboardMeta.totalAgents }} ranked</span>
+                    </p>
                 </div>
 
                 <div class="flex flex-wrap gap-2">
                     <Dropdown v-model="timeRangeFilter" :options="timeRanges" optionLabel="label" optionValue="value" class="w-40" />
+                    <Dropdown v-model="branchFilter" :options="branches" optionLabel="name" optionValue="code" placeholder="All Branches" class="w-52" />
                     <Dropdown v-model="departmentFilter" :options="departments" optionLabel="name" optionValue="code" placeholder="All Depts" class="w-44" />
                 </div>
             </div>
@@ -336,20 +350,20 @@ watch([timeRangeFilter, departmentFilter, selectedMetric], () => {
                     :pt="{ bodyRow: { class: 'cursor-pointer' } }"
                 >
                     <Column header="Rank" style="width: 4rem">
-                        <template #body="{ index }">
+                        <template #body="{ data }">
                             <div
                                 :class="[
                                     'w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm',
-                                    index === 0
+                                    data.rank === 1
                                         ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-400'
-                                        : index === 1
+                                        : data.rank === 2
                                           ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-                                          : index === 2
+                                          : data.rank === 3
                                             ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400'
                                             : 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-400'
                                 ]"
                             >
-                                {{ index + 1 }}
+                                {{ data.rank }}
                             </div>
                         </template>
                     </Column>

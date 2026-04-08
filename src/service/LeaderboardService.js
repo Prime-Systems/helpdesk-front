@@ -15,11 +15,30 @@ export const LeaderboardService = {
      * @returns {Promise<LeaderboardResponse>}
      */
     async getLeaderboard(params = {}) {
+        const metricMap = {
+            resolution: 'RESOLUTION_TIME',
+            resolution_time: 'RESOLUTION_TIME',
+            volume: 'VOLUME',
+            firstResponse: 'FIRST_RESPONSE',
+            first_response: 'FIRST_RESPONSE',
+            satisfaction: 'SATISFACTION'
+        };
+
+        const periodMap = {
+            today: 'TODAY',
+            week: 'WEEK',
+            month: 'MONTH',
+            quarter: 'QUARTER',
+            year: 'YEAR',
+            all: 'ALL'
+        };
+
         const response = await axios.get('/leaderboard', {
             params: {
-                metric: params.metric || 'resolution_time',
-                period: params.period || 'month',
+                metric: metricMap[params.metric] || params.metric || 'VOLUME',
+                period: periodMap[params.period] || params.period || 'MONTH',
                 departmentId: params.departmentId,
+                branchId: params.branchId,
                 limit: params.limit || 10
             }
         });
@@ -42,8 +61,16 @@ export const LeaderboardService = {
      * @returns {Promise<AgentDetailedPerformanceDto>}
      */
     async getAgentPerformance(userId, period = 'month') {
+        const periodMap = {
+            today: 'TODAY',
+            week: 'WEEK',
+            month: 'MONTH',
+            quarter: 'QUARTER',
+            year: 'YEAR',
+            all: 'ALL'
+        };
         const response = await axios.get(`/leaderboard/agent/${userId}`, {
-            params: { period }
+            params: { period: periodMap[period] || period || 'MONTH' }
         });
         return response.data;
     }

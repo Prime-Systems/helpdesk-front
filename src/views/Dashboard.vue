@@ -14,7 +14,7 @@ const router = useRouter();
 const { getPrimary, getSurface, isDarkTheme } = useLayout();
 
 const authStore = useAuthStore();
-const dashboardScope = ref('mine'); // Default to 'mine' for safety, will update on mount
+const dashboardScope = ref('scoped');
 
 const loading = ref(true);
 const timeRangeFilter = ref('week');
@@ -33,32 +33,19 @@ const employeesData = ref([]);
 const branchesData = ref([]);
 
 // Scope Options
-const scopeOptions = computed(() => {
-    const role = authStore.user?.role;
-    const options = [{ label: 'My Data', value: 'mine' }];
+const canViewGlobalDashboard = computed(() => ['ADMIN', 'DIRECTOR', 'SUPER_ADMIN'].includes(authStore.user?.role));
 
-    if (role === 'DEPARTMENT_HEAD' || role === 'ADMIN' || role === 'SUPER_ADMIN') {
-        options.push({ label: 'My Department', value: 'department' });
-    }
-
-    if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
-        options.push({ label: 'All Data', value: 'all' });
-    }
-
-    return options;
-});
+const scopeOptions = computed(() => (canViewGlobalDashboard.value ? [{ label: 'All Data', value: 'all' }] : [{ label: 'Scoped Data', value: 'scoped' }]));
 
 // Watch for auth initialization to set initial scope
 watch(
     () => authStore.initialized,
     (init) => {
         if (init && authStore.user) {
-            if (authStore.user.role === 'ADMIN' || authStore.user.role === 'SUPER_ADMIN') {
+            if (canViewGlobalDashboard.value) {
                 dashboardScope.value = 'all';
-            } else if (authStore.user.role === 'DEPARTMENT_HEAD') {
-                dashboardScope.value = 'department';
             } else {
-                dashboardScope.value = 'mine';
+                dashboardScope.value = 'scoped';
             }
             fetchDashboardData();
         }
@@ -345,19 +332,18 @@ async function fetchDashboardData() {
     try {
         const params = {
             period: timeRangeFilter.value,
-            comparison: comparisonPeriod.value,
-            scope: dashboardScope.value
+            comparison: comparisonPeriod.value
         };
 
-        if (dashboardScope.value === 'all' && (authStore.user?.role === 'ADMIN' || authStore.user?.role === 'SUPER_ADMIN')) {
+        if (dashboardScope.value === 'all' && canViewGlobalDashboard.value) {
             params.global = true;
         }
 
         // Fetch dashboard stats from API alongside raw data
         const [statsRes, topPerformersRes, activityRes, ticketsRes, categoriesRes, departmentsRes, employeesRes, branchesRes] = await Promise.allSettled([
             DashboardService.getStats(params),
-            DashboardService.getTopPerformers({ limit: 5, period: timeRangeFilter.value, scope: dashboardScope.value }),
-            DashboardService.getActivity({ limit: 10, scope: dashboardScope.value }),
+            DashboardService.getTopPerformers({ limit: 5, period: timeRangeFilter.value, global: params.global }),
+            DashboardService.getActivity({ limit: 10, global: params.global }),
             TicketService.getTickets(1, 100), // Fetch more tickets for client-side filtering if needed, or update TicketService to accept scope
             CategoryService.getCategories(),
             DepartmentService.getDepartments(),
